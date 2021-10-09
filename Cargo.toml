@@ -4,6 +4,20 @@ version = "0.1.0"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
 edition = "2018"
 
+[lib]
+bench = false
+
+[[bench]]
+name = "mul"
+harness = false
+
+[[bench]]
+name = "crc"
+harness = false
+
+[dev-dependencies]
+criterion = {version="0.3", features=["html_reports"]}
+
 [dependencies]
 gf256-macros = {path="gf256-macros"}
 cfg-if = "1.0.0"
