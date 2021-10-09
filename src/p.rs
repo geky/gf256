@@ -141,6 +141,26 @@ mod test {
             }   
         }
     }
+
+    #[test]
+    fn pow() {
+        // p32::naive_pow just uses p32::naive_mul, we want
+        // to test with a truely naive pow
+        fn naive_pow(a: p64, exp: u32) -> p64 {
+            let mut x = p64(1);
+            for _ in 0..exp {
+                x = x.wrapping_mul(a);
+            }
+            x
+        }
+
+        for a in (0..=255).map(|a| p64(a)) {
+            for b in 0..=255 {
+                // compare pow vs naive_pow
+                assert_eq!(a.wrapping_pow(b), naive_pow(a, b));
+            }   
+        }
+    }
 }
 
 

@@ -232,6 +232,180 @@ impl __p {
         }
     }
 
+    /// Naive polynomial exponentiation
+    #[inline]
+    pub const fn overflowing_naive_pow(self, exp: u32) -> (__p, bool) {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        let mut o = false;
+        loop {
+            if exp & 1 != 0 {
+                let (x_, o_) = x.overflowing_naive_mul(a);
+                x = x_;
+                o = o || o_;
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return (x, o);
+            }
+            let (a_, o_) = a.overflowing_naive_mul(a);
+            a = a_;
+            o = o || o_;
+        }
+    }
+
+    /// Naive polynomial exponentiation
+    #[inline]
+    pub const fn checked_naive_pow(self, exp: u32) -> Option<__p> {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = match x.checked_naive_mul(a) {
+                    Some(x) => x,
+                    None => return None,
+                }
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return Some(x);
+            }
+            a = match a.checked_naive_mul(a) {
+                Some(a) => a,
+                None => return None,
+            }
+        }
+    }
+
+    /// Naive polynomial exponentiation
+    #[inline]
+    pub const fn wrapping_naive_pow(self, exp: u32) -> __p {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = x.wrapping_naive_mul(a);
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return x;
+            }
+            a = a.wrapping_naive_mul(a);
+        }
+    }
+
+    /// Naive polynomial exponentiation
+    #[inline]
+    pub const fn naive_pow(self, exp: u32) -> __p {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = x.naive_mul(a);
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return x;
+            }
+            a = a.naive_mul(a);
+        }
+    }
+
+    /// Polynomial exponentiation
+    #[inline]
+    pub fn overflowing_pow(self, exp: u32) -> (__p, bool) {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        let mut o = false;
+        loop {
+            if exp & 1 != 0 {
+                let (x_, o_) = x.overflowing_mul(a);
+                x = x_;
+                o = o || o_;
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return (x, o);
+            }
+            let (a_, o_) = a.overflowing_mul(a);
+            a = a_;
+            o = o || o_;
+        }
+    }
+
+    /// Polynomial exponentiation
+    #[inline]
+    pub fn checked_pow(self, exp: u32) -> Option<__p> {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = match x.checked_mul(a) {
+                    Some(x) => x,
+                    None => return None,
+                }
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return Some(x);
+            }
+            a = match a.checked_mul(a) {
+                Some(a) => a,
+                None => return None,
+            }
+        }
+    }
+
+    /// Polynomial exponentiation
+    #[inline]
+    pub fn wrapping_pow(self, exp: u32) -> __p {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = x.wrapping_mul(a);
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return x;
+            }
+            a = a.wrapping_mul(a);
+        }
+    }
+
+    /// Polynomial exponentiation
+    #[inline]
+    pub fn pow(self, exp: u32) -> __p {
+        let mut a = self;
+        let mut exp = exp;
+        let mut x = __p(1);
+        loop {
+            if exp & 1 != 0 {
+                x = x.mul(a);
+            }
+
+            exp >>= 1;
+            if exp == 0 {
+                return x;
+            }
+            a = a.mul(a);
+        }
+    }
+
     /// Naive polynomial division
     ///
     /// Naive versions are built out of simple bitwise operations,
@@ -2520,6 +2694,9 @@ impl fmt::Debug for __p {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if !f.alternate() {
+            write!(f, "0x")?;
+        }
         <__u as fmt::LowerHex>::fmt(&self.0, f)
     }
 }
@@ -2528,6 +2705,9 @@ impl fmt::Display for __p {
     /// Note, we use LowerHex for Display since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if !f.alternate() {
+            write!(f, "0x")?;
+        }
         <__u as fmt::LowerHex>::fmt(&self.0, f)
     }
 }
