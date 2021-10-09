@@ -33,17 +33,17 @@ mod test {
 
     #[test]
     fn mul() {
-        assert_eq!(p8(0xfe).naive_mul(p8(0x87)), p8(0xfa));
-        assert_eq!(p16(0xfedc).naive_mul(p16(0x8765)), p16(0x7d2c));
-        assert_eq!(p32(0xfedcba98).naive_mul(p32(0x87654321)), p32(0x03da4198));
-        assert_eq!(p64(0xfedcba9876543210).naive_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
-        assert_eq!(p128(0xfedcba98765432100000000000000000).naive_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
+        assert_eq!(p8(0xfe).wrapping_naive_mul(p8(0x87)), p8(0xfa));
+        assert_eq!(p16(0xfedc).wrapping_naive_mul(p16(0x8765)), p16(0x7d2c));
+        assert_eq!(p32(0xfedcba98).wrapping_naive_mul(p32(0x87654321)), p32(0x03da4198));
+        assert_eq!(p64(0xfedcba9876543210).wrapping_naive_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).wrapping_naive_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
 
-        assert_eq!(p8(0xfe) * p8(0x87), p8(0xfa));
-        assert_eq!(p16(0xfedc) * p16(0x8765), p16(0x7d2c));
-        assert_eq!(p32(0xfedcba98) * p32(0x87654321), p32(0x03da4198));
-        assert_eq!(p64(0xfedcba9876543210) * p64(0x8765432100000000), p64(0x0050401000000000));
-        assert_eq!(p128(0xfedcba98765432100000000000000000) * p128(0x87654321000000000000000000000000), p128(0x00000000000000000000000000000000));
+        assert_eq!(p8(0xfe).wrapping_mul(p8(0x87)), p8(0xfa));
+        assert_eq!(p16(0xfedc).wrapping_mul(p16(0x8765)), p16(0x7d2c));
+        assert_eq!(p32(0xfedcba98).wrapping_mul(p32(0x87654321)), p32(0x03da4198));
+        assert_eq!(p64(0xfedcba9876543210).wrapping_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).wrapping_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
     }
 
     #[test]
@@ -77,13 +77,67 @@ mod test {
     }
 
     #[test]
-    fn hardware_xmul() {
+    fn hardware_mul() {
         for a in 0..=255 {
             for b in 0..=255 {
-                let res_naive = p8(a).naive_mul(p8(b));
-                let res_hardware = p8(a) * p8(b);
+                let res_naive = p8(a).wrapping_naive_mul(p8(b));
+                let res_hardware = p8(a).wrapping_mul(p8(b));
                 assert_eq!(res_naive, res_hardware);
             }
+        }
+    }
+
+    #[test]
+    fn overflowing_mul() {
+        for a in 0..=255 {
+            for b in 0..=255 {
+                let (wrapped_naive, overflow_naive) = p8(a).overflowing_naive_mul(p8(b));
+                let (wrapped_hardware, overflow_hardware) = p8(a).overflowing_mul(p8(b));
+                let res_naive = p16(a as u16).naive_mul(p16(b as u16));
+                let res_hardware = p16(a as u16) * p16(b as u16);
+
+                // same results naive vs hardware?
+                assert_eq!(wrapped_naive, wrapped_hardware);
+                assert_eq!(overflow_naive, overflow_hardware);
+                assert_eq!(res_naive, res_hardware);
+
+                // same wrapped results?
+                assert_eq!(wrapped_naive.0, res_naive.0 as u8);
+                assert_eq!(wrapped_hardware.0, res_hardware.0 as u8);
+
+                // overflow set if overflow occured?
+                assert_eq!(overflow_naive, (wrapped_naive.0 as u16 != res_naive.0));
+                assert_eq!(overflow_hardware, (wrapped_hardware.0 as u16 != res_hardware.0));
+            }
+        }
+    }
+
+    #[test]
+    fn mul_div() {
+        for a in 1..=255 {
+            for b in 1..=255 {
+                // mul
+                let x = p16(a) * p16(b);
+                // is div/rem correct?
+                assert_eq!(x / p16(a), p16(b));
+                assert_eq!(x % p16(a), p16(0));
+                assert_eq!(x / p16(b), p16(a));
+                assert_eq!(x % p16(b), p16(0));
+            }   
+        }
+    }
+
+    #[test]
+    fn div_rem() {
+        for a in 0..=255 {
+            for b in 1..=255 {
+                // find div + rem
+                let q = p8(a) / p8(b);
+                let r = p8(a) % p8(b);
+                // mul and add to find original
+                let x = q*p8(b) + r;
+                assert_eq!(x, p8(a));
+            }   
         }
     }
 }
