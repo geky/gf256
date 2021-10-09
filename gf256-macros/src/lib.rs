@@ -136,6 +136,8 @@ fn compile_template(
 #[derive(Debug, FromMeta)]
 struct PArgs {
     u: String,
+    #[darling(default)]
+    width: Option<usize>,
 }
 
 #[proc_macro_attribute]
@@ -143,6 +145,14 @@ pub fn p(
     args: proc_macro::TokenStream,
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
+    let crate_ = TokenTree::Group(Group::new(Delimiter::None,
+        if env::var("CARGO_CRATE_NAME").unwrap() == "gf256" {
+            quote! { crate }
+        } else {
+            quote! { ::gf256 }
+        }
+    ));
+
     // parse args
     let args = parse_macro_input!(args as syn::AttributeArgs);
     let args = match PArgs::from_list(&args) {
@@ -152,9 +162,32 @@ pub fn p(
         }
     };
 
-    let width = args.u.get(1..)
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(0);
+    let width = match (args.width, args.u.as_ref()) {
+        (Some(width), _) => width,
+        (None, "usize") => {
+            // annoyingly, we can't actually get the target_width in a
+            // proc_macro, but we _can_ emit some boilerplate to determine
+            // the target_width, and recurse back into our proc_macro.
+            //
+            // terrible? yes, but it works
+            //
+            let input = TokenStream::from(input);
+            let output = quote! {
+                #[cfg_attr(target_pointer_width="8",   #crate_::macros::p(u="usize", width=8  ))]
+                #[cfg_attr(target_pointer_width="16",  #crate_::macros::p(u="usize", width=16 ))]
+                #[cfg_attr(target_pointer_width="32",  #crate_::macros::p(u="usize", width=32 ))]
+                #[cfg_attr(target_pointer_width="64",  #crate_::macros::p(u="usize", width=64 ))]
+                #[cfg_attr(target_pointer_width="128", #crate_::macros::p(u="usize", width=128))]
+                #input
+            };
+            return output.into();
+        }
+        (None, u) => {
+            u.get(1..)
+                .and_then(|s| s.parse::<usize>().ok())
+                .expect("unknown type for \"u\"")
+        }
+    };
 
     // parse type
     let ty = parse_macro_input!(input as syn::ForeignItemType);
@@ -167,13 +200,11 @@ pub fn p(
         ("__p".to_owned(), TokenTree::Ident(p.clone())),
         ("__u".to_owned(), TokenTree::Ident(Ident::new(&args.u, Span::call_site()))),
         ("__width".to_owned(), TokenTree::Literal(Literal::usize_unsuffixed(width))),
-        ("__crate".to_owned(), TokenTree::Group(Group::new(Delimiter::None,
-            if env::var("CARGO_CRATE_NAME").unwrap() == "gf256" {
-                quote! { crate }
-            } else {
-                quote! { ::gf256 }
-            }
+        ("__is_usize".to_owned(), TokenTree::Ident(Ident::new(
+            &format!("{}", args.u == "usize"),
+            Span::call_site()
         ))),
+        ("__crate".to_owned(), crate_),
     ]);
 
     // parse template

@@ -543,7 +543,7 @@ impl From<bool> for __p {
     }
 }
 
-#[cfg(__if(__width >= 32))]
+#[cfg(__if(__width >= 32 && !__is_usize))]
 impl From<char> for __p {
     #[inline]
     fn from(x: char) -> __p {
@@ -567,7 +567,7 @@ impl From<u16> for __p {
     }
 }
 
-#[cfg(__if(__width > 32))]
+#[cfg(__if(__width > 32 && !__is_usize))]
 impl From<u32> for __p {
     #[inline]
     fn from(x: u32) -> __p {
@@ -575,7 +575,7 @@ impl From<u32> for __p {
     }
 }
 
-#[cfg(__if(__width > 64))]
+#[cfg(__if(__width > 64 && !__is_usize))]
 impl From<u64> for __p {
     #[inline]
     fn from(x: u64) -> __p {
@@ -599,7 +599,7 @@ impl From<__crate::p16> for __p {
     }
 }
 
-#[cfg(__if(__width > 32))]
+#[cfg(__if(__width > 32 && !__is_usize))]
 impl From<__crate::p32> for __p {
     #[inline]
     fn from(x: __crate::p32) -> __p {
@@ -607,7 +607,7 @@ impl From<__crate::p32> for __p {
     }
 }
 
-#[cfg(__if(__width > 64))]
+#[cfg(__if(__width > 64 && !__is_usize))]
 impl From<__crate::p64> for __p {
     #[inline]
     fn from(x: __crate::p64) -> __p {
@@ -624,7 +624,7 @@ impl TryFrom<u16> for __p {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 || __is_usize))]
 impl TryFrom<u32> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -633,7 +633,7 @@ impl TryFrom<u32> for __p {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 || __is_usize))]
 impl TryFrom<u64> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -642,7 +642,7 @@ impl TryFrom<u64> for __p {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 || __is_usize))]
 impl TryFrom<u128> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -660,7 +660,7 @@ impl TryFrom<__crate::p16> for __p {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 || __is_usize))]
 impl TryFrom<__crate::p32> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -669,7 +669,7 @@ impl TryFrom<__crate::p32> for __p {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 || __is_usize))]
 impl TryFrom<__crate::p64> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -678,7 +678,7 @@ impl TryFrom<__crate::p64> for __p {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 || __is_usize))]
 impl TryFrom<__crate::p128> for __p {
     type Error = TryFromIntError;
     #[inline]
@@ -695,7 +695,7 @@ impl FromLossy<u16> for __p {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 || __is_usize))]
 impl FromLossy<u32> for __p {
     #[inline]
     fn from_lossy(x: u32) -> __p {
@@ -703,7 +703,7 @@ impl FromLossy<u32> for __p {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 || __is_usize))]
 impl FromLossy<u64> for __p {
     #[inline]
     fn from_lossy(x: u64) -> __p {
@@ -711,7 +711,7 @@ impl FromLossy<u64> for __p {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 || __is_usize))]
 impl FromLossy<u128> for __p {
     #[inline]
     fn from_lossy(x: u128) -> __p {
@@ -727,7 +727,7 @@ impl FromLossy<__crate::p16> for __p {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 || __is_usize))]
 impl FromLossy<__crate::p32> for __p {
     #[inline]
     fn from_lossy(x: __crate::p32) -> __p {
@@ -735,7 +735,7 @@ impl FromLossy<__crate::p32> for __p {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 || __is_usize))]
 impl FromLossy<__crate::p64> for __p {
     #[inline]
     fn from_lossy(x: __crate::p64) -> __p {
@@ -743,7 +743,7 @@ impl FromLossy<__crate::p64> for __p {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 || __is_usize))]
 impl FromLossy<__crate::p128> for __p {
     #[inline]
     fn from_lossy(x: __crate::p128) -> __p {
@@ -769,7 +769,7 @@ impl From<__p> for u16 {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 && !__is_usize))]
 impl From<__p> for u32 {
     #[inline]
     fn from(x: __p) -> u32 {
@@ -777,7 +777,7 @@ impl From<__p> for u32 {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 && !__is_usize))]
 impl From<__p> for u64 {
     #[inline]
     fn from(x: __p) -> u64 {
@@ -785,7 +785,7 @@ impl From<__p> for u64 {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 && !__is_usize))]
 impl From<__p> for u128 {
     #[inline]
     fn from(x: __p) -> u128 {
@@ -811,7 +811,7 @@ impl TryFrom<__p> for u16 {
     }
 }
 
-#[cfg(__if(__width > 32))]
+#[cfg(__if(__width > 32 || __is_usize))]
 impl TryFrom<__p> for u32 {
     type Error = TryFromIntError;
     #[inline]
@@ -820,7 +820,7 @@ impl TryFrom<__p> for u32 {
     }
 }
 
-#[cfg(__if(__width > 64))]
+#[cfg(__if(__width > 64 || __is_usize))]
 impl TryFrom<__p> for u64 {
     type Error = TryFromIntError;
     #[inline]
@@ -845,7 +845,7 @@ impl FromLossy<__p> for u16 {
     }
 }
 
-#[cfg(__if(__width > 32))]
+#[cfg(__if(__width > 32 || __is_usize))]
 impl FromLossy<__p> for u32 {
     #[inline]
     fn from_lossy(x: __p) -> u32 {
@@ -853,7 +853,7 @@ impl FromLossy<__p> for u32 {
     }
 }
 
-#[cfg(__if(__width > 64))]
+#[cfg(__if(__width > 64 || __is_usize))]
 impl FromLossy<__p> for u64 {
     #[inline]
     fn from_lossy(x: __p) -> u64 {
@@ -869,7 +869,7 @@ impl From<__p> for i16 {
     }
 }
 
-#[cfg(__if(__width < 32))]
+#[cfg(__if(__width < 32 && !__is_usize))]
 impl From<__p> for i32 {
     #[inline]
     fn from(x: __p) -> i32 {
@@ -877,7 +877,7 @@ impl From<__p> for i32 {
     }
 }
 
-#[cfg(__if(__width < 64))]
+#[cfg(__if(__width < 64 && !__is_usize))]
 impl From<__p> for i64 {
     #[inline]
     fn from(x: __p) -> i64 {
@@ -885,7 +885,7 @@ impl From<__p> for i64 {
     }
 }
 
-#[cfg(__if(__width < 128))]
+#[cfg(__if(__width < 128 && !__is_usize))]
 impl From<__p> for i128 {
     #[inline]
     fn from(x: __p) -> i128 {
@@ -911,7 +911,7 @@ impl TryFrom<__p> for i16 {
     }
 }
 
-#[cfg(__if(__width >= 32))]
+#[cfg(__if(__width >= 32 || __is_usize))]
 impl TryFrom<__p> for i32 {
     type Error = TryFromIntError;
     #[inline]
@@ -920,7 +920,7 @@ impl TryFrom<__p> for i32 {
     }
 }
 
-#[cfg(__if(__width >= 64))]
+#[cfg(__if(__width >= 64 || __is_usize))]
 impl TryFrom<__p> for i64 {
     type Error = TryFromIntError;
     #[inline]
@@ -929,7 +929,7 @@ impl TryFrom<__p> for i64 {
     }
 }
 
-#[cfg(__if(__width >= 128))]
+#[cfg(__if(__width >= 128 || __is_usize))]
 impl TryFrom<__p> for i128 {
     type Error = TryFromIntError;
     #[inline]
@@ -954,7 +954,7 @@ impl FromLossy<__p> for i16 {
     }
 }
 
-#[cfg(__if(__width >= 32))]
+#[cfg(__if(__width >= 32 || __is_usize))]
 impl FromLossy<__p> for i32 {
     #[inline]
     fn from_lossy(x: __p) -> i32 {
@@ -962,7 +962,7 @@ impl FromLossy<__p> for i32 {
     }
 }
 
-#[cfg(__if(__width >= 64))]
+#[cfg(__if(__width >= 64 || __is_usize))]
 impl FromLossy<__p> for i64 {
     #[inline]
     fn from_lossy(x: __p) -> i64 {
@@ -970,7 +970,7 @@ impl FromLossy<__p> for i64 {
     }
 }
 
-#[cfg(__if(__width >= 128))]
+#[cfg(__if(__width >= 128 || __is_usize))]
 impl FromLossy<__p> for i128 {
     #[inline]
     fn from_lossy(x: __p) -> i128 {
