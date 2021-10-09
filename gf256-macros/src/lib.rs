@@ -159,6 +159,7 @@ pub fn p(
     // parse type
     let ty = parse_macro_input!(input as syn::ForeignItemType);
     let attrs = ty.attrs;
+    let vis = ty.vis;
     let p = ty.ident;
 
     // keyword replacements
@@ -185,7 +186,7 @@ pub fn p(
 
     let pmod = Ident::new(&format!("__{}_gen", p.to_string()), Span::call_site());
     let template = quote! {
-        #(#attrs)* use #pmod::#p;
+        #(#attrs)* #vis use #pmod::#p;
         mod #pmod {
             #template
         }

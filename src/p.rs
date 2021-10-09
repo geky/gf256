@@ -2,16 +2,17 @@
 
 use gf256_macros::p;
 
-#[p(u="u8")]   type p8;
-#[p(u="u16")]  type p16;
-#[p(u="u32")]  type p32;
-#[p(u="u64")]  type p64;
-#[p(u="u128")] type p128;
+#[p(u="u8")]   pub type p8;
+#[p(u="u16")]  pub type p16;
+#[p(u="u32")]  pub type p32;
+#[p(u="u64")]  pub type p64;
+#[p(u="u128")] pub type p128;
 
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::convert::TryFrom;
 
     #[test]
     fn add() {
@@ -78,10 +79,10 @@ mod test {
 
     #[test]
     fn hardware_mul() {
-        for a in 0..=255 {
-            for b in 0..=255 {
-                let res_naive = p8(a).wrapping_naive_mul(p8(b));
-                let res_hardware = p8(a).wrapping_mul(p8(b));
+        for a in (0..=255).map(|a| p8(a)) {
+            for b in (0..=255).map(|b| p8(b)) {
+                let res_naive = a.wrapping_naive_mul(b);
+                let res_hardware = a.wrapping_mul(b);
                 assert_eq!(res_naive, res_hardware);
             }
         }
@@ -89,12 +90,12 @@ mod test {
 
     #[test]
     fn overflowing_mul() {
-        for a in 0..=255 {
-            for b in 0..=255 {
-                let (wrapped_naive, overflow_naive) = p8(a).overflowing_naive_mul(p8(b));
-                let (wrapped_hardware, overflow_hardware) = p8(a).overflowing_mul(p8(b));
-                let res_naive = p16(a as u16).naive_mul(p16(b as u16));
-                let res_hardware = p16(a as u16) * p16(b as u16);
+        for a in (0..=255).map(|a| p8(a)) {
+            for b in (0..=255).map(|b| p8(b)) {
+                let (wrapped_naive, overflow_naive) = a.overflowing_naive_mul(b);
+                let (wrapped_hardware, overflow_hardware) = a.overflowing_mul(b);
+                let res_naive = p16::from(a).naive_mul(p16::from(b));
+                let res_hardware = p16::from(a) * p16::from(b);
 
                 // same results naive vs hardware?
                 assert_eq!(wrapped_naive, wrapped_hardware);
@@ -102,41 +103,41 @@ mod test {
                 assert_eq!(res_naive, res_hardware);
 
                 // same wrapped results?
-                assert_eq!(wrapped_naive.0, res_naive.0 as u8);
-                assert_eq!(wrapped_hardware.0, res_hardware.0 as u8);
+                assert_eq!(wrapped_naive, p8::try_from(res_naive & 0xff).unwrap());
+                assert_eq!(wrapped_hardware, p8::try_from(res_hardware & 0xff).unwrap());
 
                 // overflow set if overflow occured?
-                assert_eq!(overflow_naive, (wrapped_naive.0 as u16 != res_naive.0));
-                assert_eq!(overflow_hardware, (wrapped_hardware.0 as u16 != res_hardware.0));
+                assert_eq!(overflow_naive, (p16::from(wrapped_naive) != res_naive));
+                assert_eq!(overflow_hardware, (p16::from(wrapped_hardware) != res_hardware));
             }
         }
     }
 
     #[test]
     fn mul_div() {
-        for a in 1..=255 {
-            for b in 1..=255 {
+        for a in (1..=255).map(|a| p16(a)) {
+            for b in (1..=255).map(|b| p16(b)) {
                 // mul
-                let x = p16(a) * p16(b);
+                let x = a * b;
                 // is div/rem correct?
-                assert_eq!(x / p16(a), p16(b));
-                assert_eq!(x % p16(a), p16(0));
-                assert_eq!(x / p16(b), p16(a));
-                assert_eq!(x % p16(b), p16(0));
+                assert_eq!(x / a, b);
+                assert_eq!(x % a, p16(0));
+                assert_eq!(x / b, a);
+                assert_eq!(x % b, p16(0));
             }   
         }
     }
 
     #[test]
     fn div_rem() {
-        for a in 0..=255 {
-            for b in 1..=255 {
+        for a in (0..=255).map(|a| p8(a)) {
+            for b in (1..=255).map(|b| p8(b)) {
                 // find div + rem
-                let q = p8(a) / p8(b);
-                let r = p8(a) % p8(b);
+                let q = a / b;
+                let r = a % b;
                 // mul and add to find original
-                let x = q*p8(b) + r;
-                assert_eq!(x, p8(a));
+                let x = q*b + r;
+                assert_eq!(x, a);
             }   
         }
     }
