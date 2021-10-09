@@ -1,0 +1,10 @@
+[package]
+name = "gf256"
+version = "0.1.0"
+authors = ["Christopher Haster <chaster@utexas.edu>"]
+edition = "2018"
+
+[dependencies]
+gf256-macros = {path="gf256-macros"}
+cfg-if = "1.0.0"
+const_fn_assert = "0.1.2"

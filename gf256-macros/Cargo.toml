@@ -1,0 +1,16 @@
+[package]
+name = "gf256-macros"
+description = "Proc-macros for the gf256 crate"
+authors = ["Christopher Haster <christopher.haster@arm.com>"]
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = {version="1.0.73", features=["full"]}
+quote = "1.0.9"
+proc-macro2 = "1.0.27"
+darling = "0.12.4"
+evalexpr = "6.4.0"
