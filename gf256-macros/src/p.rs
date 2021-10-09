@@ -3,12 +3,14 @@
 use std::mem::size_of;
 use std::ops::*;
 use std::iter::*;
-use std::convert::TryFrom;
 use std::num::TryFromIntError;
 use std::num::ParseIntError;
 use std::fmt;
 use std::str::FromStr;
+use __crate::traits::TryFrom;
+use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
+
 
 /// A type representing a gf(2) polynomial
 #[allow(non_camel_case_types)]
@@ -685,6 +687,70 @@ impl TryFrom<__crate::p128> for __p {
     }
 }
 
+#[cfg(__if(__width < 16))]
+impl FromLossy<u16> for __p {
+    #[inline]
+    fn from_lossy(x: u16) -> __p {
+        __p(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 32))]
+impl FromLossy<u32> for __p {
+    #[inline]
+    fn from_lossy(x: u32) -> __p {
+        __p(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 64))]
+impl FromLossy<u64> for __p {
+    #[inline]
+    fn from_lossy(x: u64) -> __p {
+        __p(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 128))]
+impl FromLossy<u128> for __p {
+    #[inline]
+    fn from_lossy(x: u128) -> __p {
+        __p(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 16))]
+impl FromLossy<__crate::p16> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::p16) -> __p {
+        __p(x.0 as __u)
+    }
+}
+
+#[cfg(__if(__width < 32))]
+impl FromLossy<__crate::p32> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::p32) -> __p {
+        __p(x.0 as __u)
+    }
+}
+
+#[cfg(__if(__width < 64))]
+impl FromLossy<__crate::p64> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::p64) -> __p {
+        __p(x.0 as __u)
+    }
+}
+
+#[cfg(__if(__width < 128))]
+impl FromLossy<__crate::p128> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::p128) -> __p {
+        __p(x.0 as __u)
+    }
+}
+
 
 //// Conversions from __p ////
 
@@ -760,6 +826,155 @@ impl TryFrom<__p> for u64 {
     #[inline]
     fn try_from(x: __p) -> Result<u64, Self::Error> {
         u64::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 8))]
+impl FromLossy<__p> for u8 {
+    #[inline]
+    fn from_lossy(x: __p) -> u8 {
+        x.0 as u8
+    }
+}
+
+#[cfg(__if(__width > 16))]
+impl FromLossy<__p> for u16 {
+    #[inline]
+    fn from_lossy(x: __p) -> u16 {
+        x.0 as u16
+    }
+}
+
+#[cfg(__if(__width > 32))]
+impl FromLossy<__p> for u32 {
+    #[inline]
+    fn from_lossy(x: __p) -> u32 {
+        x.0 as u32
+    }
+}
+
+#[cfg(__if(__width > 64))]
+impl FromLossy<__p> for u64 {
+    #[inline]
+    fn from_lossy(x: __p) -> u64 {
+        x.0 as u64
+    }
+}
+
+#[cfg(__if(__width < 16))]
+impl From<__p> for i16 {
+    #[inline]
+    fn from(x: __p) -> i16 {
+        i16::from(x.0)
+    }
+}
+
+#[cfg(__if(__width < 32))]
+impl From<__p> for i32 {
+    #[inline]
+    fn from(x: __p) -> i32 {
+        i32::from(x.0)
+    }
+}
+
+#[cfg(__if(__width < 64))]
+impl From<__p> for i64 {
+    #[inline]
+    fn from(x: __p) -> i64 {
+        i64::from(x.0)
+    }
+}
+
+#[cfg(__if(__width < 128))]
+impl From<__p> for i128 {
+    #[inline]
+    fn from(x: __p) -> i128 {
+        i128::from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 8))]
+impl TryFrom<__p> for i8 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<i8, Self::Error> {
+        i8::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl TryFrom<__p> for i16 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<i16, Self::Error> {
+        i16::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 32))]
+impl TryFrom<__p> for i32 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<i32, Self::Error> {
+        i32::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 64))]
+impl TryFrom<__p> for i64 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<i64, Self::Error> {
+        i64::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 128))]
+impl TryFrom<__p> for i128 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<i128, Self::Error> {
+        i128::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 8))]
+impl FromLossy<__p> for i8 {
+    #[inline]
+    fn from_lossy(x: __p) -> i8 {
+        x.0 as i8
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl FromLossy<__p> for i16 {
+    #[inline]
+    fn from_lossy(x: __p) -> i16 {
+        x.0 as i16
+    }
+}
+
+#[cfg(__if(__width >= 32))]
+impl FromLossy<__p> for i32 {
+    #[inline]
+    fn from_lossy(x: __p) -> i32 {
+        x.0 as i32
+    }
+}
+
+#[cfg(__if(__width >= 64))]
+impl FromLossy<__p> for i64 {
+    #[inline]
+    fn from_lossy(x: __p) -> i64 {
+        x.0 as i64
+    }
+}
+
+#[cfg(__if(__width >= 128))]
+impl FromLossy<__p> for i128 {
+    #[inline]
+    fn from_lossy(x: __p) -> i128 {
+        x.0 as i128
     }
 }
 

@@ -15,6 +15,7 @@
 
 use std::iter;
 use std::convert::TryFrom;
+use gf256::traits::FromLossy;
 use gf256::*;
 
 /// This is a common polynomial for 32-bit CRCs, normally the highest
@@ -173,7 +174,7 @@ pub fn barret_crc(data: &[u8]) -> u32 {
     for b in data {
         crc = crc ^ (p32::from(b.reverse_bits()) << 24);
         let q = (p64::from(crc >> 24)*BARRET_CONSTANT) >> 32;
-        crc = p32::try_from((q*POLYNOMIAL) & 0xffffffffu64).unwrap() + (crc << 8);
+        crc = p32::from_lossy(q*POLYNOMIAL) + (crc << 8);
     }
 
     u32::from(crc).reverse_bits() ^ 0xffffffff
@@ -196,13 +197,13 @@ pub fn word_barret_crc(data: &[u8]) -> u32 {
         let word = <[u8; 4]>::try_from(word).unwrap();
         crc = crc ^ p32::from_le_bytes(word).reverse_bits();
         let q = (p64::from(crc)*BARRET_CONSTANT) >> 32;
-        crc = p32::try_from((q*POLYNOMIAL) & 0xffffffffu64).unwrap();
+        crc = p32::from_lossy(q*POLYNOMIAL);
     }
 
     for b in words.remainder() {
         crc = crc ^ (p32::from(b.reverse_bits()) << 24);
         let q = (p64::from(crc >> 24)*BARRET_CONSTANT) >> 32;
-        crc = p32::try_from((q*POLYNOMIAL) & 0xffffffffu64).unwrap() + (crc << 8);
+        crc = p32::from_lossy(q*POLYNOMIAL) + (crc << 8);
     }
 
     u32::from(crc).reverse_bits() ^ 0xffffffff
