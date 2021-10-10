@@ -14,7 +14,7 @@ use __crate::internal::cfg_if::cfg_if;
 
 /// A type representing a gf(2) polynomial
 #[allow(non_camel_case_types)]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct __p(pub __u);
 
 impl __p {
@@ -607,6 +607,15 @@ impl TryFrom<u128> for __p {
     }
 }
 
+#[cfg(__if(!__is_usize))]
+impl TryFrom<usize> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: usize) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl TryFrom<__crate::p16> for __p {
     type Error = TryFromIntError;
@@ -643,6 +652,15 @@ impl TryFrom<__crate::p128> for __p {
     }
 }
 
+#[cfg(__if(!__is_usize))]
+impl TryFrom<__crate::psize> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __crate::psize) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x.0)?))
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl FromLossy<u16> for __p {
     #[inline]
@@ -675,6 +693,14 @@ impl FromLossy<u128> for __p {
     }
 }
 
+#[cfg(__if(!__is_usize))]
+impl FromLossy<usize> for __p {
+    #[inline]
+    fn from_lossy(x: usize) -> __p {
+        __p(x as __u)
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl FromLossy<__crate::p16> for __p {
     #[inline]
@@ -703,6 +729,14 @@ impl FromLossy<__crate::p64> for __p {
 impl FromLossy<__crate::p128> for __p {
     #[inline]
     fn from_lossy(x: __crate::p128) -> __p {
+        __p(x.0 as __u)
+    }
+}
+
+#[cfg(__if(!__is_usize))]
+impl FromLossy<__crate::psize> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::psize) -> __p {
         __p(x.0 as __u)
     }
 }
@@ -746,6 +780,14 @@ impl From<__p> for u128 {
     #[inline]
     fn from(x: __p) -> u128 {
         u128::from(x.0)
+    }
+}
+
+#[cfg(__if(__width <= 16 && !__is_usize))]
+impl From<__p> for usize {
+    #[inline]
+    fn from(x: __p) -> usize {
+        usize::from(x.0)
     }
 }
 
@@ -849,6 +891,14 @@ impl From<__p> for i128 {
     }
 }
 
+#[cfg(__if(__width < 16 && !__is_usize))]
+impl From<__p> for isize {
+    #[inline]
+    fn from(x: __p) -> isize {
+        isize::from(x.0)
+    }
+}
+
 #[cfg(__if(__width >= 8))]
 impl TryFrom<__p> for i8 {
     type Error = TryFromIntError;
@@ -894,6 +944,15 @@ impl TryFrom<__p> for i128 {
     }
 }
 
+#[cfg(__if(__width >= 16))]
+impl TryFrom<__p> for isize {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<isize, Self::Error> {
+        isize::try_from(x.0)
+    }
+}
+
 #[cfg(__if(__width >= 8))]
 impl FromLossy<__p> for i8 {
     #[inline]
@@ -931,6 +990,14 @@ impl FromLossy<__p> for i128 {
     #[inline]
     fn from_lossy(x: __p) -> i128 {
         x.0 as i128
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl FromLossy<__p> for isize {
+    #[inline]
+    fn from_lossy(x: __p) -> isize {
+        x.0 as isize
     }
 }
 
