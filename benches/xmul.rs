@@ -9,11 +9,7 @@ use std::iter;
 use gf256::*;
 
 fn naive_xmul(a: p64, b: p64) -> p64 {
-    // This depends on a bit of internal details: We know
-    // const_wrapping_mul is implemented by naive multiplication
-    // since instruction intrinsics aren't allowed in const fns
-    //
-    a.const_wrapping_mul(b)
+    a.wrapping_naive_mul(b)
 }
 
 fn hardware_xmul(a: p64, b: p64) -> p64 {

@@ -30,46 +30,46 @@ impl __p {
         __p(self.0 ^ other.0)
     }
 
-    /// Const-friendly polynomial multiplication
+    /// Naive polynomial multiplication
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// Note this wraps around the boundary of the type, and returns
     /// a flag indicating of overflow occured
     ///
     #[inline]
-    pub const fn const_overflowing_mul(self, other: __p) -> (__p, bool) {
+    pub const fn overflowing_naive_mul(self, other: __p) -> (__p, bool) {
         // x bits * y bits = x+y-1 bits, if this is more bits than the
         // width we will overflow
         let o = self.0.leading_zeros() + other.0.leading_zeros() < __width-1;
-        (self.const_wrapping_mul(other), o)
+        (self.wrapping_naive_mul(other), o)
     }
 
-    /// Const-friendly polynomial multiplication
+    /// Naive polynomial multiplication
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// Note this returns None if an overflow occured
     ///
     #[inline]
-    pub const fn const_checked_mul(self, other: __p) -> Option<__p> {
-        match self.const_overflowing_mul(other) {
+    pub const fn checked_naive_mul(self, other: __p) -> Option<__p> {
+        match self.overflowing_naive_mul(other) {
             (_, true ) => None,
             (x, false) => Some(x),
         }
     }
 
-    /// Const-friendly polynomial multiplication
+    /// Naive polynomial multiplication
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// Note this wraps around the boundary of the type
     ///
     #[inline]
-    pub const fn const_wrapping_mul(self, other: __p) -> __p {
+    pub const fn wrapping_naive_mul(self, other: __p) -> __p {
         let a = self.0;
         let b = other.0;
         let mut x = 0;
@@ -82,25 +82,25 @@ impl __p {
         __p(x)
     }
 
-    /// Const-friendly polynomial multiplication
+    /// Naive polynomial multiplication
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// Note this panics if an overflow occured and debug_assertions
     /// are enabled
     ///
     #[inline]
-    pub const fn const_mul(self, other: __p) -> __p {
+    pub const fn naive_mul(self, other: __p) -> __p {
         cfg_if! {
             // TODO feature flag for overflow-checks?
             if #[cfg(debug_assertions)] {
-                match self.const_checked_mul(other) {
+                match self.checked_naive_mul(other) {
                     Some(x) => x,
                     None => __p(self.0 / 0),
                 }
             } else {
-                self.const_wrapping_mul(other)
+                self.wrapping_naive_mul(other)
             }
         }
     }
@@ -206,7 +206,7 @@ impl __p {
                     }
                 }
             } else {
-                self.const_mul(other)
+                self.naive_mul(other)
             }
         }
     }
@@ -234,16 +234,16 @@ impl __p {
         }
     }
 
-    /// Const-friendly polynomial exponentiation
+    /// Naive polynomial exponentiation
     #[inline]
-    pub const fn const_overflowing_pow(self, exp: u32) -> (__p, bool) {
+    pub const fn overflowing_naive_pow(self, exp: u32) -> (__p, bool) {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         let mut o = false;
         loop {
             if exp & 1 != 0 {
-                let (x_, o_) = x.const_overflowing_mul(a);
+                let (x_, o_) = x.overflowing_naive_mul(a);
                 x = x_;
                 o = o || o_;
             }
@@ -252,21 +252,21 @@ impl __p {
             if exp == 0 {
                 return (x, o);
             }
-            let (a_, o_) = a.const_overflowing_mul(a);
+            let (a_, o_) = a.overflowing_naive_mul(a);
             a = a_;
             o = o || o_;
         }
     }
 
-    /// Const-friendly polynomial exponentiation
+    /// Naive polynomial exponentiation
     #[inline]
-    pub const fn const_checked_pow(self, exp: u32) -> Option<__p> {
+    pub const fn checked_naive_pow(self, exp: u32) -> Option<__p> {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         loop {
             if exp & 1 != 0 {
-                x = match x.const_checked_mul(a) {
+                x = match x.checked_naive_mul(a) {
                     Some(x) => x,
                     None => return None,
                 }
@@ -276,48 +276,48 @@ impl __p {
             if exp == 0 {
                 return Some(x);
             }
-            a = match a.const_checked_mul(a) {
+            a = match a.checked_naive_mul(a) {
                 Some(a) => a,
                 None => return None,
             }
         }
     }
 
-    /// Const-friendly polynomial exponentiation
+    /// Naive polynomial exponentiation
     #[inline]
-    pub const fn const_wrapping_pow(self, exp: u32) -> __p {
+    pub const fn wrapping_naive_pow(self, exp: u32) -> __p {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         loop {
             if exp & 1 != 0 {
-                x = x.const_wrapping_mul(a);
+                x = x.wrapping_naive_mul(a);
             }
 
             exp >>= 1;
             if exp == 0 {
                 return x;
             }
-            a = a.const_wrapping_mul(a);
+            a = a.wrapping_naive_mul(a);
         }
     }
 
-    /// Const-friendly polynomial exponentiation
+    /// Naive polynomial exponentiation
     #[inline]
-    pub const fn const_pow(self, exp: u32) -> __p {
+    pub const fn naive_pow(self, exp: u32) -> __p {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         loop {
             if exp & 1 != 0 {
-                x = x.const_mul(a);
+                x = x.naive_mul(a);
             }
 
             exp >>= 1;
             if exp == 0 {
                 return x;
             }
-            a = a.const_mul(a);
+            a = a.naive_mul(a);
         }
     }
 
@@ -408,13 +408,13 @@ impl __p {
         }
     }
 
-    /// Const-friendly polynomial division
+    /// Naive polynomial division
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn const_checked_div(self, other: __p) -> Option<__p> {
+    pub const fn checked_naive_div(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
@@ -430,50 +430,28 @@ impl __p {
         }
     }
 
-    /// Const-friendly polynomial division
+    /// Naive polynomial division
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// This will panis if b == 0
     ///
     #[inline]
-    pub const fn const_div(self, other: __p) -> __p {
-        match self.const_checked_div(other) {
+    pub const fn naive_div(self, other: __p) -> __p {
+        match self.checked_naive_div(other) {
             Some(x) => x,
             None => __p(self.0 / 0),
         }
     }
 
-    /// Polynomial division
+    /// Naive polynomial remainder
     ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    #[inline]
-    pub fn checked_div(self, other: __p) -> Option<__p> {
-        self.const_checked_div(other)
-    }
-
-    /// Polynomial division
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
-    #[inline]
-    pub fn div(self, other: __p) -> __p {
-        self.checked_div(other).expect("polynomial division by zero")
-    }
-
-    /// Const-friendly polynomial remainder
-    ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn const_checked_rem(self, other: __p) -> Option<__p> {
+    pub const fn checked_naive_rem(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
@@ -488,41 +466,19 @@ impl __p {
         }
     }
 
-    /// Const-friendly polynomial remainder
+    /// Naive polynomial remainder
     ///
-    /// Const-friendly versions are built out of simple bitwise operations,
+    /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     /// This will panis if b == 0
     ///
     #[inline]
-    pub const fn const_rem(self, other: __p) -> __p {
-        match self.const_checked_rem(other) {
+    pub const fn naive_rem(self, other: __p) -> __p {
+        match self.checked_naive_rem(other) {
             Some(x) => x,
             None => __p(self.0 / 0),
         }
-    }
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    #[inline]
-    pub fn checked_rem(self, other: __p) -> Option<__p> {
-        self.const_checked_rem(other)
-    }
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
-    #[inline]
-    pub fn rem(self, other: __p) -> __p {
-        self.checked_rem(other).expect("polynomial division by zero")
     }
 }
 
@@ -1251,7 +1207,7 @@ impl Div for __p {
     ///
     #[inline]
     fn div(self, other: __p) -> __p {
-        __p::div(self, other)
+        __p::naive_div(self, other)
     }
 }
 
@@ -1267,7 +1223,7 @@ impl Div<__p> for &__p {
     ///
     #[inline]
     fn div(self, other: __p) -> __p {
-        __p::div(*self, other)
+        __p::naive_div(*self, other)
     }
 }
 
@@ -1283,7 +1239,7 @@ impl Div<&__p> for __p {
     ///
     #[inline]
     fn div(self, other: &__p) -> __p {
-        __p::div(self, *other)
+        __p::naive_div(self, *other)
     }
 }
 
@@ -1299,7 +1255,7 @@ impl Div<&__p> for &__p {
     ///
     #[inline]
     fn div(self, other: &__p) -> __p {
-        __p::div(*self, *other)
+        __p::naive_div(*self, *other)
     }
 }
 
@@ -1332,7 +1288,7 @@ impl Rem for __p {
     ///
     #[inline]
     fn rem(self, other: __p) -> __p {
-        __p::rem(self, other)
+        __p::naive_rem(self, other)
     }
 }
 
@@ -1348,7 +1304,7 @@ impl Rem<__p> for &__p {
     ///
     #[inline]
     fn rem(self, other: __p) -> __p {
-        __p::rem(*self, other)
+        __p::naive_rem(*self, other)
     }
 }
 
@@ -1364,7 +1320,7 @@ impl Rem<&__p> for __p {
     ///
     #[inline]
     fn rem(self, other: &__p) -> __p {
-        __p::rem(self, *other)
+        __p::naive_rem(self, *other)
     }
 }
 
@@ -1380,7 +1336,7 @@ impl Rem<&__p> for &__p {
     ///
     #[inline]
     fn rem(self, other: &__p) -> __p {
-        __p::rem(*self, *other)
+        __p::naive_rem(*self, *other)
     }
 }
 

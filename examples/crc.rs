@@ -102,7 +102,7 @@ pub fn table_crc(data: &[u8]) -> u32 {
         let mut i = 0;
         while i < table.len() {
             let x = (i as u32).reverse_bits();
-            let x = p64((x as u64) << 8).const_rem(POLYNOMIAL).0 as u32;
+            let x = p64((x as u64) << 8).naive_rem(POLYNOMIAL).0 as u32;
             table[i] = x.reverse_bits();
             i += 1;
         }
@@ -132,7 +132,7 @@ pub fn small_table_crc(data: &[u8]) -> u32 {
         let mut i = 0;
         while i < table.len() {
             let x = (i as u32).reverse_bits();
-            let x = p64((x as u64) << 4).const_rem(POLYNOMIAL).0 as u32;
+            let x = p64((x as u64) << 4).naive_rem(POLYNOMIAL).0 as u32;
             table[i] = x.reverse_bits();
             i += 1;
         }
@@ -166,7 +166,7 @@ pub fn small_table_crc(data: &[u8]) -> u32 {
 pub fn barret_crc(data: &[u8]) -> u32 {
     const BARRET_CONSTANT: p64 = {
         p64(p128(0x10000000000000000)
-            .const_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
+            .naive_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
     };
 
     let mut crc = p32(0xffffffff);
@@ -186,7 +186,7 @@ pub fn barret_crc(data: &[u8]) -> u32 {
 pub fn word_barret_crc(data: &[u8]) -> u32 {
     const BARRET_CONSTANT: p64 = {
         p64(p128(0x10000000000000000)
-            .const_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
+            .naive_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
     };
 
     let mut crc = p32(0xffffffff);
