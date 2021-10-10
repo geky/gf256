@@ -198,12 +198,18 @@ pub fn p(
     // keyword replacements
     let replacements = HashMap::from_iter([
         ("__p".to_owned(), TokenTree::Ident(p.clone())),
-        ("__u".to_owned(), TokenTree::Ident(Ident::new(&args.u, Span::call_site()))),
-        ("__width".to_owned(), TokenTree::Literal(Literal::usize_unsuffixed(width))),
-        ("__is_usize".to_owned(), TokenTree::Ident(Ident::new(
-            &format!("{}", args.u == "usize"),
-            Span::call_site()
-        ))),
+        ("__u".to_owned(), TokenTree::Ident(
+            Ident::new(&args.u, Span::call_site())
+        )),
+        ("__i".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("i{}", &args.u[1..]), Span::call_site())
+        )),
+        ("__width".to_owned(), TokenTree::Literal(
+            Literal::usize_unsuffixed(width)
+        )),
+        ("__is_usize".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", args.u == "usize"), Span::call_site())
+        )),
         ("__crate".to_owned(), crate_),
     ]);
 

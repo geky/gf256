@@ -74,9 +74,9 @@ impl __p {
         let b = other.0;
         let mut x = 0;
         let mut i = 0;
-        while i < 8*size_of::<__u>() {
-            // TODO should this be constant-time?
-            x ^= if a & (1 << i) != 0 { b << i } else { 0 };
+        while i < __width {
+            let mask = (((a as __i) << (__width-1-i)) >> (__width-1)) as __u;
+            x ^= mask & (b << i);
             i += 1;
         }
         __p(x)
