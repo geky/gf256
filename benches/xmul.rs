@@ -9,14 +9,18 @@ use std::iter;
 use gf256::*;
 
 fn naive_xmul(a: p64, b: p64) -> p64 {
-    a.wrapping_naive_mul(b)
+    // This depends on a bit of internal details: We know
+    // const_wrapping_mul is implemented by naive multiplication
+    // since instruction intrinsics aren't allowed in const fns
+    //
+    a.const_wrapping_mul(b)
 }
 
 fn hardware_xmul(a: p64, b: p64) -> p64 {
     a.wrapping_mul(b)
 }
 
-fn bench_mul(c: &mut Criterion) {
+fn bench_xmul(c: &mut Criterion) {
     let mut group = c.benchmark_group("xmul");
 
     // xorshift64 for deterministic random numbers
@@ -39,7 +43,7 @@ fn bench_mul(c: &mut Criterion) {
         BatchSize::SmallInput
     ));
 
-    // hardware accelerated xmul (leveraging pclmulqdq, pmul, etc)
+    // hardware accelerated xmul (leveraging pclmulqdq, pmull, etc)
     let mut xs = xorshift64(42).map(p64);
     let mut ys = xorshift64(42*42).map(p64);
     group.bench_function("hardware_xmul", |b| b.iter_batched(
@@ -49,5 +53,5 @@ fn bench_mul(c: &mut Criterion) {
     ));
 }
 
-criterion_group!(benches, bench_mul);
+criterion_group!(benches, bench_xmul);
 criterion_main!(benches);

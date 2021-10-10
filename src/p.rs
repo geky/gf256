@@ -35,11 +35,11 @@ mod test {
 
     #[test]
     fn mul() {
-        assert_eq!(p8(0xfe).wrapping_naive_mul(p8(0x87)), p8(0xfa));
-        assert_eq!(p16(0xfedc).wrapping_naive_mul(p16(0x8765)), p16(0x7d2c));
-        assert_eq!(p32(0xfedcba98).wrapping_naive_mul(p32(0x87654321)), p32(0x03da4198));
-        assert_eq!(p64(0xfedcba9876543210).wrapping_naive_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
-        assert_eq!(p128(0xfedcba98765432100000000000000000).wrapping_naive_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
+        assert_eq!(p8(0xfe).const_wrapping_mul(p8(0x87)), p8(0xfa));
+        assert_eq!(p16(0xfedc).const_wrapping_mul(p16(0x8765)), p16(0x7d2c));
+        assert_eq!(p32(0xfedcba98).const_wrapping_mul(p32(0x87654321)), p32(0x03da4198));
+        assert_eq!(p64(0xfedcba9876543210).const_wrapping_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).const_wrapping_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
 
         assert_eq!(p8(0xfe).wrapping_mul(p8(0x87)), p8(0xfa));
         assert_eq!(p16(0xfedc).wrapping_mul(p16(0x8765)), p16(0x7d2c));
@@ -50,11 +50,11 @@ mod test {
 
     #[test]
     fn div() {
-        assert_eq!(p8(0xfe).naive_div(p8(0x87)), p8(0x01));
-        assert_eq!(p16(0xfedc).naive_div(p16(0x8765)), p16(0x0001));
-        assert_eq!(p32(0xfedcba98).naive_div(p32(0x87654321)), p32(0x00000001));
-        assert_eq!(p64(0xfedcba9876543210).naive_div(p64(0x8765432100000000)), p64(0x0000000000000001));
-        assert_eq!(p128(0xfedcba98765432100000000000000000).naive_div(p128(0x87654321000000000000000000000000)), p128(0x000000000000000000000001));
+        assert_eq!(p8(0xfe).const_div(p8(0x87)), p8(0x01));
+        assert_eq!(p16(0xfedc).const_div(p16(0x8765)), p16(0x0001));
+        assert_eq!(p32(0xfedcba98).const_div(p32(0x87654321)), p32(0x00000001));
+        assert_eq!(p64(0xfedcba9876543210).const_div(p64(0x8765432100000000)), p64(0x0000000000000001));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).const_div(p128(0x87654321000000000000000000000000)), p128(0x000000000000000000000001));
 
         assert_eq!(p8(0xfe) / p8(0x87), p8(0x01));
         assert_eq!(p16(0xfedc) / p16(0x8765), p16(0x0001));
@@ -65,11 +65,11 @@ mod test {
 
     #[test]
     fn rem() {
-        assert_eq!(p8(0xfe).naive_rem(p8(0x87)), p8(0x79));
-        assert_eq!(p16(0xfedc).naive_rem(p16(0x8765)), p16(0x79b9));
-        assert_eq!(p32(0xfedcba98).naive_rem(p32(0x87654321)), p32(0x79b9f9b9));
-        assert_eq!(p64(0xfedcba9876543210).naive_rem(p64(0x8765432100000000)), p64(0x79b9f9b976543210));
-        assert_eq!(p128(0xfedcba98765432100000000000000000).naive_rem(p128(0x87654321000000000000000000000000)), p128(0x79b9f9b9765432100000000000000000));
+        assert_eq!(p8(0xfe).const_rem(p8(0x87)), p8(0x79));
+        assert_eq!(p16(0xfedc).const_rem(p16(0x8765)), p16(0x79b9));
+        assert_eq!(p32(0xfedcba98).const_rem(p32(0x87654321)), p32(0x79b9f9b9));
+        assert_eq!(p64(0xfedcba9876543210).const_rem(p64(0x8765432100000000)), p64(0x79b9f9b976543210));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).const_rem(p128(0x87654321000000000000000000000000)), p128(0x79b9f9b9765432100000000000000000));
 
         assert_eq!(p8(0xfe) % p8(0x87), p8(0x79));
         assert_eq!(p16(0xfedc) % p16(0x8765), p16(0x79b9));
@@ -82,7 +82,7 @@ mod test {
     fn hardware_mul() {
         for a in (0..=255).map(|a| p8(a)) {
             for b in (0..=255).map(|b| p8(b)) {
-                let res_naive = a.wrapping_naive_mul(b);
+                let res_naive = a.const_wrapping_mul(b);
                 let res_hardware = a.wrapping_mul(b);
                 assert_eq!(res_naive, res_hardware);
             }
@@ -93,9 +93,9 @@ mod test {
     fn overflowing_mul() {
         for a in (0..=255).map(|a| p8(a)) {
             for b in (0..=255).map(|b| p8(b)) {
-                let (wrapped_naive, overflow_naive) = a.overflowing_naive_mul(b);
+                let (wrapped_naive, overflow_naive) = a.const_overflowing_mul(b);
                 let (wrapped_hardware, overflow_hardware) = a.overflowing_mul(b);
-                let res_naive = p16::from(a).naive_mul(p16::from(b));
+                let res_naive = p16::from(a).const_mul(p16::from(b));
                 let res_hardware = p16::from(a) * p16::from(b);
 
                 // same results naive vs hardware?
@@ -145,7 +145,7 @@ mod test {
 
     #[test]
     fn pow() {
-        // p32::naive_pow just uses p32::naive_mul, we want
+        // p32::const_pow just uses p32::const_mul, we want
         // to test with a truely naive pow
         fn naive_pow(a: p64, exp: u32) -> p64 {
             let mut x = p64(1);
