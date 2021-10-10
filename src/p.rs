@@ -80,8 +80,8 @@ mod test {
 
     #[test]
     fn hardware_mul() {
-        for a in (0..=255).map(|a| p8(a)) {
-            for b in (0..=255).map(|b| p8(b)) {
+        for a in (0..=255).map(p8) {
+            for b in (0..=255).map(p8) {
                 let res_naive = a.wrapping_naive_mul(b);
                 let res_hardware = a.wrapping_mul(b);
                 assert_eq!(res_naive, res_hardware);
@@ -91,8 +91,8 @@ mod test {
 
     #[test]
     fn overflowing_mul() {
-        for a in (0..=255).map(|a| p8(a)) {
-            for b in (0..=255).map(|b| p8(b)) {
+        for a in (0..=255).map(p8) {
+            for b in (0..=255).map(p8) {
                 let (wrapped_naive, overflow_naive) = a.overflowing_naive_mul(b);
                 let (wrapped_hardware, overflow_hardware) = a.overflowing_mul(b);
                 let res_naive = p16::from(a).naive_mul(p16::from(b));
@@ -116,8 +116,8 @@ mod test {
 
     #[test]
     fn mul_div() {
-        for a in (1..=255).map(|a| p16(a)) {
-            for b in (1..=255).map(|b| p16(b)) {
+        for a in (1..=255).map(p16) {
+            for b in (1..=255).map(p16) {
                 // mul
                 let x = a * b;
                 // is div/rem correct?
@@ -131,8 +131,8 @@ mod test {
 
     #[test]
     fn div_rem() {
-        for a in (0..=255).map(|a| p8(a)) {
-            for b in (1..=255).map(|b| p8(b)) {
+        for a in (0..=255).map(p8) {
+            for b in (1..=255).map(p8) {
                 // find div + rem
                 let q = a / b;
                 let r = a % b;
@@ -155,7 +155,7 @@ mod test {
             x
         }
 
-        for a in (0..=255).map(|a| p64(a)) {
+        for a in (0..=255).map(p64) {
             for b in 0..=255 {
                 // compare pow vs naive_pow
                 assert_eq!(a.wrapping_pow(b), naive_pow(a, b));

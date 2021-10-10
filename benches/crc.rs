@@ -1,5 +1,4 @@
-//! Let compare naive carry-less multiplication vs hardware accelerated
-//! carry-less multiplication
+//! Lets compare various CRC implementations
 
 use criterion::criterion_group;
 use criterion::criterion_main;

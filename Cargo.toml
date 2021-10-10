@@ -12,6 +12,14 @@ name = "xmul"
 harness = false
 
 [[bench]]
+name = "gfmul"
+harness = false
+
+[[bench]]
+name = "gfdiv"
+harness = false
+
+[[bench]]
 name = "crc"
 harness = false
 

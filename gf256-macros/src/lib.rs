@@ -7,13 +7,39 @@ use syn;
 use syn::parse_macro_input;
 use proc_macro2::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use quote::quote;
 use std::iter::FromIterator;
 use std::env;
 
 // template files are relative to the current file
 const P_TEMPLATE: &'static str = include_str!("p.rs");
+const GF_TEMPLATE: &'static str = include_str!("gf.rs");
 
+
+fn crate_() -> TokenTree {
+    TokenTree::Group(Group::new(Delimiter::None,
+        if env::var("CARGO_CRATE_NAME").unwrap() == "gf256" {
+            quote! { crate }
+        } else {
+            quote! { ::gf256 }
+        }
+    ))
+}
+
+/// Test if hardware xmul is supported, this expects to be in a
+/// #[cfg] attributes/macro
+///
+fn hardware_xmul_query() -> TokenStream {
+    quote! {
+        any(
+            // x86_64 provides xmul via the pclmulqdq instruction
+            all(target_arch="x86_64", target_feature="pclmulqdq"),
+            // aarch64 provides xmul via the pmull instruction
+            all(target_arch="aarch64", target_feature="neon,crypto"),
+        )
+    }
+}
 
 fn token_replace(
     input: TokenStream,
@@ -132,6 +158,7 @@ fn compile_template(
 }
 
 
+// Polynomial types
 
 #[derive(Debug, FromMeta)]
 struct PArgs {
@@ -145,13 +172,7 @@ pub fn p(
     args: proc_macro::TokenStream,
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
-    let crate_ = TokenTree::Group(Group::new(Delimiter::None,
-        if env::var("CARGO_CRATE_NAME").unwrap() == "gf256" {
-            quote! { crate }
-        } else {
-            quote! { ::gf256 }
-        }
-    ));
+    let crate_ = crate_();
 
     // parse args
     let args = parse_macro_input!(args as syn::AttributeArgs);
@@ -222,12 +243,188 @@ pub fn p(
     };
 
     let pmod = Ident::new(&format!("__{}_gen", p.to_string()), Span::call_site());
-    let template = quote! {
+    let output = quote! {
         #(#attrs)* #vis use #pmod::#p;
         mod #pmod {
             #template
         }
     };
 
-    template.into()
+    output.into()
+}
+
+
+// Galois field types
+
+#[derive(Debug, FromMeta)]
+struct GfArgs {
+    polynomial: u16,
+    #[darling(default)]
+    generator: Option<u8>,
+    #[darling(default)]
+    table: bool,
+    #[darling(default)]
+    barret: bool,
+    
+}
+
+/// Carry-less multiplication, aka polynomial multiplication
+///
+fn xmul16(a: u16, b: u16) -> u16 {
+    let mut x = 0;
+    for i in 0..16 {
+        let mask = (((a as i16) << (15-i)) >> 15) as u16;
+        x ^= mask & (b << i);
+    }
+    x
+}
+
+/// Tests is a given element is a multiplicative generator
+/// for a given field defined by the polynomial
+///
+/// This just attempts to generate all elements of the field,
+/// erroring if not all elements could be generated
+///
+fn is_generator(polynomial: u16, generator: u8) -> bool {
+    let mut elements = HashSet::with_capacity(255);
+
+    // try to generate elements
+    let mut x = 1u16;
+    for _ in 0..255 {
+        elements.insert(x as u8);
+        x = xmul16(x, generator as u16);
+        if x >= 256 {
+            x = x ^ polynomial;
+        }
+    }
+
+    // set contains all elements?
+    (1..255).all(|e| elements.contains(&e))
+}
+
+/// Find a multiplicative generator for a given field defined
+/// by the polynomial
+///
+/// This is just implemented by brute force, fortunately it's
+/// usually pretty easy to find generators in a field
+///
+fn find_generator(polynomial: u16) -> Result<u8, String> {
+    for generator in 2..255 {
+        if is_generator(polynomial, generator) {
+            return Ok(generator);
+        }
+    }
+
+    Err(format!("unable to find a generator for field with \
+        polynomial=0x{:03x}", polynomial))
+}
+
+#[proc_macro_attribute]
+pub fn gf(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream
+) -> proc_macro::TokenStream {
+    let crate_ = crate_();
+
+    // parse args
+    let args = parse_macro_input!(args as syn::AttributeArgs);
+    let args = match GfArgs::from_list(&args) {
+        Ok(args) => args,
+        Err(err) => {
+            return err.write_errors().into();
+        }
+    };
+
+    // decide between table or barret implementation
+    match (args.table, args.barret) {
+        (true,  true)  => panic!("both table and barret set?"),
+        (false, false) => {
+            // annoyingly, we can't get target-dependent configuration directly,
+            // but we can _indirectly_, by emitting some cfg tests and recursing
+            // back into this macro
+            //
+            // terrible? yes, but it works
+            //
+            let hardware_xmul_query = hardware_xmul_query();
+            let polynomial = args.polynomial;
+            let generator1 = args.generator.iter();
+            let generator2 = args.generator.iter();
+            let input = TokenStream::from(input);
+            let output = quote! {
+                #crate_::internal::cfg_if::cfg_if! {
+                    if #[cfg(#hardware_xmul_query)] {
+                        #[#crate_::macros::gf(
+                            polynomial=#polynomial,
+                            #(generator=#generator1,)*
+                            table
+                        )]
+                        #input
+                    } else {
+                        #[#crate_::macros::gf(
+                            polynomial=#polynomial,
+                            #(generator=#generator2,)*
+                            table
+                        )]
+                        #input
+                    }
+                }
+            };
+            return output.into();
+        }
+        _ => {}
+    }
+
+    // find a generator, or just fake it if we're using a barret implementation
+    let generator = match (args.barret, args.generator) {
+        (true, _) => 0,
+        (false, Some(generator)) => generator,
+        (false, None) => {
+            match find_generator(args.polynomial) {
+                Ok(generator) => generator,
+                Err(err) => panic!("{}", err),
+            }
+        }
+    };
+
+    // parse type
+    let ty = parse_macro_input!(input as syn::ForeignItemType);
+    let attrs = ty.attrs;
+    let vis = ty.vis;
+    let gf = ty.ident;
+
+    // keyword replacements
+    let replacements = HashMap::from_iter([
+        ("__gf".to_owned(), TokenTree::Ident(gf.clone())),
+        ("__table".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", args.table), Span::call_site())
+        )),
+        ("__barret".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", args.barret), Span::call_site())
+        )),
+        ("__polynomial".to_owned(), TokenTree::Literal(
+            Literal::u16_unsuffixed(args.polynomial)
+        )),
+        ("__generator".to_owned(), TokenTree::Literal(
+            Literal::u8_unsuffixed(generator)
+        )),
+        ("__crate".to_owned(), crate_),
+    ]);
+
+    // parse template
+    let template = match compile_template(GF_TEMPLATE, &replacements) {
+        Ok(template) => template,
+        Err(err) => {
+            return err.to_compile_error().into();
+        }
+    };
+
+    let gfmod = Ident::new(&format!("__{}_gen", gf.to_string()), Span::call_site());
+    let output = quote! {
+        #(#attrs)* #vis use #gfmod::#gf;
+        mod #gfmod {
+            #template
+        }
+    };
+
+    output.into()
 }

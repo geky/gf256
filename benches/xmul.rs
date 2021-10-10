@@ -1,4 +1,4 @@
-//! Let compare naive carry-less multiplication vs hardware accelerated
+//! Lets compare naive carry-less multiplication vs hardware accelerated
 //! carry-less multiplication
 
 use criterion::criterion_group;
@@ -6,7 +6,7 @@ use criterion::criterion_main;
 use criterion::Criterion;
 use criterion::BatchSize;
 use std::iter;
-use gf256::*;
+use ::gf256::*;
 
 fn naive_xmul(a: p64, b: p64) -> p64 {
     a.wrapping_naive_mul(b)

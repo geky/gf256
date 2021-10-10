@@ -2932,10 +2932,7 @@ impl fmt::Debug for __p {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if !f.alternate() {
-            write!(f, "0x")?;
-        }
-        <__u as fmt::LowerHex>::fmt(&self.0, f)
+        f.pad(&format!("0x{:x}", self.0))
     }
 }
 
@@ -2943,10 +2940,7 @@ impl fmt::Display for __p {
     /// Note, we use LowerHex for Display since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if !f.alternate() {
-            write!(f, "0x")?;
-        }
-        <__u as fmt::LowerHex>::fmt(&self.0, f)
+        f.pad(&format!("0x{:x}", self.0))
     }
 }
 

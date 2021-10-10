@@ -15,8 +15,8 @@
 
 use std::iter;
 use std::convert::TryFrom;
-use gf256::traits::FromLossy;
-use gf256::*;
+use ::gf256::traits::FromLossy;
+use ::gf256::*;
 
 /// This is a common polynomial for 32-bit CRCs, normally the highest
 /// bit of the polynomial is omitted, so this may often be seen as just
