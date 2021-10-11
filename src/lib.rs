@@ -1,4 +1,10 @@
 
+// Enable stdsimd for pmull on aarch64
+#![cfg_attr(
+    all(target_arch="aarch64", feature="use-nightly-features"),
+    feature(stdsimd)
+)]
+
 
 /// Common traits
 pub mod traits;

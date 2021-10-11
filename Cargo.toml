@@ -23,6 +23,15 @@ harness = false
 name = "crc"
 harness = false
 
+[features]
+# Enables features only found on a nightly compiler
+#
+# Most notably this is required to leverage pmull on aarch64, see this
+# tracking issue:
+# https://github.com/rust-lang/rust/issues/48556
+#
+use-nightly-features = []
+
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}
 

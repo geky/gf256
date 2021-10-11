@@ -179,8 +179,7 @@ impl __p {
                         }
                     }
                 }
-            } else if #[cfg(all(target_arch="aarch64", target_feature="neon,crypto"))] {
-                // TODO does this work on aarch64?
+            } else if #[cfg(all(target_arch="aarch64", target_feature="neon"))] {
                 cfg_if! {
                     if #[cfg(__if(__width <= 64))] {
                         unsafe {
@@ -193,7 +192,7 @@ impl __p {
                     } else {
                         unsafe {
                             // aarch64 provides 64-bit xmul via the pmull instruction
-                            use core::arch::x86_64::*;
+                            use core::arch::aarch64::*;
                             let a0 = self.0 as u64;
                             let a1 = (self.0 >> 64) as u64;
                             let b0 = other.0 as u64;
@@ -206,7 +205,7 @@ impl __p {
                     }
                 }
             } else {
-                self.naive_mul(other)
+                self.wrapping_naive_mul(other)
             }
         }
     }
