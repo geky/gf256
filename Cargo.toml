@@ -30,7 +30,7 @@ harness = false
 # tracking issue:
 # https://github.com/rust-lang/rust/issues/48556
 #
-use-nightly-features = []
+nightly-features = []
 
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}

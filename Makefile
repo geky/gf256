@@ -17,7 +17,7 @@ test:
 
 .PHONY: bench
 bench:
-	$(ENV) cargo +nightly bench --features use-nightly-features
+	$(ENV) cargo +nightly bench --features nightly-features
 
 .PHONY: clean
 clean:

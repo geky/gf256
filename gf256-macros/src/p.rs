@@ -153,55 +153,23 @@ impl __p {
     pub fn wrapping_mul(self, other: __p) -> __p {
         cfg_if! {
             if #[cfg(all(target_arch="x86_64", target_feature="pclmulqdq"))] {
+                use __crate::internal::xmul::*;
+
                 cfg_if! {
                     if #[cfg(__if(__width <= 64))] {
-                        unsafe {
-                            // x86_64 provides 64-bit xmul via the pclmulqdq instruction
-                            use core::arch::x86_64::*;
-                            let a = _mm_set_epi64x(0, self.0 as i64);
-                            let b = _mm_set_epi64x(0, other.0 as i64);
-                            let x = _mm_clmulepi64_si128::<0>(a, b);
-                            __p(_mm_extract_epi64::<0>(x) as __u)
-                        }
+                        __p(__pclmulqdq_u64(self.0 as u64, other.0 as u64) as __u)
                     } else {
-                        unsafe {
-                            // x86_64 provides 64-bit xmul via the pclmulqdq instruction
-                            use core::arch::x86_64::*;
-                            let a = _mm_set_epi64x((self.0 >> 64) as i64, self.0 as i64);
-                            let b = _mm_set_epi64x((other.0 >> 64) as i64, other.0 as i64);
-                            let x0 = _mm_clmulepi64_si128::<0>(a, b);
-                            let x1 = _mm_slli_si128::<64>(_mm_clmulepi64_si128::<1>(a, b));
-                            let x2 = _mm_slli_si128::<64>(_mm_clmulepi64_si128::<4>(a, b));
-                            let x = _mm_xor_si128(x0, _mm_xor_si128(x1, x2));
-                            let x0 = _mm_extract_epi64::<0>(x);
-                            let x1 = _mm_extract_epi64::<1>(x);
-                            __p(((x1 as u128) << 64) | (x0 as u128))
-                        }
+                        __p(__pclmulqdq_u128(self.0, other.0))
                     }
                 }
             } else if #[cfg(all(target_arch="aarch64", target_feature="neon"))] {
+                use __crate::internal::xmul::*;
+
                 cfg_if! {
                     if #[cfg(__if(__width <= 64))] {
-                        unsafe {
-                            // aarch64 provides 64-bit xmul via the pmull instruction
-                            use core::arch::aarch64::*;
-                            let a = self.0 as u64;
-                            let b = other.0 as u64;
-                            __p(vmull_p64(a, b) as __u)
-                        }
+                        __p(__pmull_u64(self.0 as u64, other.0 as u64) as __u)
                     } else {
-                        unsafe {
-                            // aarch64 provides 64-bit xmul via the pmull instruction
-                            use core::arch::aarch64::*;
-                            let a0 = self.0 as u64;
-                            let a1 = (self.0 >> 64) as u64;
-                            let b0 = other.0 as u64;
-                            let b1 = (other.0 >> 64) as u64;
-                            let x0 = vmull_p64(a0, b0);
-                            let x1 = vmull_p64(a1, b0);
-                            let x2 = vmull_p64(a0, b1);
-                            __p(x0 ^ (x1 << 64) ^ (x2 << 64))
-                        }
+                        __p(__pmull_u128(self.0, other.0))
                     }
                 }
             } else {
