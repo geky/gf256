@@ -1,5 +1,5 @@
 
-override ENV += RUSTFLAGS=-Ctarget-cpu=native
+override ENV += RUSTFLAGS="-Ctarget-cpu=native"
 
 .PHONY: all build
 all build:
@@ -17,7 +17,7 @@ test:
 
 .PHONY: bench
 bench:
-	$(ENV) cargo +nightly bench --features nightly-features
+	$(ENV) cargo +nightly bench --features use-nightly-features
 
 .PHONY: clean
 clean:

@@ -152,7 +152,11 @@ impl __p {
     #[inline]
     pub fn wrapping_mul(self, other: __p) -> __p {
         cfg_if! {
-            if #[cfg(all(target_arch="x86_64", target_feature="pclmulqdq"))] {
+            if #[cfg(all(
+                __if(!__naive),
+                target_arch="x86_64",
+                target_feature="pclmulqdq"
+            ))] {
                 use __crate::internal::xmul::*;
 
                 cfg_if! {
@@ -162,7 +166,12 @@ impl __p {
                         __p(__pclmulqdq_u128(self.0, other.0))
                     }
                 }
-            } else if #[cfg(all(target_arch="aarch64", target_feature="neon"))] {
+            } else if #[cfg(all(
+                __if(!__naive),
+                feature="use-nightly-features",
+                target_arch="aarch64",
+                target_feature="neon"
+            ))] {
                 use __crate::internal::xmul::*;
 
                 cfg_if! {
@@ -172,7 +181,7 @@ impl __p {
                         __p(__pmull_u128(self.0, other.0))
                     }
                 }
-            } else {
+            } else if #[cfg(__if(!__hardware))] {
                 self.wrapping_naive_mul(other)
             }
         }

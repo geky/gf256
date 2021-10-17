@@ -1,7 +1,7 @@
 
 // Enable stdsimd for pmull on aarch64
 #![cfg_attr(
-    all(target_arch="aarch64", feature="nightly-features"),
+    all(feature="use-nightly-features", target_arch="aarch64"),
     feature(stdsimd)
 )]
 

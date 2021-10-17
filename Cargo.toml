@@ -30,7 +30,46 @@ harness = false
 # tracking issue:
 # https://github.com/rust-lang/rust/issues/48556
 #
-nightly-features = []
+use-nightly-features = []
+
+# Makes p* types use a naive carry-less multiplication implementation
+# using shifts and xors. Mainly useful for testing/benchmarking.
+#
+# By default hardware xmul is used if available, falling back to a naive
+# implementation.
+#
+use-naive-xmul = ["gf256-macros/use-naive-xmul"]
+
+# Makes p* types require hardware-accelerated carry-less multiplication,
+# causing a compile error if carry-less multiplication instructions aren't
+# available in the current architecture.
+#
+# By default hardware xmul is used if available, falling back to a naive
+# implementation.
+#
+use-hardware-xmul = ["gf256-macros/use-hardware-xmul"]
+
+# Make gf* types use a naive multiplication implementation using shifts
+# and xors. Mainly useful for testing/benchmarking.
+#
+# By default log/antilog tables are used.
+#
+use-naive-gfmul = ["gf256-macros/use-naive-gfmul"]
+
+# Make gf* types use precompiled log/antilog tables.
+#
+# By default log/antilog tables are used.
+#
+use-table-gfmul = ["gf256-macros/use-table-gfmul"]
+
+# Makes gf* types use (potentially hardware accelerated) polynomial
+# multiplication with Barret reduction. This is generally slower than using
+# log/antilog tables, but may be useful if constant-time operations are
+# required.
+#
+# By default log/antilog tables are used.
+#
+use-barret-gfmul = ["gf256-macros/use-barret-gfmul"]
 
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}

@@ -27,20 +27,6 @@ fn crate_() -> TokenTree {
     ))
 }
 
-/// Test if hardware xmul is supported, this expects to be in a
-/// #[cfg] attributes/macro
-///
-fn hardware_xmul_query() -> TokenStream {
-    quote! {
-        any(
-            // x86_64 provides xmul via the pclmulqdq instruction
-            all(target_arch="x86_64", target_feature="pclmulqdq"),
-            // aarch64 provides xmul via the pmull instruction
-            all(target_arch="aarch64", target_feature="neon,crypto"),
-        )
-    }
-}
-
 fn token_replace(
     input: TokenStream,
     replacements: &HashMap<String, TokenTree>
@@ -165,6 +151,10 @@ struct PArgs {
     u: String,
     #[darling(default)]
     width: Option<usize>,
+    #[darling(default)]
+    naive: bool,
+    #[darling(default)]
+    hardware: bool,
 }
 
 #[proc_macro_attribute]
@@ -183,6 +173,24 @@ pub fn p(
         }
     };
 
+    // decide between implementations
+    let (naive, hardware) = match (
+        (args.naive, args.hardware),
+        (cfg!(feature="use-naive-xmul"), cfg!(feature="use-hardware-xmul"))
+    ) {
+        // choose mode if one is explicitly requested
+        ((true,  false), _             ) => (true,  false),
+        ((false, false), (true,  false)) => (true,  false),
+        ((false, true,), _             ) => (false, true ),
+        ((false, false), (false, true )) => (false, true ),
+
+        // default to neither, let the p* implementation make the decision
+        ((false, false), (false, false)) => (false, false),
+
+        // multiple modes selected?
+        _ => panic!("invalid configuration of macro p (naive, hardware?)"),
+    };
+
     let width = match (args.width, args.u.as_ref()) {
         (Some(width), _) => width,
         (None, "usize") => {
@@ -194,11 +202,11 @@ pub fn p(
             //
             let input = TokenStream::from(input);
             let output = quote! {
-                #[cfg_attr(target_pointer_width="8",   #crate_::macros::p(u="usize", width=8  ))]
-                #[cfg_attr(target_pointer_width="16",  #crate_::macros::p(u="usize", width=16 ))]
-                #[cfg_attr(target_pointer_width="32",  #crate_::macros::p(u="usize", width=32 ))]
-                #[cfg_attr(target_pointer_width="64",  #crate_::macros::p(u="usize", width=64 ))]
-                #[cfg_attr(target_pointer_width="128", #crate_::macros::p(u="usize", width=128))]
+                #[cfg_attr(target_pointer_width="8",   #crate_::macros::p(u="usize", width=8,   naive=#naive, hardware=#hardware))]
+                #[cfg_attr(target_pointer_width="16",  #crate_::macros::p(u="usize", width=16,  naive=#naive, hardware=#hardware))]
+                #[cfg_attr(target_pointer_width="32",  #crate_::macros::p(u="usize", width=32,  naive=#naive, hardware=#hardware))]
+                #[cfg_attr(target_pointer_width="64",  #crate_::macros::p(u="usize", width=64,  naive=#naive, hardware=#hardware))]
+                #[cfg_attr(target_pointer_width="128", #crate_::macros::p(u="usize", width=128, naive=#naive, hardware=#hardware))]
                 #input
             };
             return output.into();
@@ -231,6 +239,12 @@ pub fn p(
         ("__is_usize".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", args.u == "usize"), Span::call_site())
         )),
+        ("__naive".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", naive), Span::call_site())
+        )),
+        ("__hardware".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", hardware), Span::call_site())
+        )),
         ("__crate".to_owned(), crate_),
     ]);
 
@@ -262,10 +276,11 @@ struct GfArgs {
     #[darling(default)]
     generator: Option<u8>,
     #[darling(default)]
+    naive: bool,
+    #[darling(default)]
     table: bool,
     #[darling(default)]
     barret: bool,
-    
 }
 
 /// Carry-less multiplication, aka polynomial multiplication
@@ -335,47 +350,28 @@ pub fn gf(
         }
     };
 
-    // decide between table or barret implementation
-    match (args.table, args.barret) {
-        (true,  true)  => panic!("both table and barret set?"),
-        (false, false) => {
-            // annoyingly, we can't get target-dependent configuration directly,
-            // but we can _indirectly_, by emitting some cfg tests and recursing
-            // back into this macro
-            //
-            // terrible? yes, but it works
-            //
-            let hardware_xmul_query = hardware_xmul_query();
-            let polynomial = args.polynomial;
-            let generator1 = args.generator.iter();
-            let generator2 = args.generator.iter();
-            let input = TokenStream::from(input);
-            let output = quote! {
-                #crate_::internal::cfg_if::cfg_if! {
-                    if #[cfg(#hardware_xmul_query)] {
-                        #[#crate_::macros::gf(
-                            polynomial=#polynomial,
-                            #(generator=#generator1,)*
-                            table
-                        )]
-                        #input
-                    } else {
-                        #[#crate_::macros::gf(
-                            polynomial=#polynomial,
-                            #(generator=#generator2,)*
-                            table
-                        )]
-                        #input
-                    }
-                }
-            };
-            return output.into();
-        }
-        _ => {}
-    }
+    // decide between implementations
+    let (naive, table, barret) = match (
+        (args.naive, args.table, args.barret),
+        (cfg!(feature="use-naive-gfmul"), cfg!(feature="use-table-gfmul"), cfg!(feature="use-barret-gfmul"))
+    ) {
+        // choose mode if one is explicitly requested
+        ((true,  false, false), _                    ) => (true,  false, false),
+        ((false, false, false), (true,  false, false)) => (true,  false, false),
+        ((false, true,  false), _                    ) => (false, true,  false),
+        ((false, false, false), (false, true,  false)) => (false, true,  false),
+        ((false, false, true ), _                    ) => (false, false, true ),
+        ((false, false, false), (false, false, true )) => (false, false, true ),
+
+        // default to table, this is currently the fastest implementation
+        ((false, false, false), (false, false, false)) => (false, true,  false),
+
+        // multiple modes selected?
+        _ => panic!("invalid configuration of macro gf (naive, table, barret?)"),
+    };
 
     // find a generator, or just fake it if we're using a barret implementation
-    let generator = match (args.barret, args.generator) {
+    let generator = match (barret, args.generator) {
         (true, _) => 0,
         (false, Some(generator)) => generator,
         (false, None) => {
@@ -395,11 +391,14 @@ pub fn gf(
     // keyword replacements
     let replacements = HashMap::from_iter([
         ("__gf".to_owned(), TokenTree::Ident(gf.clone())),
+        ("__naive".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", naive), Span::call_site())
+        )),
         ("__table".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", args.table), Span::call_site())
+            Ident::new(&format!("{}", table), Span::call_site())
         )),
         ("__barret".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", args.barret), Span::call_site())
+            Ident::new(&format!("{}", barret), Span::call_site())
         )),
         ("__polynomial".to_owned(), TokenTree::Literal(
             Literal::u16_unsuffixed(args.polynomial)

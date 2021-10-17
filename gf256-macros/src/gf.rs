@@ -202,6 +202,9 @@ impl __gf {
                 let x = p16(self.0 as u16) * p16(other.0 as u16);
                 let q = (p16::mul(x >> 8, Self::BARRET_CONSTANT) >> 8);
                 __gf((p16::mul(q, Self::POLYNOMIAL) + x).0 as u8)
+            } else {
+                // fallback to naive multiplication over gf(256)
+                self.naive_mul(other)
             }
         }
     }
