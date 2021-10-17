@@ -23,6 +23,10 @@ harness = false
 name = "crc"
 harness = false
 
+[[bench]]
+name = "shamir"
+harness = false
+
 [features]
 # Enables features only found on a nightly compiler
 #
@@ -73,6 +77,7 @@ use-barret-gfmul = ["gf256-macros/use-barret-gfmul"]
 
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}
+rand = "0.8.3"
 
 [dependencies]
 gf256-macros = {path="gf256-macros"}

@@ -17,6 +17,7 @@ use __crate::internal::cfg_if::cfg_if;
 /// A gf(256) field
 #[allow(non_camel_case_types)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct __gf(pub u8);
 
 impl __gf {

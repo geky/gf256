@@ -15,6 +15,7 @@ use __crate::internal::cfg_if::cfg_if;
 /// A type representing a gf(2) polynomial
 #[allow(non_camel_case_types)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(transparent)]
 pub struct __p(pub __u);
 
 impl __p {
