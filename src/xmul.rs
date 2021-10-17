@@ -23,8 +23,8 @@ pub fn __pclmulqdq(a: u64, b: u64) -> u128 {
         let a = _mm_set_epi64x(0, a as i64);
         let b = _mm_set_epi64x(0, b as i64);
         let x = _mm_clmulepi64_si128::<0>(a, b);
-        let x0 = _mm_extract_epi64::<0>(x);
-        let x1 = _mm_extract_epi64::<1>(x);
+        let x0 = _mm_extract_epi64::<0>(x) as u64;
+        let x1 = _mm_extract_epi64::<1>(x) as u64;
         ((x1 as u128) << 64) | (x0 as u128)
     }
 }
@@ -41,7 +41,7 @@ pub fn __pclmulqdq_u64(a: u64, b: u64) -> u64 {
         let a = _mm_set_epi64x(0, a as i64);
         let b = _mm_set_epi64x(0, b as i64);
         let x = _mm_clmulepi64_si128::<0>(a, b);
-        _mm_extract_epi64::<0>(x)
+        _mm_extract_epi64::<0>(x) as u64
     }
 }
 
@@ -59,10 +59,10 @@ pub fn __pclmulqdq_u128(a: u128, b: u128) -> u128 {
         let x = _mm_clmulepi64_si128::<0x0>(a, b);
         let y = _mm_clmulepi64_si128::<0x1>(a, b);
         let z = _mm_clmulepi64_si128::<0x4>(a, b);
-        let x0 = _mm_extract_epi64::<0>(x);
-        let x1 = _mm_extract_epi64::<1>(x)
-            ^ _mm_extract_epi64::<1>(y)
-            ^ _mm_extract_epi64::<1>(z);
+        let x0 = _mm_extract_epi64::<0>(x) as u64;
+        let x1 = (_mm_extract_epi64::<1>(x) as u64)
+            ^ (_mm_extract_epi64::<1>(y) as u64)
+            ^ (_mm_extract_epi64::<1>(z) as u64);
         ((x1 as u128) << 64) | (x0 as u128)
     }
 }
