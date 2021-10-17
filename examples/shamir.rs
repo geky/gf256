@@ -20,7 +20,18 @@
 use rand;
 use rand::Rng;
 use std::convert::TryFrom;
-use ::gf256::*;
+use ::gf256::macros::gf;
+
+
+// We could use the default gf256 type available in the gf256 crate, but
+// it defaults to a table-based implementation, which risks leaking timing
+// information due to caching
+//
+// Instead we use a Barret implementation here, which provide constant-time
+// operations, but is slower
+//
+#[gf(polynomial=0x11d, barret)]
+type gf256;
 
 
 /// Generate a random polynomial of a given degree, fixing f(0) = secret
