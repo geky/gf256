@@ -253,23 +253,7 @@ impl __gf {
             } else {
                 // x^-1 = x^255-1 = x^254
                 //
-                // This could just use self.pow(254), but instead we use a slightly
-                // more efficient unrolled pow, using 11 muls instead of 14, at the cost
-                // of needing 4 words of storage instead of 2
-                //
-                let x    = self;
-                let x2   = x.mul(x);
-                let x3   = x2.mul(x);
-                let x6   = x3.mul(x3);
-                let x12  = x6.mul(x6);
-                let x15  = x12.mul(x3);
-                let x24  = x12.mul(x12);
-                let x48  = x24.mul(x24);
-                let x63  = x48.mul(x15);
-                let x126 = x63.mul(x63);
-                let x127 = x126.mul(x);
-                let x254 = x127.mul(x127);
-                Some(x254)
+                Some(self.pow(254))
             }
         }
     }
