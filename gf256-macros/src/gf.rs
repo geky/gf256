@@ -216,19 +216,37 @@ impl __gf {
     ///
     #[inline]
     pub fn pow(self, exp: u32) -> __gf {
-        let mut a = self;
-        let mut exp = exp;
-        let mut x = __gf(1);
-        loop {
-            if exp & 1 != 0 {
-                x = x.mul(a);
-            }
+        cfg_if! {
+            if #[cfg(__if(__table))] {
+                // another shortcut! if we are in table mode, the log/antilog
+                // tables let us compute the pow with traditional integer
+                // operations. Expensive integer operations, but less expensive
+                // than looping.
+                //
+                if exp == 0 {
+                    __gf(1)
+                } else if self.0 == 0 {
+                    __gf(0)
+                } else {
+                    let x = ((Self::LOG_TABLE[self.0 as usize] as u32) * exp) % 255;
+                    __gf(Self::EXP_TABLE[x as usize])
+                }
+            } else {
+                let mut a = self;
+                let mut exp = exp;
+                let mut x = __gf(1);
+                loop {
+                    if exp & 1 != 0 {
+                        x = x.mul(a);
+                    }
 
-            exp >>= 1;
-            if exp == 0 {
-                return x;
+                    exp >>= 1;
+                    if exp == 0 {
+                        return x;
+                    }
+                    a = a.mul(a);
+                }
             }
-            a = a.mul(a);
         }
     }
 
@@ -249,7 +267,7 @@ impl __gf {
                 //
                 // x^-1 = g^log_g(x^-1) = g^-log_g(x) = g^(255-log_g(x))
                 //
-                let x = 0xff - Self::LOG_TABLE[self.0 as usize];
+                let x = 255 - Self::LOG_TABLE[self.0 as usize];
                 Some(__gf(Self::EXP_TABLE[x as usize]))
             } else {
                 // x^-1 = x^255-1 = x^254
@@ -277,8 +295,34 @@ impl __gf {
     ///
     #[inline]
     pub fn checked_div(self, other: __gf) -> Option<__gf> {
-        other.checked_recip()
-            .map(|other_i| self.naive_mul(other_i))
+        if other.0 == 0 {
+            return None;
+        }
+
+        cfg_if! {
+            if #[cfg(__if(__table))] {
+                // more table mode shortcuts, this just shaves off a pair of lookups
+                //
+                // a/b = a*b^-1 = g^(log_g(a)+log_g(b^-1)) = g^(log_g(a)-log_g(b)) = g^(log_g(a)+255-log_g(b))
+                //
+                if self.0 == 0 {
+                    Some(__gf(0))
+                } else {
+                    let x = match
+                        Self::LOG_TABLE[self.0 as usize]
+                            .overflowing_add(255 - Self::LOG_TABLE[other.0 as usize])
+                    {
+                        (x, false) => x,
+                        (x, true)  => x.wrapping_sub(255),
+                    };
+                    Some(__gf(Self::EXP_TABLE[x as usize]))
+                }
+            } else {
+                // a/b = a*b^1
+                //
+                Some(self * other.recip())
+            }
+        }
     }
 
     /// Division over gf(256)
