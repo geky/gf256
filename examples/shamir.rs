@@ -1,4 +1,4 @@
-//! Shamir's secret sharing using the Galois-field types
+//! Shamir's secret sharing using our Galois-field types
 //!
 //! The main idea behind Shamir's secret sharing is to represent a secret
 //! as a point in an unknown polynomial, where each participant holds a
@@ -132,33 +132,33 @@ fn main() {
 
     let input = b"Hello World!";
     println!();
-    println!("{:<6} => {:?}", "input", String::from_utf8_lossy(input));
+    println!("testing shamir({:?})", String::from_utf8_lossy(input));
 
     let shares = shamir_generate(input, 5, 4);
-    println!("{:<6} => {}", "share1", hex(&shares[0]));
-    println!("{:<6} => {}", "share2", hex(&shares[1]));
-    println!("{:<6} => {}", "share3", hex(&shares[2]));
-    println!("{:<6} => {}", "share4", hex(&shares[3]));
-    println!("{:<6} => {}", "share5", hex(&shares[4]));
+    println!("{} => {}", "generate share1", hex(&shares[0]));
+    println!("{} => {}", "generate share2", hex(&shares[1]));
+    println!("{} => {}", "generate share3", hex(&shares[2]));
+    println!("{} => {}", "generate share4", hex(&shares[3]));
+    println!("{} => {}", "generate share5", hex(&shares[4]));
 
     let output = shamir_reconstruct(&shares[..1]);
-    println!("{:<16} => {:?}", "output(1 shares)", String::from_utf8_lossy(&output));
+    println!("{} => {:?}", "reconstruct 1 shares", String::from_utf8_lossy(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..2]);
-    println!("{:<16} => {:?}", "output(2 shares)", String::from_utf8_lossy(&output));
+    println!("{} => {:?}", "reconstruct 2 shares", String::from_utf8_lossy(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..3]);
-    println!("{:<16} => {:?}", "output(3 shares)", String::from_utf8_lossy(&output));
+    println!("{} => {:?}", "reconstruct 3 shares", String::from_utf8_lossy(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..4]);
-    println!("{:<16} => {:?}", "output(4 shares)", String::from_utf8_lossy(&output));
+    println!("{} => {:?}", "reconstruct 4 shares", String::from_utf8_lossy(&output));
     assert_eq!(output, input);
 
     let output = shamir_reconstruct(&shares[..5]);
-    println!("{:<16} => {:?}", "output(5 shares)", String::from_utf8_lossy(&output));
+    println!("{} => {:?}", "reconstruct 5 shares", String::from_utf8_lossy(&output));
     assert_eq!(output, input);
 
     println!();

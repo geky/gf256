@@ -371,10 +371,9 @@ pub fn gf(
     };
 
     // find a generator, or just fake it if we're using a barret implementation
-    let generator = match (barret, args.generator) {
-        (true, _) => 0,
-        (false, Some(generator)) => generator,
-        (false, None) => {
+    let generator = match args.generator {
+        Some(generator) => generator,
+        None => {
             match find_generator(args.polynomial) {
                 Ok(generator) => generator,
                 Err(err) => panic!("{}", err),

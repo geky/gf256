@@ -6,14 +6,11 @@ all build:
 	$(ENV) cargo build
 
 .PHONY: test
-define TEST_EXAMPLE
-	$(ENV) cargo run --example $(1)
-
-endef
 test:
 	$(ENV) cargo test --lib
-	$(patsubst examples/%.rs,$(call TEST_EXAMPLE,%),$(wildcard examples/*.rs))
-
+	$(ENV) cargo run --example crc
+	$(ENV) cargo run --example shamir
+	$(ENV) cargo run --example raid
 
 .PHONY: bench
 bench:

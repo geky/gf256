@@ -24,6 +24,9 @@ impl __gf {
     /// Primitive polynomial that defines the field
     pub const POLYNOMIAL: p16 = p16(__polynomial);
 
+    /// Generator polynomial in the field
+    pub const GENERATOR: __gf = __gf(__generator);
+
     // Generate log/antilog tables using our generator
     // if we're in table mode
     //
