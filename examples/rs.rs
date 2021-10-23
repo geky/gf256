@@ -3,6 +3,9 @@
 //!
 //! TODO doc
 //!
+//! Based on description/implementation from here:
+//! https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
+//!
 
 use std::convert::TryFrom;
 use std::mem;
@@ -111,25 +114,22 @@ fn rs_poly_add(f: &mut [gf256], g: &[gf256]) {
 fn rs_poly_mul(f: &mut [gf256], g: &[gf256]) {
     debug_assert!(f[..g.len()-1].iter().all(|x| *x == gf256(0)));
 
-    // TODO make this in-place
-    let mut r = vec![gf256(0); f.len()];
-    for i in 0..f.len()-g.len()+1 {
+    // This can be done in-place but it gets a bit confusing,
+    // note that we only write to i+j, and i+j is always >= i
+    //
+    // What makes this confusing is that f and g are both big-endian
+    // polynomials, reverse order from what you would expect. And in
+    // order to leverage the i+j non-overlap, we need to write to 
+    // f in reverse-reverse order.
+    //
+    for i in (0..f.len()-g.len()+1).rev() {
+        let fi = f[f.len()-1-i];
+        f[f.len()-1-i] = gf256(0);
+
         for j in 0..g.len() {
-            let r_len = r.len();
-            r[r_len-1-(i+j)] += f[f.len()-1-i] * g[g.len()-1-j];
+            f[f.len()-1-(i+j)] += fi * g[g.len()-1-j];
         }
     }
-
-    f.copy_from_slice(&r);
-
-// NOTE THIS DOES NOT WORK
-//    // we can multiply in place by iterating over f backwards
-//    for i in (0..f.len()).rev() {
-//        let fi = f[f.len()-1-i];
-//        for j in 0..g.len() {
-//            f[f.len()-1-(i+j)] += fi * g[g.len()-1-j];
-//        }
-//    }
 }
 
 /// Divide polynomials via synthetic division
