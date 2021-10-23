@@ -73,7 +73,7 @@ fn bench_raid(c: &mut Criterion) {
 
     // repair
     let mut xs = xorshift64(42).map(|x| x as u8);
-    group.throughput(Throughput::Bytes((COUNT*SIZE) as u64));
+    group.throughput(Throughput::Bytes((1*SIZE) as u64));
     group.bench_function("raid4_repair", |b| b.iter_batched_ref(
         || {
             (
@@ -129,7 +129,7 @@ fn bench_raid(c: &mut Criterion) {
 
     // repair 1
     let mut xs = xorshift64(42).map(|x| x as u8);
-    group.throughput(Throughput::Bytes((COUNT*SIZE) as u64));
+    group.throughput(Throughput::Bytes((1*SIZE) as u64));
     group.bench_function("raid6_repair_1", |b| b.iter_batched_ref(
         || {
             (
@@ -147,7 +147,7 @@ fn bench_raid(c: &mut Criterion) {
 
     // repair 2
     let mut xs = xorshift64(42).map(|x| x as u8);
-    group.throughput(Throughput::Bytes((COUNT*SIZE) as u64));
+    group.throughput(Throughput::Bytes((2*SIZE) as u64));
     group.bench_function("raid6_repair_2", |b| b.iter_batched_ref(
         || {
             let i = usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT+2).unwrap());
