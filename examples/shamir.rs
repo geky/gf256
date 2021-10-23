@@ -35,7 +35,7 @@ type gf256;
 
 
 /// Generate a random polynomial of a given degree, fixing f(0) = secret
-fn shamir_random_poly(secret: gf256, degree: usize) -> Vec<gf256> {
+fn shamir_poly_random(secret: gf256, degree: usize) -> Vec<gf256> {
     let mut rng = rand::thread_rng();
     let mut f = vec![secret];
     for _ in 0..degree {
@@ -45,7 +45,7 @@ fn shamir_random_poly(secret: gf256, degree: usize) -> Vec<gf256> {
 }
 
 /// Evaluate a polynomial at x using Horner's method
-fn shamir_eval_poly(f: &[gf256], x: gf256) -> gf256 {
+fn shamir_poly_eval(f: &[gf256], x: gf256) -> gf256 {
     let mut y = gf256(0);
     for c in f.iter().rev() {
         y = y*x + c;
@@ -54,7 +54,7 @@ fn shamir_eval_poly(f: &[gf256], x: gf256) -> gf256 {
 }
 
 /// Find f(0) using Lagrange interpolation
-fn shamir_interpolate_poly(xs: &[gf256], ys: &[gf256]) -> gf256 {
+fn shamir_poly_interpolate(xs: &[gf256], ys: &[gf256]) -> gf256 {
     assert!(xs.len() == ys.len());
 
     let mut y = gf256(0);
@@ -85,12 +85,12 @@ pub fn shamir_generate(secret: &[u8], n: usize, k: usize) -> Vec<Vec<u8>> {
 
     for x in secret {
         // generate a random polynomial for each byte
-        let f = shamir_random_poly(gf256(*x), k-1);
+        let f = shamir_poly_random(gf256(*x), k-1);
 
         // assign each share with a point at f(i)
         for i in 0..n {
             shares[i].push(u8::from(
-                shamir_eval_poly(&f, gf256::try_from(i+1).unwrap())
+                shamir_poly_eval(&f, gf256::try_from(i+1).unwrap())
             ));
         }
     }
@@ -116,7 +116,7 @@ pub fn shamir_reconstruct<S: AsRef<[u8]>>(shares: &[S]) -> Vec<u8> {
     let xs = shares.iter().map(|s| gf256(s.as_ref()[0])).collect::<Vec<_>>();
     for i in 1..len {
         let ys = shares.iter().map(|s| gf256(s.as_ref()[i])).collect::<Vec<_>>();
-        secret.push(u8::from(shamir_interpolate_poly(&xs, &ys)));
+        secret.push(u8::from(shamir_poly_interpolate(&xs, &ys)));
     }
 
     secret
