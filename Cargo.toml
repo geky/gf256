@@ -31,6 +31,10 @@ harness = false
 name = "raid"
 harness = false
 
+[[bench]]
+name = "rs"
+harness = false
+
 [features]
 # Enables features only found on a nightly compiler
 #

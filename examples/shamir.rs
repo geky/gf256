@@ -1,4 +1,4 @@
-//! Shamir's secret sharing using our Galois-field types
+//! Shamir's secret sharing using the Galois-field types
 //!
 //! The main idea behind Shamir's secret sharing is to represent a secret
 //! as a point in an unknown polynomial, where each participant holds a

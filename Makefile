@@ -11,6 +11,7 @@ test:
 	$(ENV) cargo run --example crc
 	$(ENV) cargo run --example shamir
 	$(ENV) cargo run --example raid
+	$(ENV) cargo run --example rs
 
 .PHONY: bench
 bench:
