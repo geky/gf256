@@ -276,6 +276,10 @@ struct GfArgs {
     #[darling(default)]
     generator: Option<u8>,
     #[darling(default)]
+    u: Option<String>,
+    #[darling(default)]
+    width: Option<usize>,
+    #[darling(default)]
     naive: bool,
     #[darling(default)]
     table: bool,

@@ -89,7 +89,7 @@ pub const GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
         while j < i+1 {
             let mut k = 0usize;
             while k < h.len() {
-                r[r.len()-1-(j+k)] = r[r.len()-1-(j+k)].add(
+                r[r.len()-1-(j+k)] = r[r.len()-1-(j+k)].naive_add(
                     g[g.len()-1-j].naive_mul(h[h.len()-1-k])
                 );
                 k += 1;

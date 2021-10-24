@@ -21,13 +21,25 @@ pub struct __p(pub __u);
 impl __p {
     /// Polynomial addition, aka xor
     #[inline]
-    pub const fn add(self, other: __p) -> __p {
+    pub const fn naive_add(self, other: __p) -> __p {
+        __p(self.0 ^ other.0)
+    }
+
+    /// Polynomial addition, aka xor
+    #[inline]
+    pub fn add(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 
     /// Polynomial subtraction, aka xor
     #[inline]
-    pub const fn sub(self, other: __p) -> __p {
+    pub const fn naive_sub(self, other: __p) -> __p {
+        __p(self.0 ^ other.0)
+    }
+
+    /// Polynomial subtraction, aka xor
+    #[inline]
+    pub fn sub(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 

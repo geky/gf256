@@ -8,7 +8,6 @@ use std::num::TryFromIntError;
 use std::num::ParseIntError;
 use __crate::p8;
 use __crate::p16;
-use __crate::p32;
 use __crate::traits::TryFrom;
 use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
@@ -62,18 +61,34 @@ impl __gf {
     // in Barret mode
     #[cfg(__if(__barret))]
     const BARRET_CONSTANT: p16 = {
-        p16(p32(0x10000).naive_div(p32(__polynomial)).0 as u16)
+        // normally this would be 0x10000 / __polynomial, but we eagerly
+        // do one step of division so we avoid needing a 4x wide type
+        //
+        //p16(p32(0x10000).naive_div(p32(__polynomial)).0 as u16)
+        p16(__polynomial << 8).naive_div(p16(__polynomial)).naive_add(p16(0x100))
     };
 
     /// Addition over gf(256), aka xor
     #[inline]
-    pub const fn add(self, other: __gf) -> __gf {
+    pub const fn naive_add(self, other: __gf) -> __gf {
+        __gf(self.0 ^ other.0)
+    }
+
+    /// Addition over gf(256), aka xor
+    #[inline]
+    pub fn add(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
     /// Subtraction over gf(256), aka xor
     #[inline]
-    pub const fn sub(self, other: __gf) -> __gf {
+    pub const fn naive_sub(self, other: __gf) -> __gf {
+        __gf(self.0 ^ other.0)
+    }
+
+    /// Subtraction over gf(256), aka xor
+    #[inline]
+    pub fn sub(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 

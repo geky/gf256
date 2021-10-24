@@ -8,6 +8,7 @@ all build:
 .PHONY: test
 test:
 	$(ENV) cargo test --lib
+	$(ENV) cargo test --example find-p
 	$(ENV) cargo run --example crc
 	$(ENV) cargo run --example shamir
 	$(ENV) cargo run --example raid
