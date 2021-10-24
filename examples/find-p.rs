@@ -92,8 +92,8 @@ pub fn is_generator(g: p128, p: p128) -> bool {
     //
     let mask = (1u128 << width) - 1;
     let barret_constant = (((mask & p) << width) / p) + (p128(1) << width);
-    let mut mgroup = iter::successors(
-        Some(p128(1)),
+    let mgroup = iter::successors(
+        Some(g),
         |x| {
             let x = g * x;
             let q = ((x >> width) * barret_constant) >> width;
@@ -101,26 +101,20 @@ pub fn is_generator(g: p128, p: p128) -> bool {
         }
     );
 
-    // Use a simple cycle detection algorithm, Brent's algorithm,
-    // to find the cycle of the multiplicative group. This has the benefit
-    // of terminating early if a smaller cycle is found
-    let mut pw2 = 1;
+    // find the length of the cycle of the multiplicative group by iterating
+    // over successive powers until we reach our starting point
+    let field_size = 1u128 << width;
     let mut len = 1;
-    let mut tortoise = mgroup.next().unwrap();
-    let mut hare = mgroup.next().unwrap();
-    while tortoise != hare {
-        if pw2 == len {
-            tortoise = hare;
-            pw2 *= 2;
-            len = 0;
+    for x in mgroup.skip(1) {
+        if x == g {
+            break;
         }
-        hare = mgroup.next().unwrap();
+
         len += 1;
+        debug_assert!(len <= field_size-1);
     }
 
     // if len(multiplicative cycle) == field size-1, we found a generator
-    let field_size = 1u128 << width;
-    debug_assert!(len <= field_size-1);
     len == field_size-1
 }
 
