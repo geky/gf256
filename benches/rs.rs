@@ -48,9 +48,9 @@ fn bench_rs(c: &mut Criterion) {
         BatchSize::SmallInput
     ));
 
-    // decode w/ no errors
+    // correct w/ no errors
     let mut xs = xorshift64(42);
-    group.bench_function("rs_decode_none", |b| b.iter_batched_ref(
+    group.bench_function("rs_correct_none", |b| b.iter_batched_ref(
         || {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
@@ -67,9 +67,9 @@ fn bench_rs(c: &mut Criterion) {
         BatchSize::SmallInput
     ));
 
-    // decode w/ <=ECC_SIZE erasures
+    // correct w/ <=ECC_SIZE erasures
     let mut xs = xorshift64(42);
-    group.bench_function("rs_decode_erasures", |b| b.iter_batched_ref(
+    group.bench_function("rs_correct_erasures", |b| b.iter_batched_ref(
         || {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
@@ -99,9 +99,9 @@ fn bench_rs(c: &mut Criterion) {
         BatchSize::SmallInput
     ));
 
-    // decode w/ <=ECC_SIZE/2 errors
+    // correct w/ <=ECC_SIZE/2 errors
     let mut xs = xorshift64(42);
-    group.bench_function("rs_decode_errors", |b| b.iter_batched_ref(
+    group.bench_function("rs_correct_errors", |b| b.iter_batched_ref(
         || {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
@@ -129,9 +129,9 @@ fn bench_rs(c: &mut Criterion) {
         BatchSize::SmallInput
     ));
 
-    // decode w/ 2*errors+erasures <= ECC_SIZE
+    // correct w/ 2*errors+erasures <= ECC_SIZE
     let mut xs = xorshift64(42);
-    group.bench_function("rs_decode", |b| b.iter_batched_ref(
+    group.bench_function("rs_correct", |b| b.iter_batched_ref(
         || {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)

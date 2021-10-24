@@ -520,16 +520,26 @@ pub fn rs_correct_errors(message: &mut [u8]) -> Result<usize, RsError> {
     }
 
     // find error locations
-    let mut errors = rs_find_errors(&error_locator);
+    let errors = rs_find_errors(&error_locator);
 
-    // un-adjust erasures for implicitly prepended zeros
-    if message_poly.len() < BLOCK_SIZE {
-        for errors in errors.iter_mut() {
-            *errors -= BLOCK_SIZE-message_poly.len();
-        }
-    }
+    // find erasure locator polynomial
+    let erasure_locator = rs_find_erasure_locator(&errors);
 
-    rs_correct_erasures(message, &errors)
+    // find erasure evaluator polynomial
+    let erasure_evaluator = rs_find_erasure_evaluator(&syndromes, &erasure_locator);
+
+    // find erasure magnitude using Forney's algorithm
+    let erasure_magnitude = rs_find_erasure_magnitude(
+        &errors,
+        &erasure_evaluator
+    );
+
+    // correct the errors
+    rs_poly_add(
+        message_poly,
+        &erasure_magnitude[BLOCK_SIZE-message_poly.len()..]
+    );
+    Ok(errors.len())
 }
 
 /// Correct a mixture of erasures at unknown locations and erasures
@@ -571,14 +581,24 @@ pub fn rs_correct(
     let mut errors = rs_find_errors(&error_locator);
     errors.extend_from_slice(&erasures);
 
-    // un-adjust errors for padded message
-    if message_poly.len() < BLOCK_SIZE {
-        for errors in errors.iter_mut() {
-            *errors -= BLOCK_SIZE-message_poly.len();
-        }
-    }
+    // find erasure locator polynomial
+    let erasure_locator = rs_find_erasure_locator(&errors);
 
-    rs_correct_erasures(message, &errors)
+    // find erasure evaluator polynomial
+    let erasure_evaluator = rs_find_erasure_evaluator(&syndromes, &erasure_locator);
+
+    // find erasure magnitude using Forney's algorithm
+    let erasure_magnitude = rs_find_erasure_magnitude(
+        &errors,
+        &erasure_evaluator
+    );
+
+    // correct the errors
+    rs_poly_add(
+        message_poly,
+        &erasure_magnitude[BLOCK_SIZE-message_poly.len()..]
+    );
+    Ok(errors.len())
 }
 
 
