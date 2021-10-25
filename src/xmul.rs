@@ -56,13 +56,13 @@ pub fn __pclmulqdq_u128(a: u128, b: u128) -> u128 {
     unsafe {
         let a = _mm_set_epi64x((a >> 64) as i64, a as i64);
         let b = _mm_set_epi64x((b >> 64) as i64, b as i64);
-        let x = _mm_clmulepi64_si128::<0x0>(a, b);
-        let y = _mm_clmulepi64_si128::<0x1>(a, b);
-        let z = _mm_clmulepi64_si128::<0x4>(a, b);
+        let x = _mm_clmulepi64_si128::<0x00>(a, b);
+        let y = _mm_clmulepi64_si128::<0x01>(a, b);
+        let z = _mm_clmulepi64_si128::<0x10>(a, b);
         let x0 = _mm_extract_epi64::<0>(x) as u64;
         let x1 = (_mm_extract_epi64::<1>(x) as u64)
-            ^ (_mm_extract_epi64::<1>(y) as u64)
-            ^ (_mm_extract_epi64::<1>(z) as u64);
+            ^ (_mm_extract_epi64::<0>(y) as u64)
+            ^ (_mm_extract_epi64::<0>(z) as u64);
         ((x1 as u128) << 64) | (x0 as u128)
     }
 }
