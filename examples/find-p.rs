@@ -80,42 +80,89 @@ pub fn is_generator(g: p128, p: p128) -> bool {
         return false;
     }
 
+    // Define a few operations over the finite field defined by the irreducible
+    // polynomial p. Normally we could use our gf-types, except this tool
+    // is being used to generate the polynomials for the gf-types, so...
+    //
     let width = (128-p.leading_zeros()) - 1;
 
-    // We could naively calculate x' = (g*x)%p each iteration, however
-    // we need to do this a lot, so it's better to precalculate Barret's
-    // constant for Barret reduction. This has more multiplications, but
-    // this way we can leveral polynomial-multiplication hardware.
+    // We're going to do a lot of multiplications, so it helps to precalculate
+    // Barret's constant for Barret reduction. This trades a modulus operation
+    // for 2 multiplication, but means we can leverage carry-less multiplication
+    // hardware instructions.
     //
     // normally this is just (1 << (2*width)) / p, but we can precompute
     // one step of division to avoid needing a 4x wide type
     //
     let mask = (1u128 << width) - 1;
     let barret_constant = (((mask & p) << width) / p) + (p128(1) << width);
-    let mgroup = iter::successors(
-        Some(g),
-        |x| {
-            let x = g * x;
-            let q = ((x >> width) * barret_constant) >> width;
-            Some(mask & ((q * p) + x))
-        }
-    );
+    let gfmul = |a: p128, b: p128| -> p128 {
+        let x = a * b;
+        let q = ((x >> width) * barret_constant) >> width;
+        mask & ((q * p) + x)
+    };
 
-    // find the length of the cycle of the multiplicative group by iterating
-    // over successive powers until we reach our starting point
-    let field_size = 1u128 << width;
-    let mut len = 1;
-    for x in mgroup.skip(1) {
-        if x == g {
-            break;
-        }
+    // Exponentiation via squaring
+    let gfpow = |mut a: p128, mut exp: u128| -> p128 {
+        let mut x = p128(1);
+        loop {
+            if exp & 1 != 0 {
+                x = gfmul(x, a);
+            }
 
-        len += 1;
-        debug_assert!(len <= field_size-1);
+            exp >>= 1;
+            if exp == 0 {
+                return x;
+            }
+            a = gfmul(a, a);
+        }
+    };
+
+    // We're trying to test if g generates a multiplicative cycle of
+    // size n - 1, where n is the size of our field. For this to be
+    // true, g^(n-1) = 1 and g^m != 1 for all m < n-1.
+    //
+    // However it turns out we don't need to test all m, just m < n-1
+    // where (n-1)/m is a prime factor of n-1. This is because any
+    // multiplicative group must divide the biggest multiplicative group
+    // evenly.
+    //
+    let n = 1u128 << width;
+
+    // Find prime factors
+    let primes = |mut x: u128| {
+        let mut prime = 2;
+        iter::from_fn(move || {
+            while prime <= x {
+                if x % prime == 0 {
+                    x /= prime;
+                    return Some(prime);
+                }
+
+                prime += 1;
+            }
+
+            None
+        })
+    };
+
+    // g^m != 1 for all m < n-1 where m is prime factor of n-1?
+    //
+    // note we can skip duplicate primes
+    //
+    let mut prev = 1;
+    for prime in primes(n-1) {
+        if prime != prev {
+            prev = prime;
+
+            if gfpow(g, (n-1)/prime) == p128(1) {
+                return false;
+            }
+        }
     }
 
-    // if len(multiplicative cycle) == field size-1, we found a generator
-    len == field_size-1
+    // g^(n-1) = 1?
+    gfpow(g, n-1) == p128(1)
 }
 
 /// Find all generators in a field defined by the given irreducible polynomial
