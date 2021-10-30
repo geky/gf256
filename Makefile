@@ -16,6 +16,7 @@ test:
 	$(ENV) cargo +nightly test --features nightly --lib
 	$(ENV) cargo +nightly test --features nightly --example find-p
 	$(ENV) cargo +nightly run --features nightly --example find-p -- -w9 -n4 -m1
+	$(ENV) cargo +nightly run --features nightly --example lfsr
 	$(ENV) cargo +nightly run --features nightly --example crc
 	$(ENV) cargo +nightly run --features nightly --example shamir
 	$(ENV) cargo +nightly run --features nightly --example raid

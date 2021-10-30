@@ -229,15 +229,17 @@ fn main() {
         (None,        None   ) => unreachable!(),
     };
 
-    let ps: Box<dyn Iterator<Item=p128>> = match opt.polynomial {
-        Some(p) => Box::new(iter::once(p)),
-        None    => Box::new(((1u128 << (width-1)) .. (1u128 << width)).map(p128)),
+    let ps: Box<dyn Iterator<Item=p128>> = match (opt.polynomial, opt.n) {
+        (Some(p), None   ) => Box::new(iter::once(p)),
+        (Some(p), Some(_)) => Box::new((u128::from(p) .. (1u128 << width)).map(p128)),
+        (None,    _      ) => Box::new(((1u128 << (width-1)) .. (1u128 << width)).map(p128)),
     };
 
     let gs = || -> Box<dyn Iterator<Item=p128>> {
-        match opt.generator {
-            Some(g) => Box::new(iter::once(g)),
-            None    => Box::new((0 .. (1u128 << (width-1))).map(p128)),
+        match (opt.generator, opt.m) {
+            (Some(g), None   ) => Box::new(iter::once(g)),
+            (Some(g), Some(_)) => Box::new((u128::from(g) .. (1u128 << (width-1))).map(p128)),
+            (None,    _      ) => Box::new((0 .. (1u128 << (width-1))).map(p128)),
         }
     };
 

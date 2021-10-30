@@ -1673,6 +1673,66 @@ impl BitXorAssign<&__u> for __gf {
 }
 
 
+//// Byte order ////
+
+impl __gf {
+    #[inline]
+    pub const fn swap_bytes(self) -> __gf {
+        __gf(self.0.swap_bytes())
+    }
+
+    #[inline]
+    pub const fn to_le(self) -> __gf {
+        __gf(self.0.to_le())
+    }
+
+    #[inline]
+    pub const fn from_le(self_: __gf) -> __gf {
+        __gf(__u::from_le(self_.0))
+    }
+
+    #[inline]
+    pub const fn to_le_bytes(self) -> [u8; (__width+7)/8] {
+        self.0.to_le_bytes()
+    }
+
+    #[inline]
+    pub const fn from_le_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+        __gf(__u::from_le_bytes(bytes))
+    }
+
+    #[inline]
+    pub const fn to_be(self) -> __gf {
+        __gf(self.0.to_be())
+    }
+
+    #[inline]
+    pub const fn from_be(self_: __gf) -> __gf {
+        __gf(__u::from_be(self_.0))
+    }
+
+    #[inline]
+    pub const fn to_be_bytes(self) -> [u8; (__width+7)/8] {
+        self.0.to_be_bytes()
+    }
+
+    #[inline]
+    pub const fn from_be_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+        __gf(__u::from_be_bytes(bytes))
+    }
+
+    #[inline]
+    pub const fn to_ne_bytes(self) -> [u8; (__width+7)/8] {
+        self.0.to_ne_bytes()
+    }
+
+    #[inline]
+    pub const fn from_ne_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+        __gf(__u::from_ne_bytes(bytes))
+    }
+}
+
+
 //// Other bit things ////
 
 impl __gf {
