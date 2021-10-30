@@ -640,7 +640,7 @@ fn main() {
     );
 
     let mut message = rs_encode(orig_message);
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         "rs_encode",
         ascii(&message),
         hex(&message)
@@ -652,14 +652,14 @@ fn main() {
     for error in errors.iter() {
         message[*error] = b'x';
     }
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         format!("corrupted ({},{})", ECC_SIZE, 0),
         ascii(&message),
         hex(&message)
     );
 
     rs_correct_erasures(&mut message, &errors).unwrap();
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         "rs_correct_erasures",
         ascii(&message),
         hex(&message)
@@ -675,14 +675,14 @@ fn main() {
     for error in errors.iter() {
         message[*error] = b'x';
     }
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         format!("corrupted ({},{})", 0, ECC_SIZE/2),
         ascii(&message),
         hex(&message)
     );
 
     rs_correct_errors(&mut message).unwrap();
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         "rs_correct_errors",
         ascii(&message),
         hex(&message)
@@ -701,14 +701,14 @@ fn main() {
     for error in errors.iter() {
         message[*error] = b'x';
     }
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         format!("corrupted ({},{})", erasure_count, (ECC_SIZE-erasure_count)/2),
         ascii(&message),
         hex(&message)
     );
 
     rs_correct(&mut message, &errors[..erasure_count]).unwrap();
-    println!("{:<19} => \"{}\"  {}",
+    println!("{:<19} => {}  {}",
         "rs_correct",
         ascii(&message),
         hex(&message)

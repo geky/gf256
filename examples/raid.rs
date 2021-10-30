@@ -683,6 +683,18 @@ pub fn main() {
             .collect()
     }
 
+    fn ascii(xs: &[u8]) -> String {
+        xs.iter()
+            .map(|x| {
+                if *x < b' ' || *x > b'~' {
+                    '.'
+                } else {
+                    char::from(*x)
+                }
+            })
+            .collect::<String>()
+    }
+
 
     // test Raid4
 
@@ -696,17 +708,17 @@ pub fn main() {
     println!();
     println!("testing raid4({:?})",
         blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
+            .map(|b| ascii(b.get_ref()))
             .take(3)
             .collect::<String>()
     );
 
     Raid4::format(&mut blocks).unwrap();
-    println!("{:<7} => {:<19} {}",
+    println!("{:<7} => {}  {}",
         "format",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -717,11 +729,11 @@ pub fn main() {
     raid_blocks[2].seek(io::SeekFrom::Start(3)).unwrap();
     raid_blocks[2].write_all(b"!").unwrap();
     let mut blocks = blocks_ref.into_inner();
-    println!("{:<7} => {:<19} {}",
+    println!("{:<7} => {}  {}",
         "update",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -732,22 +744,22 @@ pub fn main() {
     for bad_block in bad_blocks.iter() {
         blocks[*bad_block].get_mut().fill(b'x');
     }
-    println!("{:<7} => {:<19} {}",
+    println!("{:<7} => {}  {}",
         "corrupt",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
     );
 
     Raid4::repair(&mut blocks, &bad_blocks).unwrap();
-    println!("{:<7} => {:<19} {}",
+    println!("{:<7} => {}  {}",
         "repair",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -755,7 +767,7 @@ pub fn main() {
     assert_eq!(
         blocks.iter()
             .take(3)
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
+            .map(|b| ascii(b.get_ref()))
             .collect::<String>(),
         "Hello World!"
     );
@@ -774,17 +786,17 @@ pub fn main() {
     println!();
     println!("testing raid6({:?})",
         blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
+            .map(|b| ascii(b.get_ref()))
             .take(3)
             .collect::<String>()
     );
 
     Raid6::format(&mut blocks).unwrap();
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "format",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -795,11 +807,11 @@ pub fn main() {
     raid_blocks[2].seek(io::SeekFrom::Start(3)).unwrap();
     raid_blocks[2].write_all(b"!").unwrap();
     let mut blocks = blocks_ref.into_inner();
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "update",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -810,22 +822,22 @@ pub fn main() {
     for bad_block in bad_blocks.iter() {
         blocks[*bad_block].get_mut().fill(b'x');
     }
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "corrupt",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
     );
 
     Raid6::repair(&mut blocks, &bad_blocks).unwrap();
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "repair",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -833,7 +845,7 @@ pub fn main() {
     assert_eq!(
         blocks.iter()
             .take(3)
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
+            .map(|b| ascii(b.get_ref()))
             .collect::<String>(),
         "Hello World!"
     );
@@ -843,22 +855,22 @@ pub fn main() {
     for bad_block in bad_blocks.iter() {
         blocks[*bad_block].get_mut().fill(b'x');
     }
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "corrupt",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
     );
 
     Raid6::repair(&mut blocks, &bad_blocks).unwrap();
-    println!("{:<7} => {:<23} {}",
+    println!("{:<7} => {}  {}",
         "repair",
-        format!("{:?}", blocks.iter()
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
-            .collect::<String>()),
+        blocks.iter()
+            .map(|b| ascii(b.get_ref()))
+            .collect::<String>(),
         blocks.iter()
             .map(|b| hex(b.get_ref()))
             .collect::<String>()
@@ -866,7 +878,7 @@ pub fn main() {
     assert_eq!(
         blocks.iter()
             .take(3)
-            .map(|b| String::from_utf8_lossy(b.get_ref()))
+            .map(|b| ascii(b.get_ref()))
             .collect::<String>(),
         "Hello World!"
     );

@@ -130,35 +130,48 @@ fn main() {
             .collect()
     }
 
+    fn ascii(xs: &[u8]) -> String {
+        xs.iter()
+            .map(|x| {
+                if *x < b' ' || *x > b'~' {
+                    '.'
+                } else {
+                    char::from(*x)
+                }
+            })
+            .collect::<String>()
+    }
+
+
     let input = b"Hello World!";
     println!();
     println!("testing shamir({:?})", String::from_utf8_lossy(input));
 
     let shares = shamir_generate(input, 5, 4);
-    println!("{} => {}", "generate share1", hex(&shares[0]));
-    println!("{} => {}", "generate share2", hex(&shares[1]));
-    println!("{} => {}", "generate share3", hex(&shares[2]));
-    println!("{} => {}", "generate share4", hex(&shares[3]));
-    println!("{} => {}", "generate share5", hex(&shares[4]));
+    println!("{} => {}  {}", "generate share1", ascii(&shares[0]), hex(&shares[0]));
+    println!("{} => {}  {}", "generate share2", ascii(&shares[1]), hex(&shares[1]));
+    println!("{} => {}  {}", "generate share3", ascii(&shares[2]), hex(&shares[2]));
+    println!("{} => {}  {}", "generate share4", ascii(&shares[3]), hex(&shares[3]));
+    println!("{} => {}  {}", "generate share5", ascii(&shares[4]), hex(&shares[4]));
 
     let output = shamir_reconstruct(&shares[..1]);
-    println!("{} => {:?}", "reconstruct 1 shares", String::from_utf8_lossy(&output));
+    println!("{} => {}  {}", "reconstruct 1 shares", ascii(&output), hex(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..2]);
-    println!("{} => {:?}", "reconstruct 2 shares", String::from_utf8_lossy(&output));
+    println!("{} => {}  {}", "reconstruct 2 shares", ascii(&output), hex(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..3]);
-    println!("{} => {:?}", "reconstruct 3 shares", String::from_utf8_lossy(&output));
+    println!("{} => {}  {}", "reconstruct 3 shares", ascii(&output), hex(&output));
     assert_ne!(output, input);
 
     let output = shamir_reconstruct(&shares[..4]);
-    println!("{} => {:?}", "reconstruct 4 shares", String::from_utf8_lossy(&output));
+    println!("{} => {}  {}", "reconstruct 4 shares", ascii(&output), hex(&output));
     assert_eq!(output, input);
 
     let output = shamir_reconstruct(&shares[..5]);
-    println!("{} => {:?}", "reconstruct 5 shares", String::from_utf8_lossy(&output));
+    println!("{} => {}  {}", "reconstruct 5 shares", ascii(&output), hex(&output));
     assert_eq!(output, input);
 
     println!();
