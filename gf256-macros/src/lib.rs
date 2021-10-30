@@ -13,8 +13,8 @@ use std::iter::FromIterator;
 use std::env;
 
 // template files are relative to the current file
-const P_TEMPLATE: &'static str = include_str!("p.rs");
-const GF_TEMPLATE: &'static str = include_str!("gf.rs");
+const P_TEMPLATE: &'static str = include_str!("../../templates/p.rs");
+const GF_TEMPLATE: &'static str = include_str!("../../templates/gf.rs");
 
 
 fn crate_() -> TokenTree {
