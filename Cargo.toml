@@ -24,6 +24,10 @@ name = "find-p"
 harness = false
 
 [[bench]]
+name = "lfsr"
+harness = false
+
+[[bench]]
 name = "crc"
 harness = false
 
@@ -61,6 +65,7 @@ criterion = {version="0.3", features=["html_reports"]}
 rand = "0.8.3"
 rand_core = "0.6.3"
 structopt = "0.3.25"
+flate2 = "1.0.22"
 
 [dependencies]
 gf256-macros = {path="gf256-macros"}

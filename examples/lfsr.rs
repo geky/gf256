@@ -67,7 +67,7 @@ use ::gf256::macros::*;
 
 /// A pretty terrible prng, with a period of only 255
 #[derive(Debug, Clone)]
-struct Gf256Rng(gf256);
+pub struct Gf256Rng(gf256);
 
 impl SeedableRng for Gf256Rng {
     type Seed = [u8; 1];
@@ -127,7 +127,7 @@ type gf2p64;
 /// A better prng, with a period of 2^64, comparable to xorshift64
 ///
 #[derive(Debug, Clone)]
-struct Gf2p64Rng(gf2p64);
+pub struct Gf2p64Rng(gf2p64);
 
 impl SeedableRng for Gf2p64Rng {
     type Seed = [u8; 8];
