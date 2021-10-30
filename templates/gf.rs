@@ -2400,7 +2400,7 @@ impl fmt::Debug for __gf {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("0x{:02x}", self.0))
+        f.pad(&format!("{}(0x{:02x})", stringify!(__gf), self.0))
     }
 }
 
