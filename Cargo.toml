@@ -4,19 +4,12 @@ version = "0.1.0"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
 edition = "2018"
 
-[lib]
-bench = false
-
 [[bench]]
 name = "xmul"
 harness = false
 
 [[bench]]
-name = "gfmul"
-harness = false
-
-[[bench]]
-name = "gfdiv"
+name = "gf"
 harness = false
 
 [[bench]]

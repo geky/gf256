@@ -8,14 +8,6 @@ use criterion::BatchSize;
 use std::iter;
 use ::gf256::*;
 
-fn naive_xmul(a: p64, b: p64) -> p64 {
-    a.wrapping_naive_mul(b)
-}
-
-fn hardware_xmul(a: p64, b: p64) -> p64 {
-    a.wrapping_mul(b)
-}
-
 fn bench_xmul(c: &mut Criterion) {
     let mut group = c.benchmark_group("xmul");
 
@@ -35,7 +27,7 @@ fn bench_xmul(c: &mut Criterion) {
     let mut ys = xorshift64(42*42).map(p64);
     group.bench_function("naive_xmul", |b| b.iter_batched(
         || (xs.next().unwrap(), ys.next().unwrap()),
-        |(x, y)| naive_xmul(x, y),
+        |(x, y)| x.naive_wrapping_mul(y),
         BatchSize::SmallInput
     ));
 
@@ -44,7 +36,7 @@ fn bench_xmul(c: &mut Criterion) {
     let mut ys = xorshift64(42*42).map(p64);
     group.bench_function("hardware_xmul", |b| b.iter_batched(
         || (xs.next().unwrap(), ys.next().unwrap()),
-        |(x, y)| hardware_xmul(x, y),
+        |(x, y)| x.wrapping_mul(y),
         BatchSize::SmallInput
     ));
 }

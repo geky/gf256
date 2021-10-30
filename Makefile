@@ -24,7 +24,14 @@ test:
 
 .PHONY: bench
 bench:
-	$(ENV) cargo +nightly bench --features nightly
+	$(ENV) cargo +nightly bench --features nightly --bench xmul   -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench gf     -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench find-p -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench lfsr   -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench crc    -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench shamir -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench raid   -- --noplot
+	$(ENV) cargo +nightly bench --features nightly --bench rs     -- --noplot
 
 .PHONY: clean
 clean:
