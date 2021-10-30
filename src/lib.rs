@@ -5,6 +5,12 @@
     feature(stdsimd)
 )]
 
+// We don't really need std
+#![no_std]
+
+// Other assertions
+#![deny(missing_debug_implementations)]
+
 
 /// Common traits
 pub mod traits;

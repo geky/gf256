@@ -1,11 +1,11 @@
 ///! Template for polynomial types
 
-use std::ops::*;
-use std::iter::*;
-use std::fmt;
-use std::str::FromStr;
-use std::num::TryFromIntError;
-use std::num::ParseIntError;
+use core::ops::*;
+use core::iter::*;
+use core::fmt;
+use core::str::FromStr;
+use core::num::TryFromIntError;
+use core::num::ParseIntError;
 use __crate::p8;
 use __crate::p16;
 use __crate::traits::TryFrom;
@@ -269,7 +269,7 @@ impl __gf {
                 //
                 fn wadening_mul(a: __p, b: __p) -> (__p, __p) {
                     let (lo, hi) = a.widening_mul(b);
-                    let hi = (hi << (8*std::mem::size_of::<__u>() - __width) as usize)
+                    let hi = (hi << (8*core::mem::size_of::<__u>() - __width) as usize)
                         | (lo >> __width as usize);
                     (lo, hi)
                 }
@@ -2732,7 +2732,7 @@ impl fmt::Debug for __gf {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("{}(0x{:0w$x})", stringify!(__gf), self.0, w=__width/4))
+        write!(f, "{}(0x{:0w$x})", stringify!(__gf), self.0, w=__width/4)
     }
 }
 
@@ -2740,7 +2740,7 @@ impl fmt::Display for __gf {
     /// Note, we use LowerHex for Display since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("0x{:0w$x}", self.0, w=__width/4))
+        write!(f, "0x{:0w$x}", self.0, w=__width/4)
     }
 }
 

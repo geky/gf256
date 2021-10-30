@@ -1,12 +1,12 @@
 ///! Template for polynomial types
 
-use std::mem::size_of;
-use std::ops::*;
-use std::iter::*;
-use std::num::TryFromIntError;
-use std::num::ParseIntError;
-use std::fmt;
-use std::str::FromStr;
+use core::mem::size_of;
+use core::ops::*;
+use core::iter::*;
+use core::num::TryFromIntError;
+use core::num::ParseIntError;
+use core::fmt;
+use core::str::FromStr;
 use __crate::traits::TryFrom;
 use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
@@ -2953,7 +2953,7 @@ impl fmt::Debug for __p {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("{}(0x{:x})", stringify!(__p), self.0))
+        write!(f, "{}(0x{:x})", stringify!(__p), self.0)
     }
 }
 
@@ -2961,7 +2961,7 @@ impl fmt::Display for __p {
     /// Note, we use LowerHex for Display since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("0x{:x}", self.0))
+        write!(f, "0x{:x}", self.0)
     }
 }
 

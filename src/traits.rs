@@ -4,8 +4,8 @@
 //!
 
 // TryFrom/TryInto forwarded for convenience
-pub use std::convert::TryFrom;
-pub use std::convert::TryInto;
+pub use core::convert::TryFrom;
+pub use core::convert::TryInto;
 
 /// A From trait for conversions which may lose precision
 ///

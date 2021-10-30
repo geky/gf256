@@ -13,7 +13,7 @@ use crate::macros::p;
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::convert::TryFrom;
+    use core::convert::TryFrom;
 
     #[test]
     fn add() {
