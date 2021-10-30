@@ -30,7 +30,7 @@ use ::gf256::macros::gf;
 // Instead we use a Barret implementation here, which provide constant-time
 // operations, but is slower
 //
-#[gf(polynomial=0x11d, barret)]
+#[gf(polynomial=0x11d, generator=0x02, barret)]
 type gf256;
 
 

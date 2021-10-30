@@ -13,54 +13,64 @@ use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
 
 
-/// A gf(256) field
+/// A binary-extension finite-field
 #[allow(non_camel_case_types)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-pub struct __gf(pub u8);
+pub struct __gf(pub __u);
 
 impl __gf {
     /// Primitive polynomial that defines the field
-    pub const POLYNOMIAL: p16 = p16(__polynomial);
+    ///
+    /// In order to keep polynomial multiplication closed over a
+    /// finite field, all multiplications are performed modulo this
+    /// polynomial.
+    ///
+    pub const POLYNOMIAL: __p2 = __p2(__polynomial);
 
     /// Generator polynomial in the field
+    ///
+    /// Repeated multiplications of the generator will eventually
+    /// iterate through ever non-zero element of the field
+    ///
     pub const GENERATOR: __gf = __gf(__generator);
+
+    /// Number of non-zero elements in the finite-field
+    pub const NONZEROS: __u = __nonzeros;
 
     // Generate log/antilog tables using our generator
     // if we're in table mode
     //
     #[cfg(__if(__table))]
-    const LOG_TABLE: [u8; 256] = Self::LOG_EXP_TABLES.0;
+    const LOG_TABLE: [__u; __size] = Self::LOG_EXP_TABLES.0;
     #[cfg(__if(__table))]
-    const EXP_TABLE: [u8; 256] = Self::LOG_EXP_TABLES.1;
+    const EXP_TABLE: [__u; __size] = Self::LOG_EXP_TABLES.1;
     #[cfg(__if(__table))]
-    const LOG_EXP_TABLES: ([u8; 256], [u8; 256]) = {
-        let mut log_table = [0u8; 256];
-        let mut exp_table = [0u8; 256];
+    const LOG_EXP_TABLES: ([__u; __size], [__u; __size]) = {
+        let mut log_table = [0; __size];
+        let mut exp_table = [0; __size];
 
-        let mut x = 1u16;
-        let mut i = 0u16;
-        while i < 256 {
-            log_table[x as usize] = i as u8;
-            exp_table[i as usize] = x as u8;
+        let mut x = 1;
+        let mut i = 0;
+        while i < __size {
+            log_table[x as usize] = i as __u;
+            exp_table[i as usize] = x as __u;
 
-            x = p16(x).naive_mul(p16(__generator)).0;
-            if x >= 256 {
-                x ^= __polynomial;
-            }
-
+            x = __p2(x)
+                .naive_mul(__p2(__generator))
+                .naive_rem(__p2(__polynomial)).0;
             i += 1;
         }
 
-        log_table[0] = 0xff; // log(0) is undefined
-        log_table[1] = 0x00; // log(1) is 0
+        log_table[0] = __nonzeros; // log(0) is undefined
+        log_table[1] = 0;          // log(1) is 0
         (log_table, exp_table)
     };
 
     // Generate constant for Barret's reduction if we're
     // in Barret mode
     #[cfg(__if(__barret))]
-    const BARRET_CONSTANT: p8 = {
+    const BARRET_CONSTANT: __p = {
         // Normally this would be 0x10000 / __polynomial, but we eagerly
         // do one step of division so we avoid needing a 4x wide type. We
         // can also drop the highest bit if we add the high bits manually
@@ -76,34 +86,38 @@ impl __gf {
         // Note that the shifts and masks can go away if we operate on u8s,
         // leaving 2 xmuls and 2 xors.
         //
-        p8(p16(__polynomial << 8).naive_div(p16(__polynomial)).0 as u8)
+        __p(
+            __p2((__polynomial & __nonzeros) << __width)
+                .naive_div(__p2(__polynomial))
+                .0 as __u
+        )
     };
 
-    /// Addition over gf(256), aka xor
+    /// Addition over the finite-field, aka xor
     #[inline]
     pub const fn naive_add(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Addition over gf(256), aka xor
+    /// Addition over the finite-field, aka xor
     #[inline]
     pub fn add(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Subtraction over gf(256), aka xor
+    /// Subtraction over the finite-field, aka xor
     #[inline]
     pub const fn naive_sub(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Subtraction over gf(256), aka xor
+    /// Subtraction over the finite-field, aka xor
     #[inline]
     pub fn sub(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Naive multiplication over gf(256)
+    /// Naive multiplication over the finite-field
     ///
     /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
@@ -111,20 +125,20 @@ impl __gf {
     #[inline]
     pub const fn naive_mul(self, other: __gf) -> __gf {
         __gf(
-            p16(self.0 as u16)
-                .naive_mul(p16(other.0 as u16))
-                .naive_rem(p16(__polynomial))
-                .0 as u8
+            __p2(self.0 as _)
+                .naive_mul(__p2(other.0 as _))
+                .naive_rem(__p2(__polynomial))
+                .0 as __u
         )
     }
 
-    /// Naive exponentiation over gf(256)
+    /// Naive exponentiation over the finite-field
     ///
     /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn naive_pow(self, exp: u32) -> __gf {
+    pub const fn naive_pow(self, exp: __u) -> __gf {
         let mut a = self;
         let mut exp = exp;
         let mut x = __gf(1);
@@ -141,7 +155,7 @@ impl __gf {
         }
     }
 
-    /// Naive multiplicative inverse over gf(256)
+    /// Naive multiplicative inverse over the finite-field
     ///
     /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
@@ -153,10 +167,10 @@ impl __gf {
         }
 
         // x^-1 = x^255-1 = x^254
-        Some(self.naive_pow(254))
+        Some(self.naive_pow(__nonzeros-1))
     }
 
-    /// Naive multiplicative inverse over gf(256)
+    /// Naive multiplicative inverse over the finite-field
     ///
     /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
@@ -171,7 +185,10 @@ impl __gf {
         }
     }
 
-    /// Naive division over gf(256)
+    /// Naive division over the finite-field
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
     pub const fn naive_checked_div(self, other: __gf) -> Option<__gf> {
@@ -181,7 +198,10 @@ impl __gf {
         }
     }
 
-    /// Naive division over gf(256)
+    /// Naive division over the finite-field
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts
     ///
     /// This will panic if b == 0
     ///
@@ -193,7 +213,7 @@ impl __gf {
         }
     }
 
-    /// Multiplication over gf(256)
+    /// Multiplication over the finite-field
     ///
     /// TODO doc more?
     ///
@@ -201,7 +221,7 @@ impl __gf {
     pub fn mul(self, other: __gf) -> __gf {
         cfg_if! {
             if #[cfg(__if(__table))] {
-                // multiplication over gf(256) using log/antilog tables
+                // multiplication using log/antilog tables
                 if self.0 == 0 || other.0 == 0 {
                     // special case for 0, this can't be constant-time
                     // anyways because tables are involved
@@ -216,37 +236,62 @@ impl __gf {
                         Self::LOG_TABLE[self.0 as usize]
                             .overflowing_add(Self::LOG_TABLE[other.0 as usize])
                     {
-                        (x, false) => x,
-                        (x, true)  => x.wrapping_sub(255),
+                        (x, true)                    => x.wrapping_sub(__nonzeros),
+                        (x, false) if x > __nonzeros => x.wrapping_sub(__nonzeros),
+                        (x, false)                   => x,
                     };
                     __gf(Self::EXP_TABLE[x as usize])
                 }
-            } else if #[cfg(__if(__barret))] {
-                // multiplication over gf(256) using Barret reduction
+            } else if #[cfg(__if(__barret && __is_pw8))] {
+                // multiplication using Barret reduction
                 //
                 // Barret reduction is a method for turning division/remainder
                 // by a constant into multiplication by a couple constants. It's
                 // useful here if we have hardware xmul instructions, though
                 // it may be more expensive if xmul is naive.
                 //
-                let (lo, hi) = p8(self.0).widening_mul(p8(other.0));
+                let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
                 let x = lo
                     + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(p8(Self::POLYNOMIAL.0 as u8));
-                __gf(x.0 as u8)
+                        .wrapping_mul(__p(__polynomial & __nonzeros));
+                __gf(x.0)
+            } else if #[cfg(__if(__barret))] {
+                // multiplication using Barret reduction
+                //
+                // Same as above, but with extra handling if our width != a
+                // power of 2^8, which means we can't just rely on byte loads
+                // for truncation
+                //
+
+                // widening multiplication but with < power of 2^8 width, note
+                // the top bits are left with garbage, since we mask it all away
+                // at this end of this
+                //
+                fn wadening_mul(a: __p, b: __p) -> (__p, __p) {
+                    let (lo, hi) = a.widening_mul(b);
+                    let hi = (hi << (8*std::mem::size_of::<__u>() - __width) as usize)
+                        | (lo >> __width as usize);
+                    (lo, hi)
+                }
+
+                let (lo, hi) = wadening_mul(__p(self.0), __p(other.0));
+                let x = lo
+                    + (wadening_mul(hi, Self::BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(__p(__polynomial & __nonzeros));
+                __gf(x.0 & __nonzeros)
             } else {
-                // fallback to naive multiplication over gf(256)
+                // fallback to naive multiplication
                 self.naive_mul(other)
             }
         }
     }
 
-    /// Exponentiation over gf(256)
+    /// Exponentiation over the finite-field
     ///
     /// TODO doc more?
     ///
     #[inline]
-    pub fn pow(self, exp: u32) -> __gf {
+    pub fn pow(self, exp: __u) -> __gf {
         cfg_if! {
             if #[cfg(__if(__table))] {
                 // another shortcut! if we are in table mode, the log/antilog
@@ -259,7 +304,8 @@ impl __gf {
                 } else if self.0 == 0 {
                     __gf(0)
                 } else {
-                    let x = ((Self::LOG_TABLE[self.0 as usize] as u32) * exp) % 255;
+                    let x = (__u2::from(Self::LOG_TABLE[self.0 as usize])
+                        * __u2::from(exp)) % __nonzeros;
                     __gf(Self::EXP_TABLE[x as usize])
                 }
             } else {
@@ -281,7 +327,7 @@ impl __gf {
         }
     }
 
-    /// Multiplicative inverse over gf(256)
+    /// Multiplicative inverse over the finite-field
     ///
     /// TODO doc more?
     ///
@@ -298,17 +344,17 @@ impl __gf {
                 //
                 // x^-1 = g^log_g(x^-1) = g^-log_g(x) = g^(255-log_g(x))
                 //
-                let x = 255 - Self::LOG_TABLE[self.0 as usize];
+                let x = __nonzeros - Self::LOG_TABLE[self.0 as usize];
                 Some(__gf(Self::EXP_TABLE[x as usize]))
             } else {
                 // x^-1 = x^255-1 = x^254
                 //
-                Some(self.pow(254))
+                Some(self.pow(__nonzeros-1))
             }
         }
     }
 
-    /// Multiplicative inverse over gf(256)
+    /// Multiplicative inverse over the finite-field
     ///
     /// TODO doc more?
     ///
@@ -317,10 +363,10 @@ impl __gf {
     #[inline]
     pub fn recip(self) -> __gf {
         self.checked_recip()
-            .expect("gf256 division by zero")
+            .expect("gf division by zero")
     }
 
-    /// Division over gf(256)
+    /// Division over the finite-field
     ///
     /// TODO doc more?
     ///
@@ -341,10 +387,11 @@ impl __gf {
                 } else {
                     let x = match
                         Self::LOG_TABLE[self.0 as usize]
-                            .overflowing_add(255 - Self::LOG_TABLE[other.0 as usize])
+                            .overflowing_add(__nonzeros - Self::LOG_TABLE[other.0 as usize])
                     {
-                        (x, false) => x,
-                        (x, true)  => x.wrapping_sub(255),
+                        (x, true)                    => x.wrapping_sub(__nonzeros),
+                        (x, false) if x > __nonzeros => x.wrapping_sub(__nonzeros),
+                        (x, false)                   => x,
                     };
                     Some(__gf(Self::EXP_TABLE[x as usize]))
                 }
@@ -356,7 +403,7 @@ impl __gf {
         }
     }
 
-    /// Division over gf(256)
+    /// Division over the finite-field
     ///
     /// TODO doc more?
     ///
@@ -365,23 +412,25 @@ impl __gf {
     #[inline]
     pub fn div(self, other: __gf) -> __gf {
         self.checked_div(other)
-            .expect("gf256 division by zero")
+            .expect("gf division by zero")
     }
 }
 
 
 //// Conversions into __gf ////
 
-impl From<p8> for __gf {
+#[cfg(__if(__is_pw8))]
+impl From<__p> for __gf {
     #[inline]
-    fn from(x: p8) -> __gf {
+    fn from(x: __p) -> __gf {
         __gf(x.0)
     }
 }
 
-impl From<u8> for __gf {
+#[cfg(__if(__is_pw8))]
+impl From<__u> for __gf {
     #[inline]
-    fn from(x: u8) -> __gf {
+    fn from(x: __u) -> __gf {
         __gf(x)
     }
 }
@@ -389,170 +438,272 @@ impl From<u8> for __gf {
 impl From<bool> for __gf {
     #[inline]
     fn from(x: bool) -> __gf {
-        __gf(u8::from(x))
+        __gf(__u::from(x))
     }
 }
 
+#[cfg(__if(__width >= 32 && !__is_usize))]
+impl From<char> for __gf {
+    #[inline]
+    fn from(x: char) -> __gf {
+        __gf(__u::from(x))
+    }
+}
+
+#[cfg(__if(__width > 8))]
+impl From<u8> for __gf {
+    #[inline]
+    fn from(x: u8) -> __gf {
+        __gf(__u::from(x))
+    }
+}
+
+#[cfg(__if(__width > 16))]
+impl From<u16> for __gf {
+    #[inline]
+    fn from(x: u16) -> __gf {
+        __gf(__u::from(x))
+    }
+}
+
+#[cfg(__if(__width > 32 && !__is_usize))]
+impl From<u32> for __gf {
+    #[inline]
+    fn from(x: u32) -> __gf {
+        __gf(__u::from(x))
+    }
+}
+
+#[cfg(__if(__width > 64 && !__is_usize))]
+impl From<u64> for __gf {
+    #[inline]
+    fn from(x: u64) -> __gf {
+        __gf(__u::from(x))
+    }
+}
+
+#[cfg(__if(__width > 8))]
+impl From<__crate::p8> for __gf {
+    #[inline]
+    fn from(x: __crate::p8) -> __gf {
+        __gf(__u::from(x.0))
+    }
+}
+
+#[cfg(__if(__width > 16))]
+impl From<__crate::p16> for __gf {
+    #[inline]
+    fn from(x: __crate::p16) -> __gf {
+        __gf(__u::from(x.0))
+    }
+}
+
+#[cfg(__if(__width > 32 && !__is_usize))]
+impl From<__crate::p32> for __gf {
+    #[inline]
+    fn from(x: __crate::p32) -> __gf {
+        __gf(__u::from(x.0))
+    }
+}
+
+#[cfg(__if(__width > 64 && !__is_usize))]
+impl From<__crate::p64> for __gf {
+    #[inline]
+    fn from(x: __crate::p64) -> __gf {
+        __gf(__u::from(x.0))
+    }
+}
+
+#[cfg(__if(__width < 16))]
 impl TryFrom<u16> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: u16) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x)?))
+        Ok(__gf(__u::try_from(x)?))
     }
 }
 
+#[cfg(__if(__width < 32 || __is_usize))]
 impl TryFrom<u32> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: u32) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x)?))
+        Ok(__gf(__u::try_from(x)?))
     }
 }
 
+#[cfg(__if(__width < 64 || __is_usize))]
 impl TryFrom<u64> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: u64) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x)?))
+        Ok(__gf(__u::try_from(x)?))
     }
 }
 
+#[cfg(__if(__width < 128 || __is_usize))]
 impl TryFrom<u128> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: u128) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x)?))
+        Ok(__gf(__u::try_from(x)?))
     }
 }
 
+#[cfg(__if(!__is_usize))]
 impl TryFrom<usize> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: usize) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x)?))
+        Ok(__gf(__u::try_from(x)?))
     }
 }
 
+#[cfg(__if(__width < 16))]
 impl TryFrom<__crate::p16> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: __crate::p16) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x.0)?))
+        Ok(__gf(__u::try_from(x.0)?))
     }
 }
 
+#[cfg(__if(__width < 32 || __is_usize))]
 impl TryFrom<__crate::p32> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: __crate::p32) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x.0)?))
+        Ok(__gf(__u::try_from(x.0)?))
     }
 }
 
+#[cfg(__if(__width < 64 || __is_usize))]
 impl TryFrom<__crate::p64> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: __crate::p64) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x.0)?))
+        Ok(__gf(__u::try_from(x.0)?))
     }
 }
 
+#[cfg(__if(__width < 128 || __is_usize))]
 impl TryFrom<__crate::p128> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: __crate::p128) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x.0)?))
+        Ok(__gf(__u::try_from(x.0)?))
     }
 }
 
+#[cfg(__if(!__is_usize))]
 impl TryFrom<__crate::psize> for __gf {
     type Error = TryFromIntError;
     #[inline]
     fn try_from(x: __crate::psize) -> Result<__gf, Self::Error> {
-        Ok(__gf(u8::try_from(x.0)?))
+        Ok(__gf(__u::try_from(x.0)?))
     }
 }
 
+#[cfg(__if(__width < 16))]
 impl FromLossy<u16> for __gf {
     #[inline]
     fn from_lossy(x: u16) -> __gf {
-        __gf(x as u8)
+        __gf(x as __u)
     }
 }
 
+#[cfg(__if(__width < 32 || __is_usize))]
 impl FromLossy<u32> for __gf {
     #[inline]
     fn from_lossy(x: u32) -> __gf {
-        __gf(x as u8)
+        __gf(x as __u)
     }
 }
 
+#[cfg(__if(__width < 64 || __is_usize))]
 impl FromLossy<u64> for __gf {
     #[inline]
     fn from_lossy(x: u64) -> __gf {
-        __gf(x as u8)
+        __gf(x as __u)
     }
 }
 
+#[cfg(__if(__width < 128 || __is_usize))]
 impl FromLossy<u128> for __gf {
     #[inline]
     fn from_lossy(x: u128) -> __gf {
-        __gf(x as u8)
+        __gf(x as __u)
     }
 }
 
+#[cfg(__if(!__is_usize))]
+impl FromLossy<usize> for __gf {
+    #[inline]
+    fn from_lossy(x: usize) -> __gf {
+        __gf(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 16))]
 impl FromLossy<__crate::p16> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p16) -> __gf {
-        __gf(x.0 as u8)
+        __gf(x.0 as __u)
     }
 }
 
+#[cfg(__if(__width < 32 || __is_usize))]
 impl FromLossy<__crate::p32> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p32) -> __gf {
-        __gf(x.0 as u8)
+        __gf(x.0 as __u)
     }
 }
 
+#[cfg(__if(__width < 64 || __is_usize))]
 impl FromLossy<__crate::p64> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p64) -> __gf {
-        __gf(x.0 as u8)
+        __gf(x.0 as __u)
     }
 }
 
+#[cfg(__if(__width < 128 || __is_usize))]
 impl FromLossy<__crate::p128> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p128) -> __gf {
-        __gf(x.0 as u8)
+        __gf(x.0 as __u)
     }
 }
 
+#[cfg(__if(!__is_usize))]
 impl FromLossy<__crate::psize> for __gf {
     #[inline]
     fn from_lossy(x: __crate::psize) -> __gf {
-        __gf(x.0 as u8)
+        __gf(x.0 as __u)
     }
 }
 
 
 //// Conversions from __gf ////
 
-impl From<__gf> for p8 {
+#[cfg(__if(__is_pw8))]
+impl From<__gf> for __p {
     #[inline]
-    fn from(x: __gf) -> p8 {
-        p8(x.0)
+    fn from(x: __gf) -> __p {
+        __p(x.0)
     }
 }
 
-impl From<__gf> for u8 {
+#[cfg(__if(__is_pw8))]
+impl From<__gf> for __u {
     #[inline]
-    fn from(x: __gf) -> u8 {
+    fn from(x: __gf) -> __u {
         x.0
     }
 }
 
+#[cfg(__if(__width < 16))]
 impl From<__gf> for u16 {
     #[inline]
     fn from(x: __gf) -> u16 {
@@ -560,6 +711,7 @@ impl From<__gf> for u16 {
     }
 }
 
+#[cfg(__if(__width < 32 && !__is_usize))]
 impl From<__gf> for u32 {
     #[inline]
     fn from(x: __gf) -> u32 {
@@ -567,6 +719,7 @@ impl From<__gf> for u32 {
     }
 }
 
+#[cfg(__if(__width < 64 && !__is_usize))]
 impl From<__gf> for u64 {
     #[inline]
     fn from(x: __gf) -> u64 {
@@ -574,6 +727,7 @@ impl From<__gf> for u64 {
     }
 }
 
+#[cfg(__if(__width < 128 && !__is_usize))]
 impl From<__gf> for u128 {
     #[inline]
     fn from(x: __gf) -> u128 {
@@ -581,6 +735,7 @@ impl From<__gf> for u128 {
     }
 }
 
+#[cfg(__if(__width <= 16 && !__is_usize))]
 impl From<__gf> for usize {
     #[inline]
     fn from(x: __gf) -> usize {
@@ -588,41 +743,132 @@ impl From<__gf> for usize {
     }
 }
 
+#[cfg(__if(__width > 8))]
+impl TryFrom<__gf> for u8 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<u8, Self::Error> {
+        u8::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 16))]
+impl TryFrom<__gf> for u16 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<u16, Self::Error> {
+        u16::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 32 || __is_usize))]
+impl TryFrom<__gf> for u32 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<u32, Self::Error> {
+        u32::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 64 || __is_usize))]
+impl TryFrom<__gf> for u64 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<u64, Self::Error> {
+        u64::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 16 && !__is_usize))]
+impl TryFrom<__gf> for usize {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<usize, Self::Error> {
+        usize::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width > 8))]
+impl FromLossy<__gf> for u8 {
+    #[inline]
+    fn from_lossy(x: __gf) -> u8 {
+        x.0 as u8
+    }
+}
+
+#[cfg(__if(__width > 16))]
+impl FromLossy<__gf> for u16 {
+    #[inline]
+    fn from_lossy(x: __gf) -> u16 {
+        x.0 as u16
+    }
+}
+
+#[cfg(__if(__width > 32 || __is_usize))]
+impl FromLossy<__gf> for u32 {
+    #[inline]
+    fn from_lossy(x: __gf) -> u32 {
+        x.0 as u32
+    }
+}
+
+#[cfg(__if(__width > 64 || __is_usize))]
+impl FromLossy<__gf> for u64 {
+    #[inline]
+    fn from_lossy(x: __gf) -> u64 {
+        x.0 as u64
+    }
+}
+
+#[cfg(__if(__width > 16 && !__is_usize))]
+impl FromLossy<__gf> for usize {
+    #[inline]
+    fn from_lossy(x: __gf) -> usize {
+        x.0 as usize
+    }
+}
+
+#[cfg(__if(__width < 16))]
 impl From<__gf> for i16 {
     #[inline]
     fn from(x: __gf) -> i16 {
-        i16::from(x.0)
+        x.0 as i16
     }
 }
 
+#[cfg(__if(__width < 32 && !__is_usize))]
 impl From<__gf> for i32 {
     #[inline]
     fn from(x: __gf) -> i32 {
-        i32::from(x.0)
+        x.0 as i32
     }
 }
 
+#[cfg(__if(__width < 64 && !__is_usize))]
 impl From<__gf> for i64 {
     #[inline]
     fn from(x: __gf) -> i64 {
-        i64::from(x.0)
+        x.0 as i64
     }
 }
 
+#[cfg(__if(__width < 128 && !__is_usize))]
 impl From<__gf> for i128 {
     #[inline]
     fn from(x: __gf) -> i128 {
-        i128::from(x.0)
+        x.0 as i128
     }
 }
 
+#[cfg(__if(__width < 16 && !__is_usize))]
 impl From<__gf> for isize {
     #[inline]
     fn from(x: __gf) -> isize {
-        isize::from(x.0)
+        x.0 as isize
     }
 }
 
+#[cfg(__if(__width >= 8))]
 impl TryFrom<__gf> for i8 {
     type Error = TryFromIntError;
     #[inline]
@@ -631,10 +877,96 @@ impl TryFrom<__gf> for i8 {
     }
 }
 
+#[cfg(__if(__width >= 16))]
+impl TryFrom<__gf> for i16 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<i16, Self::Error> {
+        i16::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 32 || __is_usize))]
+impl TryFrom<__gf> for i32 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<i32, Self::Error> {
+        i32::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 64 || __is_usize))]
+impl TryFrom<__gf> for i64 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<i64, Self::Error> {
+        i64::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 128 || __is_usize))]
+impl TryFrom<__gf> for i128 {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<i128, Self::Error> {
+        i128::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl TryFrom<__gf> for isize {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __gf) -> Result<isize, Self::Error> {
+        isize::try_from(x.0)
+    }
+}
+
+#[cfg(__if(__width >= 8))]
 impl FromLossy<__gf> for i8 {
     #[inline]
     fn from_lossy(x: __gf) -> i8 {
         x.0 as i8
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl FromLossy<__gf> for i16 {
+    #[inline]
+    fn from_lossy(x: __gf) -> i16 {
+        x.0 as i16
+    }
+}
+
+#[cfg(__if(__width >= 32 || __is_usize))]
+impl FromLossy<__gf> for i32 {
+    #[inline]
+    fn from_lossy(x: __gf) -> i32 {
+        x.0 as i32
+    }
+}
+
+#[cfg(__if(__width >= 64 || __is_usize))]
+impl FromLossy<__gf> for i64 {
+    #[inline]
+    fn from_lossy(x: __gf) -> i64 {
+        x.0 as i64
+    }
+}
+
+#[cfg(__if(__width >= 128 || __is_usize))]
+impl FromLossy<__gf> for i128 {
+    #[inline]
+    fn from_lossy(x: __gf) -> i128 {
+        x.0 as i128
+    }
+}
+
+#[cfg(__if(__width >= 16))]
+impl FromLossy<__gf> for isize {
+    #[inline]
+    fn from_lossy(x: __gf) -> isize {
+        x.0 as isize
     }
 }
 
@@ -1014,7 +1346,7 @@ impl BitAndAssign<&__gf> for __gf {
     }
 }
 
-impl BitAnd<__gf> for u8 {
+impl BitAnd<__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitand(self, other: __gf) -> __gf {
@@ -1022,7 +1354,7 @@ impl BitAnd<__gf> for u8 {
     }
 }
 
-impl BitAnd<__gf> for &u8 {
+impl BitAnd<__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitand(self, other: __gf) -> __gf {
@@ -1030,7 +1362,7 @@ impl BitAnd<__gf> for &u8 {
     }
 }
 
-impl BitAnd<&__gf> for u8 {
+impl BitAnd<&__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitand(self, other: &__gf) -> __gf {
@@ -1038,7 +1370,7 @@ impl BitAnd<&__gf> for u8 {
     }
 }
 
-impl BitAnd<&__gf> for &u8 {
+impl BitAnd<&__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitand(self, other: &__gf) -> __gf {
@@ -1046,48 +1378,48 @@ impl BitAnd<&__gf> for &u8 {
     }
 }
 
-impl BitAnd<u8> for __gf {
+impl BitAnd<__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitand(self, other: u8) -> __gf {
+    fn bitand(self, other: __u) -> __gf {
         __gf(self.0 & other)
     }
 }
 
-impl BitAnd<u8> for &__gf {
+impl BitAnd<__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitand(self, other: u8) -> __gf {
+    fn bitand(self, other: __u) -> __gf {
         __gf(self.0 & other)
     }
 }
 
-impl BitAnd<&u8> for __gf {
+impl BitAnd<&__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitand(self, other: &u8) -> __gf {
+    fn bitand(self, other: &__u) -> __gf {
         __gf(self.0 & other)
     }
 }
 
-impl BitAnd<&u8> for &__gf {
+impl BitAnd<&__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitand(self, other: &u8) -> __gf {
+    fn bitand(self, other: &__u) -> __gf {
         __gf(self.0 & other)
     }
 }
 
-impl BitAndAssign<u8> for __gf {
+impl BitAndAssign<__u> for __gf {
     #[inline]
-    fn bitand_assign(&mut self, other: u8) {
+    fn bitand_assign(&mut self, other: __u) {
         *self = *self & other;
     }
 }
 
-impl BitAndAssign<&u8> for __gf {
+impl BitAndAssign<&__u> for __gf {
     #[inline]
-    fn bitand_assign(&mut self, other: &u8) {
+    fn bitand_assign(&mut self, other: &__u) {
         *self = *self & *other;
     }
 }
@@ -1138,7 +1470,7 @@ impl BitOrAssign<&__gf> for __gf {
     }
 }
 
-impl BitOr<__gf> for u8 {
+impl BitOr<__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitor(self, other: __gf) -> __gf {
@@ -1146,7 +1478,7 @@ impl BitOr<__gf> for u8 {
     }
 }
 
-impl BitOr<__gf> for &u8 {
+impl BitOr<__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitor(self, other: __gf) -> __gf {
@@ -1154,7 +1486,7 @@ impl BitOr<__gf> for &u8 {
     }
 }
 
-impl BitOr<&__gf> for u8 {
+impl BitOr<&__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitor(self, other: &__gf) -> __gf {
@@ -1162,7 +1494,7 @@ impl BitOr<&__gf> for u8 {
     }
 }
 
-impl BitOr<&__gf> for &u8 {
+impl BitOr<&__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitor(self, other: &__gf) -> __gf {
@@ -1170,48 +1502,48 @@ impl BitOr<&__gf> for &u8 {
     }
 }
 
-impl BitOr<u8> for __gf {
+impl BitOr<__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitor(self, other: u8) -> __gf {
+    fn bitor(self, other: __u) -> __gf {
         __gf(self.0 | other)
     }
 }
 
-impl BitOr<u8> for &__gf {
+impl BitOr<__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitor(self, other: u8) -> __gf {
+    fn bitor(self, other: __u) -> __gf {
         __gf(self.0 | other)
     }
 }
 
-impl BitOr<&u8> for __gf {
+impl BitOr<&__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitor(self, other: &u8) -> __gf {
+    fn bitor(self, other: &__u) -> __gf {
         __gf(self.0 | other)
     }
 }
 
-impl BitOr<&u8> for &__gf {
+impl BitOr<&__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitor(self, other: &u8) -> __gf {
+    fn bitor(self, other: &__u) -> __gf {
         __gf(self.0 | other)
     }
 }
 
-impl BitOrAssign<u8> for __gf {
+impl BitOrAssign<__u> for __gf {
     #[inline]
-    fn bitor_assign(&mut self, other: u8) {
+    fn bitor_assign(&mut self, other: __u) {
         *self = *self | other;
     }
 }
 
-impl BitOrAssign<&u8> for __gf {
+impl BitOrAssign<&__u> for __gf {
     #[inline]
-    fn bitor_assign(&mut self, other: &u8) {
+    fn bitor_assign(&mut self, other: &__u) {
         *self = *self | *other;
     }
 }
@@ -1262,7 +1594,7 @@ impl BitXorAssign<&__gf> for __gf {
     }
 }
 
-impl BitXor<__gf> for u8 {
+impl BitXor<__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitxor(self, other: __gf) -> __gf {
@@ -1270,7 +1602,7 @@ impl BitXor<__gf> for u8 {
     }
 }
 
-impl BitXor<__gf> for &u8 {
+impl BitXor<__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitxor(self, other: __gf) -> __gf {
@@ -1278,7 +1610,7 @@ impl BitXor<__gf> for &u8 {
     }
 }
 
-impl BitXor<&__gf> for u8 {
+impl BitXor<&__gf> for __u {
     type Output = __gf;
     #[inline]
     fn bitxor(self, other: &__gf) -> __gf {
@@ -1286,7 +1618,7 @@ impl BitXor<&__gf> for u8 {
     }
 }
 
-impl BitXor<&__gf> for &u8 {
+impl BitXor<&__gf> for &__u {
     type Output = __gf;
     #[inline]
     fn bitxor(self, other: &__gf) -> __gf {
@@ -1294,48 +1626,48 @@ impl BitXor<&__gf> for &u8 {
     }
 }
 
-impl BitXor<u8> for __gf {
+impl BitXor<__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitxor(self, other: u8) -> __gf {
+    fn bitxor(self, other: __u) -> __gf {
         __gf(self.0 ^ other)
     }
 }
 
-impl BitXor<u8> for &__gf {
+impl BitXor<__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitxor(self, other: u8) -> __gf {
+    fn bitxor(self, other: __u) -> __gf {
         __gf(self.0 ^ other)
     }
 }
 
-impl BitXor<&u8> for __gf {
+impl BitXor<&__u> for __gf {
     type Output = __gf;
     #[inline]
-    fn bitxor(self, other: &u8) -> __gf {
+    fn bitxor(self, other: &__u) -> __gf {
         __gf(self.0 ^ other)
     }
 }
 
-impl BitXor<&u8> for &__gf {
+impl BitXor<&__u> for &__gf {
     type Output = __gf;
     #[inline]
-    fn bitxor(self, other: &u8) -> __gf {
+    fn bitxor(self, other: &__u) -> __gf {
         __gf(self.0 ^ other)
     }
 }
 
-impl BitXorAssign<u8> for __gf {
+impl BitXorAssign<__u> for __gf {
     #[inline]
-    fn bitxor_assign(&mut self, other: u8) {
+    fn bitxor_assign(&mut self, other: __u) {
         *self = *self ^ other;
     }
 }
 
-impl BitXorAssign<&u8> for __gf {
+impl BitXorAssign<&__u> for __gf {
     #[inline]
-    fn bitxor_assign(&mut self, other: &u8) {
+    fn bitxor_assign(&mut self, other: &__u) {
         *self = *self ^ *other;
     }
 }
@@ -2400,7 +2732,7 @@ impl fmt::Debug for __gf {
     /// Note, we use LowerHex for Debug, since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("{}(0x{:02x})", stringify!(__gf), self.0))
+        f.pad(&format!("{}(0x{:0w$x})", stringify!(__gf), self.0, w=__width/4))
     }
 }
 
@@ -2408,31 +2740,31 @@ impl fmt::Display for __gf {
     /// Note, we use LowerHex for Display since this is a more useful
     /// representation of binary polynomials
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        f.pad(&format!("0x{:02x}", self.0))
+        f.pad(&format!("0x{:0w$x}", self.0, w=__width/4))
     }
 }
 
 impl fmt::Binary for __gf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        <u8 as fmt::Binary>::fmt(&self.0, f)
+        <__u as fmt::Binary>::fmt(&self.0, f)
     }
 }
 
 impl fmt::Octal for __gf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        <u8 as fmt::Octal>::fmt(&self.0, f)
+        <__u as fmt::Octal>::fmt(&self.0, f)
     }
 }
 
 impl fmt::LowerHex for __gf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        <u8 as fmt::LowerHex>::fmt(&self.0, f)
+        <__u as fmt::LowerHex>::fmt(&self.0, f)
     }
 }
 
 impl fmt::UpperHex for __gf {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        <u8 as fmt::UpperHex>::fmt(&self.0, f)
+        <__u as fmt::UpperHex>::fmt(&self.0, f)
     }
 }
 
@@ -2445,9 +2777,9 @@ impl FromStr for __gf {
     ///
     fn from_str(s: &str) -> Result<__gf, ParseIntError> {
         if s.starts_with("0x") {
-            Ok(__gf(u8::from_str_radix(&s[2..], 16)?))
+            Ok(__gf(__u::from_str_radix(&s[2..], 16)?))
         } else {
-            "".parse::<u8>()?;
+            "".parse::<__u>()?;
             unreachable!()
         }
     }
@@ -2455,6 +2787,6 @@ impl FromStr for __gf {
 
 impl __gf {
     pub fn from_str_radix(s: &str, radix: u32) -> Result<__gf, ParseIntError> {
-        Ok(__gf(u8::from_str_radix(s, radix)?))
+        Ok(__gf(__u::from_str_radix(s, radix)?))
     }
 }

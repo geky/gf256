@@ -316,6 +316,7 @@ pub fn xmul128(a: u128, b: u128) -> (u128, u128) {
 
 #[cfg(test)]
 mod test {
+    #[allow(unused)]
     use super::*;
 
     #[cfg(any(

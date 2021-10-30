@@ -154,7 +154,6 @@ impl __p {
     pub fn widening_mul(self, other: __p) -> (__p, __p) {
         cfg_if! {
             if #[cfg(__if(__has_xmul))] {
-                use __crate::internal::xmul::*;
                 let (lo, hi) = __xmul(self.0 as _, other.0 as _);
                 (__p(lo as __u), __p(hi as __u))
             } else {
@@ -209,7 +208,6 @@ impl __p {
     pub fn wrapping_mul(self, other: __p) -> __p {
         cfg_if! {
             if #[cfg(__if(__has_xmul))] {
-                use __crate::internal::xmul::*;
                 __p(__xmul(self.0 as _, other.0 as _).0 as __u)
             } else {
                 self.naive_wrapping_mul(other)
@@ -833,6 +831,15 @@ impl TryFrom<__p> for u64 {
     }
 }
 
+#[cfg(__if(__width > 16 && !__is_usize))]
+impl TryFrom<__p> for usize {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __p) -> Result<usize, Self::Error> {
+        usize::try_from(x.0)
+    }
+}
+
 #[cfg(__if(__width > 8))]
 impl FromLossy<__p> for u8 {
     #[inline]
@@ -862,6 +869,14 @@ impl FromLossy<__p> for u64 {
     #[inline]
     fn from_lossy(x: __p) -> u64 {
         x.0 as u64
+    }
+}
+
+#[cfg(__if(__width > 16 && !__is_usize))]
+impl FromLossy<__p> for usize {
+    #[inline]
+    fn from_lossy(x: __p) -> usize {
+        x.0 as usize
     }
 }
 

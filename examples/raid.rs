@@ -318,7 +318,7 @@ where
                 }
 
                 p += gf256(x);
-                q += gf256(x) * gf256::GENERATOR.pow(u32::try_from(i).unwrap());
+                q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
             }
 
             if done {
@@ -365,7 +365,7 @@ where
                             Err(err) => { Err(err)?; }
                         }
 
-                        q += gf256(x) * gf256::GENERATOR.pow(u32::try_from(i).unwrap());
+                        q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
                     }
 
                     if done {
@@ -428,7 +428,7 @@ where
 
                         p -= gf256(x);
                         if i < blocks.len()-2 {
-                            q += gf256(x) * gf256::GENERATOR.pow(u32::try_from(i).unwrap());
+                            q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
                         }
                     }
 
@@ -438,7 +438,7 @@ where
 
                     // q depends on final value
                     if bad_block1 < blocks.len()-2 {
-                        q += p * gf256::GENERATOR.pow(u32::try_from(bad_block1).unwrap());
+                        q += p * gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
                     }
 
                     // write repaired blocks
@@ -473,7 +473,7 @@ where
                         }
 
                         p += gf256(x);
-                        q -= gf256(x) * gf256::GENERATOR.pow(u32::try_from(i).unwrap());
+                        q -= gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
                     }
 
                     if done {
@@ -481,7 +481,7 @@ where
                     }
 
                     // find final data and p
-                    q /= gf256::GENERATOR.pow(u32::try_from(bad_block1).unwrap());
+                    q /= gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
                     p += q;
 
                     // write repaired blocks
@@ -523,7 +523,7 @@ where
                         }
 
                         p += gf256(x);
-                        q += gf256(x) * gf256::GENERATOR.pow(u32::try_from(i).unwrap());
+                        q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
                     }
 
                     if done {
@@ -539,8 +539,8 @@ where
                     // d_x = -----------------------------------
                     //                   g^x + g^y
                     //
-                    let g1 = gf256::GENERATOR.pow(u32::try_from(bad_block1).unwrap());
-                    let g2 = gf256::GENERATOR.pow(u32::try_from(bad_block2).unwrap());
+                    let g1 = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+                    let g2 = gf256::GENERATOR.pow(u8::try_from(bad_block2).unwrap());
                     let d1 = (p*g2 + q) / (g1+g2);
                     let d2 = p + d1;
 
@@ -585,7 +585,7 @@ where
                     Self { 
                         blocks: blocks,
                         i: i,
-                        coeff: gf256::GENERATOR.pow(u32::try_from(i).unwrap()),
+                        coeff: gf256::GENERATOR.pow(u8::try_from(i).unwrap()),
                     }
                 })
                 .collect::<Vec<_>>()

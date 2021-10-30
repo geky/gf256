@@ -80,7 +80,7 @@ pub const GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
         // H(x) = x - g^i
         let h = [
             gf256(1),
-            gf256::GENERATOR.naive_pow(i as u32),
+            gf256::GENERATOR.naive_pow(i as u8),
         ];
 
         // find G(x) = G(x)*H(x) = G(x)*(x - g^i)
@@ -253,7 +253,7 @@ fn rs_find_syndromes(f: &[gf256]) -> Vec<gf256> {
     let mut syndromes = vec![];
     for i in (0..ECC_SIZE).rev() {
         syndromes.push(
-            rs_poly_eval(f, gf256::GENERATOR.pow(u32::try_from(i).unwrap()))
+            rs_poly_eval(f, gf256::GENERATOR.pow(u8::try_from(i).unwrap()))
         );
     }
     syndromes
@@ -269,7 +269,7 @@ fn rs_find_forney_syndromes(
     let mut fs = Vec::from(syndromes);
 
     for i in erasures {
-        let x = gf256::GENERATOR.pow(u32::try_from(BLOCK_SIZE-1-i).unwrap());
+        let x = gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap());
         for j in 0..fs.len()-1 {
             let fs_len = fs.len();
             fs[fs_len-1-j] = fs[fs_len-1-j]*x + fs[fs_len-1-(j+1)];
@@ -292,7 +292,7 @@ fn rs_find_erasure_locator(erasures: &[usize]) -> Vec<gf256> {
 
     for i in erasures {
         rs_poly_mul(&mut el, &[
-            gf256::GENERATOR.pow(u32::try_from(BLOCK_SIZE-1-i).unwrap()),
+            gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap()),
             gf256(1)
         ]);
     }
@@ -372,7 +372,7 @@ fn rs_find_errors(error_locator: &[gf256]) -> Vec<usize> {
     for i in 0..BLOCK_SIZE {
         let y = rs_poly_eval(
             error_locator,
-            gf256::GENERATOR.pow(u32::try_from(i).unwrap())
+            gf256::GENERATOR.pow(u8::try_from(i).unwrap())
         );
 
         if y == gf256(0) {
@@ -411,7 +411,7 @@ fn rs_find_erasure_magnitude(
     let mut erasure_roots = Vec::with_capacity(erasures.len());
     for i in erasures {
         erasure_roots.push(
-            gf256::GENERATOR.pow(u32::try_from(BLOCK_SIZE-1-i).unwrap())
+            gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap())
         );
     }
 
