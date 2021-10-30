@@ -10,11 +10,7 @@ proc-macro = true
 
 [features]
 # See gf256/Cargo.toml for documentation over these features
-use-naive-xmul = []
-use-hardware-xmul = []
-use-naive-gfmul = []
-use-table-gfmul = []
-use-barret-gfmul = []
+no-xmul = []
 
 [dependencies]
 syn = {version="1.0.73", features=["full"]}

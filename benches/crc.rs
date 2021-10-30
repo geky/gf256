@@ -78,6 +78,20 @@ fn bench_crc(c: &mut Criterion) {
         |data| crc::word_barret_crc(data),
         BatchSize::SmallInput
     ));
+
+    let mut xs = xorshift64(42).map(|x| x as u8);
+    group.bench_function("reversed_barret_crc", |b| b.iter_batched_ref(
+        || (&mut xs).take(SIZE).collect::<Vec<u8>>(),
+        |data| crc::reversed_barret_crc(data),
+        BatchSize::SmallInput
+    ));
+
+    let mut xs = xorshift64(42).map(|x| x as u8);
+    group.bench_function("word_reversed_barret_crc", |b| b.iter_batched_ref(
+        || (&mut xs).take(SIZE).collect::<Vec<u8>>(),
+        |data| crc::word_reversed_barret_crc(data),
+        BatchSize::SmallInput
+    ));
 }
 
 criterion_group!(benches, bench_crc);

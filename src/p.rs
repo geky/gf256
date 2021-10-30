@@ -35,11 +35,11 @@ mod test {
 
     #[test]
     fn mul() {
-        assert_eq!(p8(0xfe).wrapping_naive_mul(p8(0x87)), p8(0xfa));
-        assert_eq!(p16(0xfedc).wrapping_naive_mul(p16(0x8765)), p16(0x7d2c));
-        assert_eq!(p32(0xfedcba98).wrapping_naive_mul(p32(0x87654321)), p32(0x03da4198));
-        assert_eq!(p64(0xfedcba9876543210).wrapping_naive_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
-        assert_eq!(p128(0xfedcba98765432100000000000000000).wrapping_naive_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
+        assert_eq!(p8(0xfe).naive_wrapping_mul(p8(0x87)), p8(0xfa));
+        assert_eq!(p16(0xfedc).naive_wrapping_mul(p16(0x8765)), p16(0x7d2c));
+        assert_eq!(p32(0xfedcba98).naive_wrapping_mul(p32(0x87654321)), p32(0x03da4198));
+        assert_eq!(p64(0xfedcba9876543210).naive_wrapping_mul(p64(0x8765432100000000)), p64(0x0050401000000000));
+        assert_eq!(p128(0xfedcba98765432100000000000000000).naive_wrapping_mul(p128(0x87654321000000000000000000000000)), p128(0x00000000000000000000000000000000));
 
         assert_eq!(p8(0xfe).wrapping_mul(p8(0x87)), p8(0xfa));
         assert_eq!(p16(0xfedc).wrapping_mul(p16(0x8765)), p16(0x7d2c));
@@ -79,12 +79,12 @@ mod test {
     }
 
     #[test]
-    fn hardware_mul() {
+    fn naive_mul() {
         for a in (0..=255).map(p8) {
             for b in (0..=255).map(p8) {
-                let res_naive = a.wrapping_naive_mul(b);
-                let res_hardware = a.wrapping_mul(b);
-                assert_eq!(res_naive, res_hardware);
+                let naive_res = a.naive_wrapping_mul(b);
+                let res_xmul = a.wrapping_mul(b);
+                assert_eq!(naive_res, res_xmul);
             }
         }
     }
@@ -93,23 +93,48 @@ mod test {
     fn overflowing_mul() {
         for a in (0..=255).map(p8) {
             for b in (0..=255).map(p8) {
-                let (wrapped_naive, overflow_naive) = a.overflowing_naive_mul(b);
-                let (wrapped_hardware, overflow_hardware) = a.overflowing_mul(b);
-                let res_naive = p16::from(a).naive_mul(p16::from(b));
-                let res_hardware = p16::from(a) * p16::from(b);
+                let (naive_wrapped, naive_overflow) = a.naive_overflowing_mul(b);
+                let (wrapped_xmul, overflow_xmul) = a.overflowing_mul(b);
+                let naive_res = p16::from(a).naive_mul(p16::from(b));
+                let res_xmul = p16::from(a) * p16::from(b);
 
-                // same results naive vs hardware?
-                assert_eq!(wrapped_naive, wrapped_hardware);
-                assert_eq!(overflow_naive, overflow_hardware);
-                assert_eq!(res_naive, res_hardware);
+                // same results naive vs xmul?
+                assert_eq!(naive_wrapped, wrapped_xmul);
+                assert_eq!(naive_overflow, overflow_xmul);
+                assert_eq!(naive_res, res_xmul);
 
                 // same wrapped results?
-                assert_eq!(wrapped_naive, p8::try_from(res_naive & 0xff).unwrap());
-                assert_eq!(wrapped_hardware, p8::try_from(res_hardware & 0xff).unwrap());
+                assert_eq!(naive_wrapped, p8::try_from(naive_res & 0xff).unwrap());
+                assert_eq!(wrapped_xmul, p8::try_from(res_xmul & 0xff).unwrap());
 
                 // overflow set if overflow occured?
-                assert_eq!(overflow_naive, (p16::from(wrapped_naive) != res_naive));
-                assert_eq!(overflow_hardware, (p16::from(wrapped_hardware) != res_hardware));
+                assert_eq!(naive_overflow, (p16::from(naive_wrapped) != naive_res));
+                assert_eq!(overflow_xmul, (p16::from(wrapped_xmul) != res_xmul));
+            }
+        }
+    }
+
+    #[test]
+    fn widening_mul() {
+        for a in (0..=255).map(p8) {
+            for b in (0..=255).map(p8) {
+                let (naive_lo, naive_hi) = a.naive_widening_mul(b);
+                let (lo_xmul, hi_xmul ) = a.widening_mul(b);
+                let naive_res = p16::from(a).naive_mul(p16::from(b));
+                let res_xmul = p16::from(a) * p16::from(b);
+
+                // same results naive vs xmul?
+                assert_eq!(naive_lo, lo_xmul);
+                assert_eq!(naive_hi, hi_xmul);
+                assert_eq!(naive_res, res_xmul);
+
+                // same lo results?
+                assert_eq!(naive_lo, p8::try_from(naive_res & 0xff).unwrap());
+                assert_eq!(lo_xmul, p8::try_from(res_xmul & 0xff).unwrap());
+
+                // same hi results?
+                assert_eq!(naive_hi, p8::try_from(naive_res >> 8).unwrap());
+                assert_eq!(hi_xmul, p8::try_from(res_xmul >> 8).unwrap());
             }
         }
     }

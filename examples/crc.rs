@@ -164,17 +164,32 @@ pub fn small_table_crc(data: &[u8]) -> u32 {
 /// compile-time.
 ///
 pub fn barret_crc(data: &[u8]) -> u32 {
-    const BARRET_CONSTANT: p64 = {
-        p64(p128(0x10000000000000000)
-            .naive_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
+    // Normally this would be 0x10000000000000000 / __polynomial, but
+    // we eagerly do one step of division so we avoid needing a 4x wide
+    // type. We can also drop the highest bit if we add the high bits
+    // manually we use use this constant.
+    //
+    // = x % p
+    // = 0xffffffff & (x + p*(((x >> 32) * [0x10000000000000000/p]) >> 32))
+    // = 0xffffffff & (x + p*(((x >> 32) * [(p << 32)/p + 0x100000000]) >> 32))
+    // = 0xffffffff & (x + p*((((x >> 32) * [(p << 32)/p]) >> 32) + (x >> 32)))
+    //                                      \-----+-----/
+    //                                            '-- Barret constant
+    //
+    // Note that the shifts and masks can go away if we operate on u32s,
+    // leaving 2 xmuls and 2 xors.
+    //
+    const BARRET_CONSTANT: p32 = {
+        p32(p64(POLYNOMIAL.0 << 32).naive_div(POLYNOMIAL).0 as u32)
     };
 
     let mut crc = p32(0xffffffff);
 
     for b in data {
         crc = crc ^ (p32::from(b.reverse_bits()) << 24);
-        let q = (p64::from(crc >> 24)*BARRET_CONSTANT) >> 32;
-        crc = p32::from_lossy(q*POLYNOMIAL) + (crc << 8);
+        crc = (crc << 8)
+            + ((crc >> 24u32).widening_mul(BARRET_CONSTANT).1 + (crc >> 24u32))
+                .wrapping_mul(p32::from_lossy(POLYNOMIAL));
     }
 
     u32::from(crc).reverse_bits() ^ 0xffffffff
@@ -184,9 +199,23 @@ pub fn barret_crc(data: &[u8]) -> u32 {
 /// barret_crc, but operating on a 32-bit word at a time
 ///
 pub fn word_barret_crc(data: &[u8]) -> u32 {
-    const BARRET_CONSTANT: p64 = {
-        p64(p128(0x10000000000000000)
-            .naive_div(p128(POLYNOMIAL.0 as u128)).0 as u64)
+    // Normally this would be 0x10000000000000000 / __polynomial, but
+    // we eagerly do one step of division so we avoid needing a 4x wide
+    // type. We can also drop the highest bit if we add the high bits
+    // manually we use use this constant.
+    //
+    // = x % p
+    // = 0xffffffff & (x + p*(((x >> 32) * [0x10000000000000000/p]) >> 32))
+    // = 0xffffffff & (x + p*(((x >> 32) * [(p << 32)/p + 0x100000000]) >> 32))
+    // = 0xffffffff & (x + p*((((x >> 32) * [(p << 32)/p]) >> 32) + (x >> 32)))
+    //                                      \-----+-----/
+    //                                            '-- Barret constant
+    //
+    // Note that the shifts and masks can go away if we operate on u32s,
+    // leaving 2 xmuls and 2 xors.
+    //
+    const BARRET_CONSTANT: p32 = {
+        p32(p64(POLYNOMIAL.0 << 32).naive_div(POLYNOMIAL).0 as u32)
     };
 
     let mut crc = p32(0xffffffff);
@@ -196,17 +225,116 @@ pub fn word_barret_crc(data: &[u8]) -> u32 {
     for word in &mut words {
         let word = <[u8; 4]>::try_from(word).unwrap();
         crc = crc ^ p32::from_le_bytes(word).reverse_bits();
-        let q = (p64::from(crc)*BARRET_CONSTANT) >> 32;
-        crc = p32::from_lossy(q*POLYNOMIAL);
+        crc = (crc.widening_mul(BARRET_CONSTANT).1 + crc)
+                .wrapping_mul(p32::from_lossy(POLYNOMIAL));
     }
 
     for b in words.remainder() {
         crc = crc ^ (p32::from(b.reverse_bits()) << 24);
-        let q = (p64::from(crc >> 24)*BARRET_CONSTANT) >> 32;
-        crc = p32::from_lossy(q*POLYNOMIAL) + (crc << 8);
+        crc = (crc << 8)
+            + ((crc >> 24u32).widening_mul(BARRET_CONSTANT).1 + (crc >> 24u32))
+                .wrapping_mul(p32::from_lossy(POLYNOMIAL));
     }
 
     u32::from(crc).reverse_bits() ^ 0xffffffff
+}
+
+/// A hardware-accelerated CRC implementation using Barret reduction without
+/// needing to bit-reverse the internal representation
+///
+/// CRC32 and polynomial multiplication instructions unfortunately are defined
+/// with different bit-endianness. This would normally mean we need to
+/// bit-reverse the incoming data before we can use polynomial multiplication.
+///
+/// However, polynomial multiplication has the odd property that it is
+/// symmetric, brev(a) * brev(b) = brev((a * b) << 1)
+///
+/// This means we can rewrite our Barret reduction CRC to operate entirely
+/// on a bit-reversed representation, shaving off several instructions.
+///
+/// In theory this should be faster, but measurements show this as actually
+/// being slightly slower, perhaps the extra 1-bit shift costs more on
+/// machines with bit-reverse instructions?
+///
+pub fn reversed_barret_crc(data: &[u8]) -> u32 {
+    // Normally this would be 0x10000000000000000 / __polynomial, but
+    // we eagerly do one step of division so we avoid needing a 4x wide
+    // type. We can also drop the highest bit if we add the high bits
+    // manually we use use this constant.
+    //
+    // = x % p
+    // = 0xffffffff & (x + p*(((x >> 32) * [0x10000000000000000/p]) >> 32))
+    // = 0xffffffff & (x + p*(((x >> 32) * [(p << 32)/p + 0x100000000]) >> 32))
+    // = 0xffffffff & (x + p*((((x >> 32) * [(p << 32)/p]) >> 32) + (x >> 32)))
+    //                                      \-----+-----/
+    //                                            '-- Barret constant
+    //
+    // Note that the shifts and masks can go away if we operate on u32s,
+    // leaving 2 xmuls and 2 xors.
+    //
+    const BARRET_CONSTANT: p32 = {
+        p32(p64(POLYNOMIAL.0 << 32).naive_div(POLYNOMIAL).0 as u32)
+    };
+    const POLYNOMIAL_REV: p32 = p32(POLYNOMIAL.0 as u32).reverse_bits();
+    const BARRET_CONSTANT_REV: p32 = BARRET_CONSTANT.reverse_bits();
+
+    let mut crc = p32(0xffffffff);
+
+    for b in data {
+        crc = crc ^ p32::from(*b);
+        let (lo, _) = (crc << 24u32).widening_mul(BARRET_CONSTANT_REV);
+        let (lo, hi) = ((lo << 1u32) + (crc << 24u32)).widening_mul(POLYNOMIAL_REV);
+        crc = (crc >> 8u32) + ((hi << 1u32) | (lo >> 31u32));
+    }
+
+    u32::from(crc) ^ 0xffffffff
+}
+
+/// A hardware-accelerated CRC implementation using the same technique as
+/// reversed_barret_crc, but operating on a 32-bit word at a time
+///
+pub fn word_reversed_barret_crc(data: &[u8]) -> u32 {
+    // Normally this would be 0x10000000000000000 / __polynomial, but
+    // we eagerly do one step of division so we avoid needing a 4x wide
+    // type. We can also drop the highest bit if we add the high bits
+    // manually we use use this constant.
+    //
+    // = x % p
+    // = 0xffffffff & (x + p*(((x >> 32) * [0x10000000000000000/p]) >> 32))
+    // = 0xffffffff & (x + p*(((x >> 32) * [(p << 32)/p + 0x100000000]) >> 32))
+    // = 0xffffffff & (x + p*((((x >> 32) * [(p << 32)/p]) >> 32) + (x >> 32)))
+    //                                      \-----+-----/
+    //                                            '-- Barret constant
+    //
+    // Note that the shifts and masks can go away if we operate on u32s,
+    // leaving 2 xmuls and 2 xors.
+    //
+    const BARRET_CONSTANT: p32 = {
+        p32(p64(POLYNOMIAL.0 << 32).naive_div(POLYNOMIAL).0 as u32)
+    };
+    const POLYNOMIAL_REV: p32 = p32(POLYNOMIAL.0 as u32).reverse_bits();
+    const BARRET_CONSTANT_REV: p32 = BARRET_CONSTANT.reverse_bits();
+
+    let mut crc = p32(0xffffffff);
+
+    // iterate over 4-byte words
+    let mut words = data.chunks_exact(4);
+    for word in &mut words {
+        let word = <[u8; 4]>::try_from(word).unwrap();
+        crc = crc ^ p32::from_le_bytes(word);
+        let (lo, _) = crc.widening_mul(BARRET_CONSTANT_REV);
+        let (lo, hi) = ((lo << 1u32) + crc).widening_mul(POLYNOMIAL_REV);
+        crc = (hi << 1u32) | (lo >> 31u32);
+    }
+
+    for b in words.remainder() {
+        crc = crc ^ p32::from(*b);
+        let (lo, _) = (crc << 24u32).widening_mul(BARRET_CONSTANT_REV);
+        let (lo, hi) = ((lo << 1u32) + (crc << 24u32)).widening_mul(POLYNOMIAL_REV);
+        crc = (crc >> 8u32) + ((hi << 1u32) | (lo >> 31u32));
+    }
+
+    u32::from(crc) ^ 0xffffffff
 }
 
 
@@ -217,31 +345,39 @@ fn main() {
     println!("testing crc({:?})", String::from_utf8_lossy(input));
 
     let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "naive_crc", output);
+    println!("{:<24} => 0x{:08x}", "naive_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "less_naive_crc", output);
+    let output = less_naive_crc(input);
+    println!("{:<24} => 0x{:08x}", "less_naive_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "word_less_naive_crc", output);
+    let output = word_less_naive_crc(input);
+    println!("{:<24} => 0x{:08x}", "word_less_naive_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "table_crc", output);
+    let output = table_crc(input);
+    println!("{:<24} => 0x{:08x}", "table_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "small_table_crc", output);
+    let output = small_table_crc(input);
+    println!("{:<24} => 0x{:08x}", "small_table_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "barret_crc", output);
+    let output = barret_crc(input);
+    println!("{:<24} => 0x{:08x}", "barret_crc", output);
     assert_eq!(output, expected);
 
-    let output = naive_crc(input);
-    println!("{:<19} => 0x{:08x}", "word_barret_crc", output);
+    let output = word_barret_crc(input);
+    println!("{:<24} => 0x{:08x}", "word_barret_crc", output);
+    assert_eq!(output, expected);
+
+    let output = reversed_barret_crc(input);
+    println!("{:<24} => 0x{:08x}", "reversed_barret_crc", output);
+    assert_eq!(output, expected);
+
+    let output = word_reversed_barret_crc(input);
+    println!("{:<24} => 0x{:08x}", "word_reversed_barret_crc", output);
     assert_eq!(output, expected);
 
     println!();

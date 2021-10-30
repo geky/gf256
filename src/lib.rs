@@ -1,7 +1,7 @@
 
 // Enable stdsimd for pmull on aarch64
 #![cfg_attr(
-    all(feature="use-nightly-features", target_arch="aarch64"),
+    all(not(feature="no-xmul"), feature="nightly", target_arch="aarch64"),
     feature(stdsimd)
 )]
 
@@ -26,3 +26,6 @@ pub mod internal {
     pub use cfg_if;
     pub mod xmul;
 }
+
+pub use internal::xmul::HAS_XMUL;
+

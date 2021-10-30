@@ -48,15 +48,38 @@ impl __p {
     /// Naive versions are built out of simple bitwise operations,
     /// these are more expensive, but also allowed in const contexts
     ///
+    /// This return a tuple containing the low and high parts in that order
+    ///
+    #[inline]
+    pub const fn naive_widening_mul(self, other: __p) -> (__p, __p) {
+        let a = self.0;
+        let b = other.0;
+        let mut lo = 0;
+        let mut hi = 0;
+        let mut i = 0;
+        while i < __width {
+            let mask = (((a as __i) << (__width-1-i)) >> (__width-1)) as __u;
+            lo ^= mask & (b << i);
+            hi ^= mask & (b >> (__width-1-i));
+            i += 1;
+        }
+        // note we adjust hi by one here, otherwise we'd need to handle
+        // shifting > word size
+        (__p(lo), __p(hi >> 1))
+    }
+
+    /// Naive polynomial multiplication
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts
+    ///
     /// Note this wraps around the boundary of the type, and returns
     /// a flag indicating of overflow occured
     ///
     #[inline]
-    pub const fn overflowing_naive_mul(self, other: __p) -> (__p, bool) {
-        // x bits * y bits = x+y-1 bits, if this is more bits than the
-        // width we will overflow
-        let o = self.0.leading_zeros() + other.0.leading_zeros() < __width-1;
-        (self.wrapping_naive_mul(other), o)
+    pub const fn naive_overflowing_mul(self, other: __p) -> (__p, bool) {
+        let (lo, hi) = self.naive_widening_mul(other);
+        (lo, hi.0 != 0)
     }
 
     /// Naive polynomial multiplication
@@ -67,8 +90,8 @@ impl __p {
     /// Note this returns None if an overflow occured
     ///
     #[inline]
-    pub const fn checked_naive_mul(self, other: __p) -> Option<__p> {
-        match self.overflowing_naive_mul(other) {
+    pub const fn naive_checked_mul(self, other: __p) -> Option<__p> {
+        match self.naive_overflowing_mul(other) {
             (_, true ) => None,
             (x, false) => Some(x),
         }
@@ -82,7 +105,7 @@ impl __p {
     /// Note this wraps around the boundary of the type
     ///
     #[inline]
-    pub const fn wrapping_naive_mul(self, other: __p) -> __p {
+    pub const fn naive_wrapping_mul(self, other: __p) -> __p {
         let a = self.0;
         let b = other.0;
         let mut x = 0;
@@ -108,12 +131,34 @@ impl __p {
         cfg_if! {
             // TODO feature flag for overflow-checks?
             if #[cfg(debug_assertions)] {
-                match self.checked_naive_mul(other) {
+                match self.naive_checked_mul(other) {
                     Some(x) => x,
                     None => __p(self.0 / 0),
                 }
             } else {
-                self.wrapping_naive_mul(other)
+                self.naive_wrapping_mul(other)
+            }
+        }
+    }
+
+    /// Naive polynomial multiplication
+    ///
+    /// This attempts to use carry-less multiplication
+    /// instructions when available (pclmulqdq on x86_64,
+    /// pmull on aarch64), otherwise falls back to the expensive
+    /// naive implementation
+    ///
+    /// This return a tuple containing the low and high parts in that order
+    ///
+    #[inline]
+    pub fn widening_mul(self, other: __p) -> (__p, __p) {
+        cfg_if! {
+            if #[cfg(__if(__has_xmul))] {
+                use __crate::internal::xmul::*;
+                let (lo, hi) = __xmul(self.0 as _, other.0 as _);
+                (__p(lo as __u), __p(hi as __u))
+            } else {
+                self.naive_widening_mul(other)
             }
         }
     }
@@ -130,10 +175,8 @@ impl __p {
     ///
     #[inline]
     pub fn overflowing_mul(self, other: __p) -> (__p, bool) {
-        // x bits * y bits = x+y-1 bits, if this is more bits than the
-        // width we will overflow
-        let o = self.0.leading_zeros() + other.0.leading_zeros() < __width-1;
-        (self.wrapping_mul(other), o)
+        let (lo, hi) = self.widening_mul(other);
+        (lo, hi.0 != 0)
     }
 
     /// Polynomial multiplication
@@ -165,37 +208,11 @@ impl __p {
     #[inline]
     pub fn wrapping_mul(self, other: __p) -> __p {
         cfg_if! {
-            if #[cfg(all(
-                __if(!__naive),
-                target_arch="x86_64",
-                target_feature="pclmulqdq"
-            ))] {
+            if #[cfg(__if(__has_xmul))] {
                 use __crate::internal::xmul::*;
-
-                cfg_if! {
-                    if #[cfg(__if(__width <= 64))] {
-                        __p(__pclmulqdq_u64(self.0 as u64, other.0 as u64) as __u)
-                    } else {
-                        __p(__pclmulqdq_u128(self.0, other.0))
-                    }
-                }
-            } else if #[cfg(all(
-                __if(!__naive),
-                feature="use-nightly-features",
-                target_arch="aarch64",
-                target_feature="neon"
-            ))] {
-                use __crate::internal::xmul::*;
-
-                cfg_if! {
-                    if #[cfg(__if(__width <= 64))] {
-                        __p(__pmull_u64(self.0 as u64, other.0 as u64) as __u)
-                    } else {
-                        __p(__pmull_u128(self.0, other.0))
-                    }
-                }
-            } else if #[cfg(__if(!__hardware))] {
-                self.wrapping_naive_mul(other)
+                __p(__xmul(self.0 as _, other.0 as _).0 as __u)
+            } else {
+                self.naive_wrapping_mul(other)
             }
         }
     }
@@ -225,14 +242,14 @@ impl __p {
 
     /// Naive polynomial exponentiation
     #[inline]
-    pub const fn overflowing_naive_pow(self, exp: u32) -> (__p, bool) {
+    pub const fn naive_overflowing_pow(self, exp: u32) -> (__p, bool) {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         let mut o = false;
         loop {
             if exp & 1 != 0 {
-                let (x_, o_) = x.overflowing_naive_mul(a);
+                let (x_, o_) = x.naive_overflowing_mul(a);
                 x = x_;
                 o = o || o_;
             }
@@ -241,7 +258,7 @@ impl __p {
             if exp == 0 {
                 return (x, o);
             }
-            let (a_, o_) = a.overflowing_naive_mul(a);
+            let (a_, o_) = a.naive_overflowing_mul(a);
             a = a_;
             o = o || o_;
         }
@@ -249,13 +266,13 @@ impl __p {
 
     /// Naive polynomial exponentiation
     #[inline]
-    pub const fn checked_naive_pow(self, exp: u32) -> Option<__p> {
+    pub const fn naive_checked_pow(self, exp: u32) -> Option<__p> {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         loop {
             if exp & 1 != 0 {
-                x = match x.checked_naive_mul(a) {
+                x = match x.naive_checked_mul(a) {
                     Some(x) => x,
                     None => return None,
                 }
@@ -265,7 +282,7 @@ impl __p {
             if exp == 0 {
                 return Some(x);
             }
-            a = match a.checked_naive_mul(a) {
+            a = match a.naive_checked_mul(a) {
                 Some(a) => a,
                 None => return None,
             }
@@ -274,20 +291,20 @@ impl __p {
 
     /// Naive polynomial exponentiation
     #[inline]
-    pub const fn wrapping_naive_pow(self, exp: u32) -> __p {
+    pub const fn naive_wrapping_pow(self, exp: u32) -> __p {
         let mut a = self;
         let mut exp = exp;
         let mut x = __p(1);
         loop {
             if exp & 1 != 0 {
-                x = x.wrapping_naive_mul(a);
+                x = x.naive_wrapping_mul(a);
             }
 
             exp >>= 1;
             if exp == 0 {
                 return x;
             }
-            a = a.wrapping_naive_mul(a);
+            a = a.naive_wrapping_mul(a);
         }
     }
 
@@ -403,7 +420,7 @@ impl __p {
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn checked_naive_div(self, other: __p) -> Option<__p> {
+    pub const fn naive_checked_div(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
@@ -428,7 +445,7 @@ impl __p {
     ///
     #[inline]
     pub const fn naive_div(self, other: __p) -> __p {
-        match self.checked_naive_div(other) {
+        match self.naive_checked_div(other) {
             Some(x) => x,
             None => __p(self.0 / 0),
         }
@@ -440,7 +457,7 @@ impl __p {
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn checked_naive_rem(self, other: __p) -> Option<__p> {
+    pub const fn naive_checked_rem(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
@@ -464,7 +481,7 @@ impl __p {
     ///
     #[inline]
     pub const fn naive_rem(self, other: __p) -> __p {
-        match self.checked_naive_rem(other) {
+        match self.naive_checked_rem(other) {
             Some(x) => x,
             None => __p(self.0 / 0),
         }

@@ -86,20 +86,10 @@ pub fn is_generator(g: p128, p: p128) -> bool {
     //
     let width = (128-p.leading_zeros()) - 1;
 
-    // We're going to do a lot of multiplications, so it helps to precalculate
-    // Barret's constant for Barret reduction. This trades a modulus operation
-    // for 2 multiplication, but means we can leverage carry-less multiplication
-    // hardware instructions.
-    //
-    // normally this is just (1 << (2*width)) / p, but we can precompute
-    // one step of division to avoid needing a 4x wide type
-    //
-    let mask = (1u128 << width) - 1;
-    let barret_constant = (((mask & p) << width) / p) + (p128(1) << width);
+    // Multiplication uses carry-less multiplicatio modulo our irreducible
+    // polynomial
     let gfmul = |a: p128, b: p128| -> p128 {
-        let x = a * b;
-        let q = ((x >> width) * barret_constant) >> width;
-        mask & ((q * p) + x)
+        (a * b) % p
     };
 
     // Exponentiation via squaring

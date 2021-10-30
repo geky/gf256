@@ -60,12 +60,23 @@ impl __gf {
     // Generate constant for Barret's reduction if we're
     // in Barret mode
     #[cfg(__if(__barret))]
-    const BARRET_CONSTANT: p16 = {
-        // normally this would be 0x10000 / __polynomial, but we eagerly
-        // do one step of division so we avoid needing a 4x wide type
+    const BARRET_CONSTANT: p8 = {
+        // Normally this would be 0x10000 / __polynomial, but we eagerly
+        // do one step of division so we avoid needing a 4x wide type. We
+        // can also drop the highest bit if we add the high bits manually
+        // we use use this constant.
         //
-        //p16(p32(0x10000).naive_div(p32(__polynomial)).0 as u16)
-        p16(__polynomial << 8).naive_div(p16(__polynomial)).naive_add(p16(0x100))
+        // = x % p
+        // = 0xff & (x + p*(((x >> 8) * [0x10000/p]) >> 8))
+        // = 0xff & (x + p*(((x >> 8) * [(p << 8)/p + 0x100]) >> 8))
+        // = 0xff & (x + p*((((x >> 8) * [(p << 8)/p]) >> 8) + (x >> 8)))
+        //                               \-----+----/
+        //                                     '-- Barret constant
+        //
+        // Note that the shifts and masks can go away if we operate on u8s,
+        // leaving 2 xmuls and 2 xors.
+        //
+        p8(p16(__polynomial << 8).naive_div(p16(__polynomial)).0 as u8)
     };
 
     /// Addition over gf(256), aka xor
@@ -136,7 +147,7 @@ impl __gf {
     /// these are more expensive, but also allowed in const contexts
     ///
     #[inline]
-    pub const fn checked_naive_recip(self) -> Option<__gf> {
+    pub const fn naive_checked_recip(self) -> Option<__gf> {
         if self.0 == 0 {
             return None;
         }
@@ -154,7 +165,7 @@ impl __gf {
     ///
     #[inline]
     pub const fn naive_recip(self) -> __gf {
-        match self.checked_naive_recip() {
+        match self.naive_checked_recip() {
             Some(x) => x,
             None => __gf(1 / 0),
         }
@@ -163,8 +174,8 @@ impl __gf {
     /// Naive division over gf(256)
     ///
     #[inline]
-    pub const fn checked_naive_div(self, other: __gf) -> Option<__gf> {
-        match other.checked_naive_recip() {
+    pub const fn naive_checked_div(self, other: __gf) -> Option<__gf> {
+        match other.naive_checked_recip() {
             Some(other_recip) => Some(self.naive_mul(other_recip)),
             None => None,
         }
@@ -176,7 +187,7 @@ impl __gf {
     ///
     #[inline]
     pub const fn naive_div(self, other: __gf) -> __gf {
-        match self.checked_naive_div(other) {
+        match self.naive_checked_div(other) {
             Some(x) => x,
             None => __gf(self.0 / 0),
         }
@@ -218,9 +229,11 @@ impl __gf {
                 // useful here if we have hardware xmul instructions, though
                 // it may be more expensive if xmul is naive.
                 //
-                let x = p16(self.0 as u16) * p16(other.0 as u16);
-                let q = (p16::mul(x >> 8, Self::BARRET_CONSTANT) >> 8);
-                __gf((p16::mul(q, Self::POLYNOMIAL) + x).0 as u8)
+                let (lo, hi) = p8(self.0).widening_mul(p8(other.0));
+                let x = lo
+                    + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(p8(Self::POLYNOMIAL.0 as u8));
+                __gf(x.0 as u8)
             } else {
                 // fallback to naive multiplication over gf(256)
                 self.naive_mul(other)

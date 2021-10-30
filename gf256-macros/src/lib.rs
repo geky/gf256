@@ -27,6 +27,24 @@ fn crate_() -> TokenTree {
     ))
 }
 
+fn xmul_query() -> TokenStream {
+    quote! {
+        any(
+            all(
+                not(feature="no-xmul"),
+                target_arch="x86_64",
+                target_feature="pclmulqdq"
+            ),
+            all(
+                not(feature="no-xmul"),
+                feature="nightly",
+                target_arch="aarch64",
+                target_feature="neon"
+            )
+        )
+    }
+}
+
 fn token_replace(
     input: TokenStream,
     replacements: &HashMap<String, TokenTree>
@@ -154,7 +172,7 @@ struct PArgs {
     #[darling(default)]
     naive: bool,
     #[darling(default)]
-    hardware: bool,
+    xmul: bool,
 }
 
 #[proc_macro_attribute]
@@ -165,8 +183,8 @@ pub fn p(
     let crate_ = crate_();
 
     // parse args
-    let args = parse_macro_input!(args as syn::AttributeArgs);
-    let args = match PArgs::from_list(&args) {
+    let raw_args = parse_macro_input!(args as syn::AttributeArgs);
+    let args = match PArgs::from_list(&raw_args) {
         Ok(args) => args,
         Err(err) => {
             return err.write_errors().into();
@@ -174,18 +192,20 @@ pub fn p(
     };
 
     // decide between implementations
-    let (naive, hardware) = match (
-        (args.naive, args.hardware),
-        (cfg!(feature="use-naive-xmul"), cfg!(feature="use-hardware-xmul"))
-    ) {
-        // choose mode if one is explicitly requested
-        ((true,  false), _             ) => (true,  false),
-        ((false, false), (true,  false)) => (true,  false),
-        ((false, true,), _             ) => (false, true ),
-        ((false, false), (false, true )) => (false, true ),
-
-        // default to neither, let the p* implementation make the decision
-        ((false, false), (false, false)) => (false, false),
+    let has_xmul = match (args.naive, args.xmul) {
+        (true, false) => false,
+        (false, true) => true,
+        (false, false) => {
+            // query target configuration and recurse back into our proc_macro
+            let input = TokenStream::from(input);
+            let xmul_query = xmul_query();
+            let output = quote! {
+                #[cfg_attr(#xmul_query,      #crate_::macros::p(xmul,  #(#raw_args),*))]
+                #[cfg_attr(not(#xmul_query), #crate_::macros::p(naive, #(#raw_args),*))]
+                #input
+            };
+            return output.into();
+        },
 
         // multiple modes selected?
         _ => panic!("invalid configuration of macro p (naive, hardware?)"),
@@ -202,11 +222,11 @@ pub fn p(
             //
             let input = TokenStream::from(input);
             let output = quote! {
-                #[cfg_attr(target_pointer_width="8",   #crate_::macros::p(u="usize", width=8,   naive=#naive, hardware=#hardware))]
-                #[cfg_attr(target_pointer_width="16",  #crate_::macros::p(u="usize", width=16,  naive=#naive, hardware=#hardware))]
-                #[cfg_attr(target_pointer_width="32",  #crate_::macros::p(u="usize", width=32,  naive=#naive, hardware=#hardware))]
-                #[cfg_attr(target_pointer_width="64",  #crate_::macros::p(u="usize", width=64,  naive=#naive, hardware=#hardware))]
-                #[cfg_attr(target_pointer_width="128", #crate_::macros::p(u="usize", width=128, naive=#naive, hardware=#hardware))]
+                #[cfg_attr(target_pointer_width="8",   #crate_::macros::p(width=8,   #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="16",  #crate_::macros::p(width=16,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="32",  #crate_::macros::p(width=32,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="64",  #crate_::macros::p(width=64,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="128", #crate_::macros::p(width=128, #(#raw_args),*))]
                 #input
             };
             return output.into();
@@ -239,11 +259,11 @@ pub fn p(
         ("__is_usize".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", args.u == "usize"), Span::call_site())
         )),
-        ("__naive".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", naive), Span::call_site())
+        ("__has_xmul".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", has_xmul), Span::call_site())
         )),
-        ("__hardware".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", hardware), Span::call_site())
+        ("__xmul".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("xmul{}", width), Span::call_site())
         )),
         ("__crate".to_owned(), crate_),
     ]);
