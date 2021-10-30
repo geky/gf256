@@ -20,6 +20,10 @@ name = "gfdiv"
 harness = false
 
 [[bench]]
+name = "find-p"
+harness = false
+
+[[bench]]
 name = "crc"
 harness = false
 
