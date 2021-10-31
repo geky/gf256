@@ -6,6 +6,9 @@ use core::fmt;
 use core::str::FromStr;
 use core::num::TryFromIntError;
 use core::num::ParseIntError;
+#[allow(unused)]
+use core::mem::size_of;
+
 use __crate::p8;
 use __crate::p16;
 use __crate::traits::TryFrom;
@@ -42,20 +45,20 @@ impl __gf {
     pub const NONZEROS: __u = __nonzeros;
 
     // Generate log/antilog tables using our generator
-    // if we're in table mode
+    // if we're in log_table mode
     //
-    #[cfg(__if(__table))]
-    const LOG_TABLE: [__u; __size] = Self::LOG_EXP_TABLES.0;
-    #[cfg(__if(__table))]
-    const EXP_TABLE: [__u; __size] = Self::LOG_EXP_TABLES.1;
-    #[cfg(__if(__table))]
-    const LOG_EXP_TABLES: ([__u; __size], [__u; __size]) = {
-        let mut log_table = [0; __size];
-        let mut exp_table = [0; __size];
+    #[cfg(__if(__log_table))]
+    const LOG_TABLE: [__u; __nonzeros+1] = Self::LOG_EXP_TABLES.0;
+    #[cfg(__if(__log_table))]
+    const EXP_TABLE: [__u; __nonzeros+1] = Self::LOG_EXP_TABLES.1;
+    #[cfg(__if(__log_table))]
+    const LOG_EXP_TABLES: ([__u; __nonzeros+1], [__u; __nonzeros+1]) = {
+        let mut log_table = [0; __nonzeros+1];
+        let mut exp_table = [0; __nonzeros+1];
 
         let mut x = 1;
         let mut i = 0;
-        while i < __size {
+        while i < __nonzeros+1 {
             log_table[x as usize] = i as __u;
             exp_table[i as usize] = x as __u;
 
@@ -70,8 +73,47 @@ impl __gf {
         (log_table, exp_table)
     };
 
+    // Generate remainder tables if we're in rem_table mode
+    //
+    #[cfg(__if(__rem_table))]
+    const REM_TABLE: [__p; 256] = {
+        let mut rem_table = [__p(0); 256];
+
+        let mut i = 0;
+        while i < rem_table.len() {
+            rem_table[i] = __p(
+                __p2((i as __u2) << __width)
+                    .naive_rem(__p2(__polynomial))
+                    .0 as __u
+            );
+            i += 1;
+        }
+
+        rem_table
+    };
+
+    // Generate small remainder tables if we're in small_rem_table mode
+    //
+    #[cfg(__if(__small_rem_table))]
+    const REM_TABLE: [__p; 16] = {
+        let mut rem_table = [__p(0); 16];
+
+        let mut i = 0;
+        while i < rem_table.len() {
+            rem_table[i] = __p(
+                __p2((i as __u2) << __width)
+                    .naive_rem(__p2(__polynomial))
+                    .0 as __u
+            );
+            i += 1;
+        }
+
+        rem_table
+    };
+
     // Generate constant for Barret's reduction if we're
     // in Barret mode
+    //
     #[cfg(__if(__barret))]
     const BARRET_CONSTANT: __p = {
         // Normally this would be 0x10000 / __polynomial, but we eagerly
@@ -115,7 +157,7 @@ impl __gf {
     #[cfg(__if(!__is_pw256p2))]
     #[inline]
     pub const fn new(x: __u) -> Option<__gf> {
-        if x < __size {
+        if x < __nonzeros+1 {
             Some(__gf(x))
         } else {
             None
@@ -255,7 +297,7 @@ impl __gf {
     #[inline]
     pub fn mul(self, other: __gf) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__table))] {
+            if #[cfg(__if(__log_table))] {
                 // multiplication using log/antilog tables
                 if self.0 == 0 || other.0 == 0 {
                     // special case for 0, this can't be constant-time
@@ -277,7 +319,52 @@ impl __gf {
                     };
                     __gf(unsafe { *Self::EXP_TABLE.get_unchecked(x as usize) })
                 }
-            } else if #[cfg(__if(__barret && __is_pw256p2))] {
+            } else if #[cfg(__if(__rem_table))] {
+                // multiplication with a per-byte remainder table
+                let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
+                cfg_if! {
+                    if #[cfg(__if(!__is_pw256p2))] {
+                        // align overflow to a word
+                        hi = (hi << (8*size_of::<__u>() - __width))
+                            | (lo >> __width);
+                    }
+                }
+
+                let mut x = __p(0);
+                for b in hi.to_be_bytes() {
+                    cfg_if! {
+                        if #[cfg(__if(__width <= 8))] {
+                            x = unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
+                                x.0 ^ b)) };
+                        } else {
+                            x = (x << 8) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
+                                ((x >> (__width-8u32)).0 as u8) ^ b)) };
+                        }
+                    }
+                }
+
+                __gf((x + lo).0 & __nonzeros)
+            } else if #[cfg(__if(__small_rem_table))] {
+                // multiplication with a per-nibble remainder table
+                let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
+                cfg_if! {
+                    if #[cfg(__if(!__is_pw256p2))] {
+                        // align overflow to a word
+                        hi = (hi << (8*size_of::<__u>() - __width))
+                            | (lo >> __width);
+                    }
+                }
+
+                let mut x = __p(0);
+                for b in hi.to_be_bytes() {
+                    x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
+                        (((x >> (__width-4u32)).0 as u8) ^ (b >> 4)) & 0xf)) };
+                    x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
+                        (((x >> (__width-4u32)).0 as u8) ^ (b >> 0)) & 0xf)) };
+                }
+
+                __gf((x + lo).0 & __nonzeros)
+            } else if #[cfg(__if(__barret))] {
                 // multiplication using Barret reduction
                 //
                 // Barret reduction is a method for turning division/remainder
@@ -286,37 +373,36 @@ impl __gf {
                 // it may be more expensive if xmul is naive.
                 //
                 let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
-                let x = lo
-                    + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(__p(__polynomial & __nonzeros));
-                __gf(x.0)
-            } else if #[cfg(__if(__barret))] {
-                // multiplication using Barret reduction
-                //
-                // Same as above, but with extra handling if our width != a
-                // power of 2^8, which means we can't just rely on byte loads
-                // for truncation
-                //
+                let x = {cfg_if! {
+                    if #[cfg(__if(__is_pw256p2))] {
+                        lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                            .wrapping_mul(__p(__polynomial & __nonzeros))
+                    } else {
+                        // Barret reduction with < (2^8)^n, note the top bits
+                        // are left with garbage, but we mask these away at the end
+                        fn reduction((lo, hi): (__p, __p)) -> (__p, __p) {
+                            let hi = (hi << (8*size_of::<__u>() - __width as usize))
+                                | (lo >> __width as usize);
+                            (lo, hi)
+                        }
 
-                // widening multiplication but with < power of 2^8 width, note
-                // the top bits are left with garbage, since we mask it all away
-                // at this end of this
-                //
-                fn wadening_mul(a: __p, b: __p) -> (__p, __p) {
-                    let (lo, hi) = a.widening_mul(b);
-                    let hi = (hi << (8*core::mem::size_of::<__u>() - __width) as usize)
-                        | (lo >> __width as usize);
-                    (lo, hi)
-                }
-
-                let (lo, hi) = wadening_mul(__p(self.0), __p(other.0));
-                let x = lo
-                    + (wadening_mul(hi, Self::BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(__p(__polynomial & __nonzeros));
+                        let (lo, hi) = reduction((lo, hi));
+                        lo + (reduction(hi.widening_mul(Self::BARRET_CONSTANT)).1 + hi)
+                            .wrapping_mul(__p(__polynomial & __nonzeros))
+                    }
+                }};
                 __gf(x.0 & __nonzeros)
             } else {
                 // fallback to naive multiplication
-                self.naive_mul(other)
+                //
+                // Note this is still a bit better than naive_mul, since we
+                // use the p-type's non-naive mul, which may be hardware
+                // accelerated
+                //
+                let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
+                let x = __p2(((hi.0 as __u2) << (8*size_of::<__u>())) | (lo.0 as __u2))
+                    % __p2(__polynomial);
+                __gf(x.0 as __u)
             }
         }
     }
@@ -328,7 +414,7 @@ impl __gf {
     #[inline]
     pub fn pow(self, exp: __u) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__table))] {
+            if #[cfg(__if(__log_table))] {
                 // another shortcut! if we are in table mode, the log/antilog
                 // tables let us compute the pow with traditional integer
                 // operations. Expensive integer operations, but less expensive
@@ -373,7 +459,7 @@ impl __gf {
         }
 
         cfg_if! {
-            if #[cfg(__if(__table))] {
+            if #[cfg(__if(__log_table))] {
                 // we can take a shortcut here if we are in table mode, by
                 // directly using the log/antilog tables to find the reciprocal
                 //
@@ -412,7 +498,7 @@ impl __gf {
         }
 
         cfg_if! {
-            if #[cfg(__if(__table))] {
+            if #[cfg(__if(__log_table))] {
                 // more table mode shortcuts, this just shaves off a pair of lookups
                 //
                 // a/b = a*b^-1 = g^(log_g(a)+log_g(b^-1)) = g^(log_g(a)-log_g(b)) = g^(log_g(a)+255-log_g(b))
@@ -558,7 +644,7 @@ impl TryFrom<u8> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -578,7 +664,7 @@ impl TryFrom<u16> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -598,7 +684,7 @@ impl TryFrom<u32> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -618,7 +704,7 @@ impl TryFrom<u64> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -638,7 +724,7 @@ impl TryFrom<u128> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -658,7 +744,7 @@ impl TryFrom<usize> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
-                if x < __size {
+                if x < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x)?))
                 } else {
                     // force an error
@@ -678,7 +764,7 @@ impl TryFrom<__crate::p16> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
-                if x.0 <__size {
+                if x.0 < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x.0)?))
                 } else {
                     // force an error
@@ -698,7 +784,7 @@ impl TryFrom<__crate::p32> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
-                if x.0 <__size {
+                if x.0 < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x.0)?))
                 } else {
                     // force an error
@@ -718,7 +804,7 @@ impl TryFrom<__crate::p64> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
-                if x.0 <__size {
+                if x.0 < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x.0)?))
                 } else {
                     // force an error
@@ -738,7 +824,7 @@ impl TryFrom<__crate::p128> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
-                if x.0 <__size {
+                if x.0 < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x.0)?))
                 } else {
                     // force an error
@@ -758,7 +844,7 @@ impl TryFrom<__crate::psize> for __gf {
             if #[cfg(__if(__is_pw256p2))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
-                if x.0 <__size {
+                if x.0 < __nonzeros+1 {
                     Ok(__gf(__u::try_from(x.0)?))
                 } else {
                     // force an error

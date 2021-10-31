@@ -6,7 +6,8 @@
 )]
 
 // We don't really need std
-#![no_std]
+// TODO 
+//#![no_std]
 
 // Other assertions
 #![deny(missing_debug_implementations)]

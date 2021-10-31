@@ -28,6 +28,7 @@ fn __crate() -> TokenTree {
     ))
 }
 
+// TODO does this xmul query even work out of crate? (feature flag?)
 fn xmul_query() -> TokenStream {
     quote! {
         any(
@@ -350,10 +351,13 @@ struct GfArgs {
     #[darling(default)]
     naive: bool,
     #[darling(default)]
-    table: bool,
+    log_table: bool,
+    #[darling(default)]
+    rem_table: bool,
+    #[darling(default)]
+    small_rem_table: bool,
     #[darling(default)]
     barret: bool,
-    // TODO constant_time option?
 }
 
 #[proc_macro_attribute]
@@ -405,32 +409,26 @@ pub fn gf(
     };
 
     // decide between implementations
-    let (naive, table, barret) = match (args.naive, args.table, args.barret) {
+    let (naive, log_table, rem_table, small_rem_table, barret) = match
+        (args.naive, args.log_table, args.rem_table, args.small_rem_table, args.barret)
+    {
         // choose mode if one is explicitly requested
-        (true,  false, false) => (true,  false, false),
-        (false, true,  false) => (false, true,  false),
-        (false, false, true ) => (false, false, true ),
+        (true,  false, false, false, false) => (true,  false, false, false, false),
+        (false, true,  false, false, false) => (false, true,  false, false, false),
+        (false, false, true,  false, false) => (false, false, true,  false, false),
+        (false, false, false, true , false) => (false, false, false, true , false),
+        (false, false, false, false, true ) => (false, false, false, false, true ),
 
-        // if width <= 8, default to table as this is currently the fastest
+        // if width <= 8, default to log_table as this is currently the fastest
         // implementation, but uses O(2^n) memory
-        (false, false, false) if width <= 8 => (false, true, false),
+        (false, false, false, false, false) if width <= 8 => (false, true, false, false, false),
 
-        // otherwise there are two option, Barret reduction is faster when
-        // carry-less multiplication is available, if not, a naive bitwise
-        // implementation is actually the fastest
-        (false, false, false) => {
-            let input = TokenStream::from(input);
-            let xmul_query = xmul_query();
-            let output = quote! {
-                #[cfg_attr(#xmul_query,      #__crate::macros::gf(barret, #(#raw_args),*))]
-                #[cfg_attr(not(#xmul_query), #__crate::macros::gf(naive,  #(#raw_args),*))]
-                #input
-            };
-            return output.into();
-        },
+        // otherwise it turns out Barret reduction is the fastest, even when
+        // carry-less multiplication isn't available
+        (false, false, false, false, false) => (false, false, false, false, true),
 
         // multiple modes selected?
-        _ => panic!("invalid configuration of macro gf (naive, table, barret?)"),
+        _ => panic!("invalid configuration of macro gf (naive, log_table, rem_table, small_rem_table, barret?)"),
     };
 
     // parse type
@@ -457,11 +455,6 @@ pub fn gf(
         ("__width".to_owned(), TokenTree::Literal(
             Literal::usize_unsuffixed(width)
         )),
-        ("__size".to_owned(), TokenTree::Literal(
-            Literal::u128_unsuffixed(1u128 << width)
-        )),
-        // this is mostly here due to typing issues, __size-1 triggers
-        // underflow asserts all over the place for some reason
         ("__nonzeros".to_owned(), TokenTree::Literal(
             Literal::u128_unsuffixed((1u128 << width) - 1)
         )),
@@ -476,8 +469,14 @@ pub fn gf(
         ("__naive".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", naive), Span::call_site())
         )),
-        ("__table".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", table), Span::call_site())
+        ("__log_table".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", log_table), Span::call_site())
+        )),
+        ("__rem_table".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", rem_table), Span::call_site())
+        )),
+        ("__small_rem_table".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", small_rem_table), Span::call_site())
         )),
         ("__barret".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", barret), Span::call_site())
