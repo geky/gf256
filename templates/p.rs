@@ -19,6 +19,18 @@ use __crate::internal::cfg_if::cfg_if;
 pub struct __p(pub __u);
 
 impl __p {
+    /// Create a gf(2) polynomial
+    #[inline]
+    pub const fn new(x: __u) -> __p {
+        __p(x)
+    }
+
+    /// Get the underlying primitive type
+    #[inline]
+    pub const fn get(self) -> __u {
+        self.0
+    }
+
     /// Polynomial addition, aka xor
     #[inline]
     pub const fn naive_add(self, other: __p) -> __p {

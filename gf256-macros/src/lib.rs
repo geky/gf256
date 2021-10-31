@@ -465,7 +465,7 @@ pub fn gf(
         ("__nonzeros".to_owned(), TokenTree::Literal(
             Literal::u128_unsuffixed((1u128 << width) - 1)
         )),
-        ("__is_pw8".to_owned(), TokenTree::Ident(
+        ("__is_pw256p2".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", width.is_power_of_two() && width >= 8), Span::call_site())
         )),
         ("__is_usize".to_owned(), TokenTree::Ident(

@@ -196,19 +196,19 @@ mod test {
         assert_eq!(gf16::NONZEROS, 15);
 
         let xs = [
-            gf16(0x1),
-            gf16(0x2),
-            gf16(0x3),
-            gf16(0x4),
+            gf16::new(0x1).unwrap(),
+            gf16::new(0x2).unwrap(),
+            gf16::new(0x3).unwrap(),
+            gf16::new(0x4).unwrap(),
         ];
 
         for x in xs {
             for y in xs {
                 for z in xs {
                     // 0 is the identity of addition
-                    assert_eq!(x + gf16(0), x);
+                    assert_eq!(x + gf16::new(0).unwrap(), x);
                     // 1 is the identity of multiplication
-                    assert_eq!(x * gf16(1), x);
+                    assert_eq!(x * gf16::new(1).unwrap(), x);
                     // addition and subtraction are inverses
                     assert_eq!((x + y) - y, x);
                     // multiplication and division are inverses
@@ -227,19 +227,19 @@ mod test {
         assert_eq!(gf4096::NONZEROS, 4095);
 
         let xs = [
-            gf4096(0x111),
-            gf4096(0x222),
-            gf4096(0x333),
-            gf4096(0x444),
+            gf4096::new(0x111).unwrap(),
+            gf4096::new(0x222).unwrap(),
+            gf4096::new(0x333).unwrap(),
+            gf4096::new(0x444).unwrap(),
         ];
 
         for x in xs {
             for y in xs {
                 for z in xs {
                     // 0 is the identity of addition
-                    assert_eq!(x + gf4096(0), x);
+                    assert_eq!(x + gf4096::new(0).unwrap(), x);
                     // 1 is the identity of multiplication
-                    assert_eq!(x * gf4096(1), x);
+                    assert_eq!(x * gf4096::new(1).unwrap(), x);
                     // addition and subtraction are inverses
                     assert_eq!((x + y) - y, x);
                     // multiplication and division are inverses
