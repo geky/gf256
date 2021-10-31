@@ -39,13 +39,19 @@ pub fn is_irreducible(p: p128) -> bool {
         return false;
     }
 
+    // check for 2 so we can skip all multiples of 2, seems like
+    // a minor optimization but speeds things up by ~2x
+    if p % p128(2) == p128(0) {
+        return p == p128(2);
+    }
+
     // test division of all polynomials < sqrt(p), or a simpler
     // heuristic of < 2^(log2(p)/2)
     let npw2 = 128 - (u128::from(p)-1).leading_zeros();
     let roughsqrt = 1u128 << ((npw2+1)/2);
 
-    for x in 2..roughsqrt {
-        if p % p128(x) == p128(0) {
+    for x in (3..roughsqrt).step_by(2).map(p128) {
+        if p % x == p128(0) {
             return false;
         }
     }
