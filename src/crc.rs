@@ -9,6 +9,7 @@ use crate::macros::crc;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::p::*;
 
     #[test]
     fn crc() {
@@ -79,5 +80,22 @@ mod test {
         assert_eq!(crc32_table_uninverted(b"Hello World!"), 0x67fcdacc);
         assert_eq!(crc32_small_table_uninverted(b"Hello World!"), 0x67fcdacc);
         assert_eq!(crc32_barret_uninverted(b"Hello World!"), 0x67fcdacc);
+    }
+
+    // all CRC params
+    #[crc(
+        polynomial=0x104c11db7,
+        u=u32,
+        u2=u64,
+        p=p32,
+        p2=p64,
+        reversed=true,
+        inverted=true,
+    )]
+    fn crc32_all_params();
+
+    #[test]
+    fn crc_all_params() {
+        assert_eq!(crc32_all_params(b"Hello World!"), 0x1c291ca3);
     }
 }

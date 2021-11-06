@@ -27,13 +27,20 @@ pub mod gf;
 pub use gf::*;
 
 /// CRC functions
-#[cfg(feature="crc")] pub mod crc;
+#[cfg(feature="crc")]
+pub mod crc;
+
+/// Shamir secret-sharing
+#[cfg(feature="shamir")]
+pub mod shamir;
+
 
 /// re-exported for proc_macros
 #[path="."]
 pub mod internal {
-    pub use cfg_if;
     pub mod xmul;
+    pub use cfg_if;
+    #[cfg(feature="shamir")] pub use rand;
 }
 
 pub use internal::xmul::HAS_XMUL;

@@ -9,6 +9,7 @@ pub type gf256;
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::p::*;
 
     // Create a custom gf type here (Rijndael's finite field) to test a
     // different polynomial
@@ -305,4 +306,19 @@ mod test {
     test_axioms! { gf2p16_barret_axioms;  gf2p16_barret; gf2p16_barret; 65535; 0x1111 }
     test_axioms! { gf2p32_barret_axioms;  gf2p32_barret; gf2p32_barret; 4294967295; 0x11111111 }
     test_axioms! { gf2p64_barret_axioms;  gf2p64_barret; gf2p64_barret; 18446744073709551615; 0x1111111111111111 }
+
+    // all Galois-field params
+    #[gf(
+        polynomial=0x11d,
+        generator=0x02,
+        width=8,
+        usize=false,
+        u=u8,
+        u2=u16,
+        p=p8,
+        p2=p16,
+    )]
+    type gf256_all_params;
+
+    test_axioms! { gf_all_params; gf256_all_params; gf256_all_params; 255; 0x11 }
 }

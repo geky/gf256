@@ -9,7 +9,6 @@ use syn::parse_macro_input;
 use proc_macro2::*;
 use std::collections::HashMap;
 use quote::quote;
-use quote::ToTokens;
 use std::iter::FromIterator;
 use std::convert::TryFrom;
 use std::cmp::max;
@@ -21,13 +20,17 @@ const GF_TEMPLATE: &'static str = include_str!("../../templates/gf.rs");
 
 #[derive(Debug, FromMeta)]
 struct GfArgs {
-    polynomial: U128,
+    polynomial: U128Wrapper,
     generator: u64,
 
     #[darling(default)]
-    u: Option<String>,
-    #[darling(default)]
     width: Option<usize>,
+    #[darling(default, rename="usize")]
+    is_usize: Option<bool>,
+    #[darling(default)]
+    u: Option<syn::Path>,
+    #[darling(default)]
+    u2: Option<syn::Path>,
     #[darling(default)]
     p: Option<syn::Path>,
     #[darling(default)]
@@ -52,7 +55,7 @@ pub fn gf(
     let __crate = crate_path();
 
     // parse args
-    let raw_args = parse_macro_input!(args as syn::AttributeArgs);
+    let raw_args = parse_macro_input!(args as AttributeArgsWrapper).0;
     let args = match GfArgs::from_list(&raw_args) {
         Ok(args) => args,
         Err(err) => {
@@ -71,25 +74,15 @@ pub fn gf(
         }
     };
 
-    let u = match args.u.as_ref() {
-        Some(u) => u.clone(),
-        None => format!("u{}", max(width.next_power_of_two(), 8)),
-    };
-    let u2 = format!("u{}", 2*max(width.next_power_of_two(), 8));
-
-    let p = match args.p.as_ref() {
-        Some(p) => TokenTree::Group(Group::new(Delimiter::None, p.to_token_stream())),
-        None => TokenTree::Group(Group::new(Delimiter::None, {
-            let p = TokenTree::Ident(Ident::new(&format!("p{}", max(width.next_power_of_two(), 8)), Span::call_site()));
-            quote! { #__crate::p::#p }
-        }))
-    };
-    let p2 = match args.p2.as_ref() {
-        Some(p2) => TokenTree::Group(Group::new(Delimiter::None, p2.to_token_stream())),
-        None => TokenTree::Group(Group::new(Delimiter::None, {
-            let p2 = TokenTree::Ident(Ident::new(&format!("p{}", 2*max(width.next_power_of_two(), 8)), Span::call_site()));
-            quote! { #__crate::p::#p2 }
-        }))
+    let is_usize = match args.is_usize {
+        Some(is_usize) => is_usize,
+        None => {
+            match args.u.as_ref().and_then(guess_is_usize) {
+                Some(is_usize) => is_usize,
+                // assume u is not usize by default, since this is more common
+                None => false,
+            }
+        }
     };
 
     // decide between implementations
@@ -121,6 +114,67 @@ pub fn gf(
     let vis = ty.vis;
     let gf = ty.ident;
 
+    let __mod = Ident::new(&format!("__{}_gen", gf.to_string()), Span::call_site());
+    let __u   = Ident::new(&format!("__{}_u",   gf.to_string()), Span::call_site());
+    let __u2  = Ident::new(&format!("__{}_u2",  gf.to_string()), Span::call_site());
+    let __p   = Ident::new(&format!("__{}_p",   gf.to_string()), Span::call_site());
+    let __p2  = Ident::new(&format!("__{}_p2",  gf.to_string()), Span::call_site());
+
+    // overrides in paren't namespace
+    let mut overrides = vec![];
+    match args.u.as_ref() {
+        Some(u) => {
+            overrides.push(quote! {
+                use #u as #__u;
+            })
+        }
+        None => {
+            let u = Ident::new(&format!("u{}", max(width.next_power_of_two(), 8)), Span::call_site());
+            overrides.push(quote! {
+                use #u as #__u;
+            })
+        }
+    }
+    match args.u2.as_ref() {
+        Some(u2) => {
+            overrides.push(quote! {
+                use #u2 as #__u2;
+            })
+        }
+        None => {
+            let u2 = Ident::new(&format!("u{}", 2*max(width.next_power_of_two(), 8)), Span::call_site());
+            overrides.push(quote! {
+                use #u2 as #__u2;
+            })
+        }
+    }
+    match args.p.as_ref() {
+        Some(p) => {
+            overrides.push(quote! {
+                use #p as #__p;
+            })
+        }
+        None => {
+            let p = Ident::new(&format!("p{}", max(width.next_power_of_two(), 8)), Span::call_site());
+            overrides.push(quote! {
+                use #__crate::p::#p as #__p;
+            })
+        }
+    }
+    match args.p2.as_ref() {
+        Some(p2) => {
+            overrides.push(quote! {
+                use #p2 as #__p2;
+            })
+        }
+        None => {
+            let p2 = Ident::new(&format!("p{}", 2*max(width.next_power_of_two(), 8)), Span::call_site());
+            overrides.push(quote! {
+                use #__crate::p::#p2 as #__p2;
+            })
+        }
+    }
+
     // keyword replacements
     let replacements = HashMap::from_iter([
         ("__gf".to_owned(), TokenTree::Ident(gf.clone())),
@@ -129,12 +183,6 @@ pub fn gf(
         )),
         ("__generator".to_owned(), TokenTree::Literal(
             Literal::u64_unsuffixed(args.generator)
-        )),
-        ("__u".to_owned(), TokenTree::Ident(
-            Ident::new(&u, Span::call_site())
-        )),
-        ("__u2".to_owned(), TokenTree::Ident(
-            Ident::new(&u2, Span::call_site())
         )),
         ("__width".to_owned(), TokenTree::Literal(
             Literal::usize_unsuffixed(width)
@@ -146,10 +194,20 @@ pub fn gf(
             Ident::new(&format!("{}", width.is_power_of_two() && width >= 8), Span::call_site())
         )),
         ("__is_usize".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", u == "usize"), Span::call_site())
+            Ident::new(&format!("{}", is_usize), Span::call_site())
         )),
-        ("__p".to_owned(), p),
-        ("__p2".to_owned(), p2),
+        ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__u }
+        }))),
+        ("__u2".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__u2 }
+        }))),
+        ("__p".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__p }
+        }))),
+        ("__p2".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__p2 }
+        }))),
         ("__naive".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", naive), Span::call_site())
         )),
@@ -176,12 +234,14 @@ pub fn gf(
         }
     };
 
-    let gfmod = Ident::new(&format!("__{}_gen", gf.to_string()), Span::call_site());
     let output = quote! {
-        #(#attrs)* #vis use #gfmod::#gf;
-        mod #gfmod {
+        #(#attrs)* #vis use #__mod::#gf;
+        mod #__mod {
             #template
         }
+
+        // overrides in parent's namespace
+        #(#overrides)*
     };
 
     output.into()

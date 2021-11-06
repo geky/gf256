@@ -5,6 +5,7 @@ mod common;
 mod p;
 mod gf;
 #[cfg(feature="crc")] mod crc;
+#[cfg(feature="shamir")] mod shamir;
 
 
 #[proc_macro_attribute]
@@ -30,4 +31,13 @@ pub fn crc(
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
     crc::crc(args, input)
+}
+
+#[cfg(feature="shamir")]
+#[proc_macro_attribute]
+pub fn shamir(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream
+) -> proc_macro::TokenStream {
+    shamir::shamir(args, input)
 }

@@ -4,6 +4,52 @@ version = "0.1.0"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
 edition = "2018"
 
+[features]
+# Enables features only found on a nightly compiler
+#
+# Most notably this is required to leverage pmull on aarch64, see this
+# tracking issue:
+# https://github.com/rust-lang/rust/issues/48556
+#
+nightly = []
+
+# Disable carry-less multiplication instructions, forcing the use
+# of naive bitwise implementations
+#
+# This is mostly available for testing, and in the case that hardware
+# xmul is bugged (or more likely this crate is bugged).
+#
+no-xmul = ["gf256-macros/no-xmul"]
+
+# Enable features that depend on ThreadRng
+#
+# This is primarily used to provide a default Rng implementation for
+# Shamir's secret-sharing implementations
+#
+thread-rng = ["rand/std", "rand/std_rng"]
+
+# Make CRC macros and functions available
+crc = ["gf256-macros/crc"]
+
+# Make Shamir secret-sharing macros and functions available
+#
+# Note this requires alloc and rand, as well as std if
+# ThreadRng (default) is used
+#
+shamir = ["gf256-macros/shamir", "rand"]
+
+[dev-dependencies]
+criterion = {version="0.3", features=["html_reports"]}
+rand = "0.8.3"
+rand_core = "0.6.3"
+structopt = "0.3.25"
+flate2 = "1.0.22"
+
+[dependencies]
+gf256-macros = {path="gf256-macros"}
+cfg-if = "1.0.0"
+rand = {version="0.8.3", default-features=false, optional=true}
+
 [[bench]]
 name = "xmul"
 harness = false
@@ -35,35 +81,3 @@ harness = false
 [[bench]]
 name = "rs"
 harness = false
-
-[features]
-# Enables features only found on a nightly compiler
-#
-# Most notably this is required to leverage pmull on aarch64, see this
-# tracking issue:
-# https://github.com/rust-lang/rust/issues/48556
-#
-nightly = []
-
-# Disable carry-less multiplication instructions, forcing the use
-# of naive bitwise implementations
-#
-# This is mostly available for testing, and in the case that hardware
-# xmul is bugged (or more likely this crate is bugged).
-#
-no-xmul = ["gf256-macros/no-xmul"]
-
-# Make CRC macros and functions available
-crc = ["gf256-macros/crc"]
-
-
-[dev-dependencies]
-criterion = {version="0.3", features=["html_reports"]}
-rand = "0.8.3"
-rand_core = "0.6.3"
-structopt = "0.3.25"
-flate2 = "1.0.22"
-
-[dependencies]
-gf256-macros = {path="gf256-macros"}
-cfg-if = "1.0.0"

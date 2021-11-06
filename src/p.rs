@@ -2,12 +2,12 @@
 use crate::macros::p;
 
 // polynomial types
-#[p(u="u8")]    pub type p8;
-#[p(u="u16")]   pub type p16;
-#[p(u="u32")]   pub type p32;
-#[p(u="u64")]   pub type p64;
-#[p(u="u128")]  pub type p128;
-#[p(u="usize")] pub type psize;
+#[p(u=u8)]    pub type p8;
+#[p(u=u16)]   pub type p16;
+#[p(u=u32)]   pub type p32;
+#[p(u=u64)]   pub type p64;
+#[p(u=u128)]  pub type p128;
+#[p(u=usize)] pub type psize;
 
 
 #[cfg(test)]
@@ -197,6 +197,32 @@ mod test {
                 // compare pow vs naive_pow
                 assert_eq!(a.wrapping_pow(b), naive_pow(a, b));
             }   
+        }
+    }
+
+    // all polynomial-type params
+    #[p(
+        width=8,
+        usize=false,
+        u=u8,
+        i=i8,
+        xmul=custom_xmul,
+    )]
+    type p8_all_params;
+
+    fn custom_xmul(a: u8, b: u8) -> (u8, u8) {
+        let (lo, hi) = p8(a).widening_mul(p8(b));
+        (u8::from(lo), u8::from(hi))
+    }
+
+    #[test]
+    fn p_all_params() {
+        for a in (0..=255).map(p8_all_params) {
+            for b in (0..=255).map(p8_all_params) {
+                let naive_res = a.naive_wrapping_mul(b);
+                let res_xmul = a.wrapping_mul(b);
+                assert_eq!(naive_res, res_xmul);
+            }
         }
     }
 }
