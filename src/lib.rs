@@ -6,8 +6,7 @@
 )]
 
 // We don't really need std
-// TODO 
-//#![no_std]
+#![no_std]
 
 // Other assertions
 #![deny(missing_debug_implementations)]
@@ -26,6 +25,9 @@ pub use p::*;
 /// Galois-field types
 pub mod gf;
 pub use gf::*;
+
+/// CRC functions
+#[cfg(feature="crc")] pub mod crc;
 
 /// re-exported for proc_macros
 #[path="."]

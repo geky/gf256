@@ -53,6 +53,10 @@ nightly = []
 #
 no-xmul = ["gf256-macros/no-xmul"]
 
+# Make CRC macros and functions available
+crc = ["gf256-macros/crc"]
+
+
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}
 rand = "0.8.3"

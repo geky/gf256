@@ -9,8 +9,6 @@ use core::num::ParseIntError;
 #[allow(unused)]
 use core::mem::size_of;
 
-use __crate::p8;
-use __crate::p16;
 use __crate::traits::TryFrom;
 use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
@@ -21,8 +19,8 @@ use __crate::internal::cfg_if::cfg_if;
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct __gf(
-    #[cfg(__if(__is_pw256p2))] pub __u,
-    #[cfg(__if(!__is_pw256p2))] __u,
+    #[cfg(__if(__is_pw2ge8))] pub __u,
+    #[cfg(__if(!__is_pw2ge8))] __u,
 );
 
 impl __gf {
@@ -139,14 +137,14 @@ impl __gf {
     };
 
     /// Create a finite-field element
-    #[cfg(__if(__is_pw256p2))]
+    #[cfg(__if(__is_pw2ge8))]
     #[inline]
     pub const fn new(x: __u) -> __gf {
         __gf(x)
     }
 
     /// Create a finite-field element
-    #[cfg(__if(!__is_pw256p2))]
+    #[cfg(__if(!__is_pw2ge8))]
     #[inline]
     pub const unsafe fn new_unchecked(x: __u) -> __gf {
         __gf(x)
@@ -154,7 +152,7 @@ impl __gf {
 
     /// Create a finite-field element, returning None if the argument
     /// could not be represented in the field
-    #[cfg(__if(!__is_pw256p2))]
+    #[cfg(__if(!__is_pw2ge8))]
     #[inline]
     pub const fn new(x: __u) -> Option<__gf> {
         if x < __nonzeros+1 {
@@ -323,7 +321,7 @@ impl __gf {
                 // multiplication with a per-byte remainder table
                 let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
                 cfg_if! {
-                    if #[cfg(__if(!__is_pw256p2))] {
+                    if #[cfg(__if(!__is_pw2ge8))] {
                         // align overflow to a word
                         hi = (hi << (8*size_of::<__u>() - __width))
                             | (lo >> __width);
@@ -348,7 +346,7 @@ impl __gf {
                 // multiplication with a per-nibble remainder table
                 let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
                 cfg_if! {
-                    if #[cfg(__if(!__is_pw256p2))] {
+                    if #[cfg(__if(!__is_pw2ge8))] {
                         // align overflow to a word
                         hi = (hi << (8*size_of::<__u>() - __width))
                             | (lo >> __width);
@@ -374,7 +372,7 @@ impl __gf {
                 //
                 let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
                 let x = {cfg_if! {
-                    if #[cfg(__if(__is_pw256p2))] {
+                    if #[cfg(__if(__is_pw2ge8))] {
                         lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
                             .wrapping_mul(__p(__polynomial & __nonzeros))
                     } else {
@@ -540,7 +538,7 @@ impl __gf {
 
 //// Conversions into __gf ////
 
-#[cfg(__if(__is_pw256p2))]
+#[cfg(__if(__is_pw2ge8))]
 impl From<__p> for __gf {
     #[inline]
     fn from(x: __p) -> __gf {
@@ -548,7 +546,7 @@ impl From<__p> for __gf {
     }
 }
 
-#[cfg(__if(__is_pw256p2))]
+#[cfg(__if(__is_pw2ge8))]
 impl From<__u> for __gf {
     #[inline]
     fn from(x: __u) -> __gf {
@@ -641,7 +639,7 @@ impl TryFrom<u8> for __gf {
     #[inline]
     fn try_from(x: u8) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -661,7 +659,7 @@ impl TryFrom<u16> for __gf {
     #[inline]
     fn try_from(x: u16) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -681,7 +679,7 @@ impl TryFrom<u32> for __gf {
     #[inline]
     fn try_from(x: u32) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -701,7 +699,7 @@ impl TryFrom<u64> for __gf {
     #[inline]
     fn try_from(x: u64) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -721,7 +719,7 @@ impl TryFrom<u128> for __gf {
     #[inline]
     fn try_from(x: u128) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -741,7 +739,7 @@ impl TryFrom<usize> for __gf {
     #[inline]
     fn try_from(x: usize) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x)?))
             } else {
                 if x < __nonzeros+1 {
@@ -761,7 +759,7 @@ impl TryFrom<__crate::p16> for __gf {
     #[inline]
     fn try_from(x: __crate::p16) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
                 if x.0 < __nonzeros+1 {
@@ -781,7 +779,7 @@ impl TryFrom<__crate::p32> for __gf {
     #[inline]
     fn try_from(x: __crate::p32) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
                 if x.0 < __nonzeros+1 {
@@ -801,7 +799,7 @@ impl TryFrom<__crate::p64> for __gf {
     #[inline]
     fn try_from(x: __crate::p64) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
                 if x.0 < __nonzeros+1 {
@@ -821,7 +819,7 @@ impl TryFrom<__crate::p128> for __gf {
     #[inline]
     fn try_from(x: __crate::p128) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
                 if x.0 < __nonzeros+1 {
@@ -841,7 +839,7 @@ impl TryFrom<__crate::psize> for __gf {
     #[inline]
     fn try_from(x: __crate::psize) -> Result<__gf, Self::Error> {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
             } else {
                 if x.0 < __nonzeros+1 {
@@ -860,7 +858,7 @@ impl FromLossy<u16> for __gf {
     #[inline]
     fn from_lossy(x: u16) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
@@ -874,7 +872,7 @@ impl FromLossy<u32> for __gf {
     #[inline]
     fn from_lossy(x: u32) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
@@ -888,7 +886,7 @@ impl FromLossy<u64> for __gf {
     #[inline]
     fn from_lossy(x: u64) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
@@ -902,7 +900,7 @@ impl FromLossy<u128> for __gf {
     #[inline]
     fn from_lossy(x: u128) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
@@ -916,7 +914,7 @@ impl FromLossy<usize> for __gf {
     #[inline]
     fn from_lossy(x: usize) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
@@ -930,7 +928,7 @@ impl FromLossy<__crate::p16> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p16) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
             } else {
                 __gf((x.0 as __u) & __nonzeros)
@@ -944,7 +942,7 @@ impl FromLossy<__crate::p32> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p32) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
             } else {
                 __gf((x.0 as __u) & __nonzeros)
@@ -958,7 +956,7 @@ impl FromLossy<__crate::p64> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p64) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
             } else {
                 __gf((x.0 as __u) & __nonzeros)
@@ -972,7 +970,7 @@ impl FromLossy<__crate::p128> for __gf {
     #[inline]
     fn from_lossy(x: __crate::p128) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
             } else {
                 __gf((x.0 as __u) & __nonzeros)
@@ -986,7 +984,7 @@ impl FromLossy<__crate::psize> for __gf {
     #[inline]
     fn from_lossy(x: __crate::psize) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__is_pw256p2))] {
+            if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
             } else {
                 __gf((x.0 as __u) & __nonzeros)
@@ -998,7 +996,7 @@ impl FromLossy<__crate::psize> for __gf {
 
 //// Conversions from __gf ////
 
-#[cfg(__if(__is_pw256p2))]
+#[cfg(__if(__is_pw2ge8))]
 impl From<__gf> for __p {
     #[inline]
     fn from(x: __gf) -> __p {
@@ -1006,7 +1004,7 @@ impl From<__gf> for __p {
     }
 }
 
-#[cfg(__if(__is_pw256p2))]
+#[cfg(__if(__is_pw2ge8))]
 impl From<__gf> for __u {
     #[inline]
     fn from(x: __gf) -> __u {

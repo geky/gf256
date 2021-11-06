@@ -11,6 +11,7 @@ proc-macro = true
 [features]
 # See gf256/Cargo.toml for documentation over these features
 no-xmul = []
+crc = []
 
 [dependencies]
 syn = {version="1.0.73", features=["full"]}
