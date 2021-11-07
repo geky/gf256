@@ -15,6 +15,7 @@ crc = []
 lfsr = []
 shamir = []
 raid = []
+rs = []
 
 [dependencies]
 syn = {version="1.0.73", features=["full"]}

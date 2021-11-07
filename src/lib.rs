@@ -42,6 +42,10 @@ pub mod shamir;
 #[cfg(feature="raid")]
 pub mod raid;
 
+/// Reed-Solomon error-correction
+#[cfg(feature="rs")]
+pub mod rs;
+
 
 /// re-exported for proc_macros
 #[path="."]

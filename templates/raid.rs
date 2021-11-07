@@ -1,6 +1,6 @@
-//! Template for LFSR structs
+//! Template for RAID-parity structs
 //!
-//! See examples/lfsr.rs for a more detailed explanation of
+//! See examples/raid.rs for a more detailed explanation of
 //! where these implementations come from
 
 use __crate::internal::cfg_if::cfg_if;

@@ -1,4 +1,4 @@
-//! RAID-parity struct macro
+//! Reed-Solomon error-correction macro
 
 extern crate proc_macro;
 
@@ -13,17 +13,19 @@ use std::iter::FromIterator;
 use crate::common::*;
 
 // template files are relative to the current file
-const RAID_TEMPLATE: &'static str = include_str!("../../templates/raid.rs");
+const RS_TEMPLATE: &'static str = include_str!("../../templates/rs.rs");
 
 
 #[derive(Debug, FromMeta)]
-struct RaidArgs {
-    parity: u8,
+struct RsArgs {
+    block: usize,
+    data: usize,
+
     #[darling(default)]
     gf: Option<syn::Path>,
 }
 
-pub fn raid(
+pub fn rs(
     args: proc_macro::TokenStream,
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
@@ -31,24 +33,24 @@ pub fn raid(
 
     // parse args
     let raw_args = parse_macro_input!(args as AttributeArgsWrapper).0;
-    let args = match RaidArgs::from_list(&raw_args) {
+    let args = match RsArgs::from_list(&raw_args) {
         Ok(args) => args,
         Err(err) => {
             return err.write_errors().into();
         }
     };
 
-    // only up to 2 parity blocks are currently supported
-    assert!(args.parity <= 2);
+    // gf256 is limited to 255 elements
+    assert!(args.block <= 255);
+    assert!(args.data <= args.block);
 
     // parse type
-    let ty = parse_macro_input!(input as syn::ItemStruct);
+    let ty = parse_macro_input!(input as syn::ItemMod);
     let attrs = ty.attrs;
     let vis = ty.vis;
-    let raid = ty.ident;
+    let rs = ty.ident;
 
-    let __mod = Ident::new(&format!("__{}_gen", raid.to_string()), Span::call_site());
-    let __gf = Ident::new(&format!("__{}_gf", raid.to_string()), Span::call_site());
+    let __gf = Ident::new(&format!("__{}_gf", rs.to_string()), Span::call_site());
 
     // overrides in parent's namespace
     let mut overrides = vec![];
@@ -56,20 +58,26 @@ pub fn raid(
         Some(gf) => {
             overrides.push(quote! {
                 use #gf as #__gf;
-            });
+            })
         }
         None => {
             overrides.push(quote! {
                 use #__crate::gf::gf256 as #__gf;
-            });
+            })
         }
     }
 
     // keyword replacements
     let replacements = HashMap::from_iter([
-        ("__raid".to_owned(), TokenTree::Ident(raid.clone())),
-        ("__parity".to_owned(), TokenTree::Literal(
-            Literal::u8_unsuffixed(args.parity)
+        ("__rs".to_owned(), TokenTree::Ident(rs.clone())),
+        ("__block_size".to_owned(), TokenTree::Literal(
+            Literal::usize_unsuffixed(args.block)
+        )),
+        ("__data_size".to_owned(), TokenTree::Literal(
+            Literal::usize_unsuffixed(args.data)
+        )),
+        ("__ecc_size".to_owned(), TokenTree::Literal(
+            Literal::usize_unsuffixed(args.block-args.data)
         )),
         ("__gf".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__gf }
@@ -78,7 +86,7 @@ pub fn raid(
     ]);
 
     // parse template
-    let template = match compile_template(RAID_TEMPLATE, &replacements) {
+    let template = match compile_template(RS_TEMPLATE, &replacements) {
         Ok(template) => template,
         Err(err) => {
             return err.to_compile_error().into();
@@ -86,8 +94,7 @@ pub fn raid(
     };
 
     let output = quote! {
-        #(#attrs)* #vis use #__mod::#raid;
-        mod #__mod {
+        #(#attrs)* #vis mod #rs {
             #template
         }
 

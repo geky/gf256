@@ -3,7 +3,7 @@
 use crate::macros::shamir;
 
 
-// Shamir secret-sharing
+// Shamir secret-sharing functions
 //
 // Note we can only provide a default if we have ThreadRng available,
 // otherwise we can only provide the shamir macro which accepts a

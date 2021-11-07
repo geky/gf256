@@ -1,40 +1,17 @@
-//! Reed-Solomon error-correction codes using the Galois-field types
+//! Template for Reed-Solomon error-correction functions
 //!
-//! The main idea behind error-correct is to create a set of codewords,
-//! usually a message + extra redundant bits, where each codeword looks
-//! quite different from each other.
-//!
-//! In the case of Reed-Solomon, codewords are choosen such that, when
-//! viewed as a polynomial, every codeword is a multiple of some
-//! polynomial G(x).
-//!
-//! Galois-fields come into play here as a method to represent our message,
-//! a sequence of bytes, as a polynomial in gf(256).
-//!
-//! Note! This example may be a bit confusing for a couple reasons:
-//!
-//! 1. The math is complicated, with more names than equations, which to
-//!    be honest my understanding is rough.
-//!
-//! 2. We're dealing with two nested systems of polynomials. Reed-Solomon
-//!    is built on algebra of polynomials where the _coefficients_ are in
-//!    gf(256), which is usually also viewed as an algebra of polynomials.
-//!
-//!    Try to not worry about the representation of gf(256) here, treat it
-//!    a just a set of symbols closed over a conveniently byte-sized
-//!    finite-field.
-//!
-//! Based on description/implementation from:
-//! https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
-//! https://en.wikipedia.org/wiki/Forney_algorithm
-//! https://en.wikipedia.org/wiki/Reed–Solomon_error_correction
-//!
+//! See examples/rs.rs for a more detailed explanation of
+//! where these implementations come from
 
-use std::convert::TryFrom;
-use std::borrow::Cow;
-use rand;
-use rand::Rng;
-use ::gf256::*;
+use __crate::traits::TryFrom;
+use core::slice;
+use core::fmt;
+
+extern crate alloc;
+use alloc::vec::Vec;
+use alloc::vec;
+use alloc::borrow::Cow;
+
 
 
 // Constants for Reed-Solomon error correction
@@ -44,8 +21,8 @@ use ::gf256::*;
 // correction is required, however the total size is limited to 255 bytes
 // in a gf(256) field.
 //
-pub const DATA_SIZE:  usize = 12;
-pub const ECC_SIZE:   usize = 8;
+pub const DATA_SIZE:  usize = __data_size;
+pub const ECC_SIZE:   usize = __ecc_size;
 pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 
 // The generator polynomial in Reed-Solomon is a polynomial with roots
@@ -70,21 +47,21 @@ pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 // See:
 // https://github.com/rust-lang/rust/issues/67217
 //
-pub const GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
-    let mut g = [gf256(0); ECC_SIZE+1];
-    g[ECC_SIZE] = gf256(1);
+pub const GENERATOR_POLY: [__gf; ECC_SIZE+1] = {
+    let mut g = [__gf(0); ECC_SIZE+1];
+    g[ECC_SIZE] = __gf(1);
 
     // find G(x) = π (x - g^i)
     let mut i = 0usize;
     while i < ECC_SIZE {
         // H(x) = x - g^i
         let h = [
-            gf256(1),
-            gf256::GENERATOR.naive_pow(i as u8),
+            __gf(1),
+            __gf::GENERATOR.naive_pow(i as u8),
         ];
 
         // find G(x) = G(x)*H(x) = G(x)*(x - g^i)
-        let mut r = [gf256(0); ECC_SIZE+1];
+        let mut r = [__gf(0); ECC_SIZE+1];
         let mut j = 0usize;
         while j < i+1 {
             let mut k = 0usize;
@@ -107,7 +84,7 @@ pub const GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
 
 /// Error codes for Reed-Solomon
 #[derive(Debug, Clone)]
-pub enum RsError {
+pub enum Error {
     /// Reed-Solomon can fail to decode if:
     /// - errors > ECC_SIZE/2
     /// - erasures > ECC_SIZE
@@ -116,24 +93,32 @@ pub enum RsError {
     TooManyErrors,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::TooManyErrors => write!(f, "Too many errors to correct"),
+        }
+    }
+}
+
 
 /// Convert slice of u8s to gf256s
-fn rs_poly_from_slice(slice: &[u8]) -> &[gf256] {
+fn poly_from_slice(slice: &[u8]) -> &[__gf] {
     // I couldn't find a safe way to do this cheaply+safely 
     unsafe {
-        std::slice::from_raw_parts(
-            slice.as_ptr() as *const gf256,
+        slice::from_raw_parts(
+            slice.as_ptr() as *const __gf,
             slice.len()
         )
     }
 }
 
 /// Convert mut slice of u8s to gf256s
-fn rs_poly_from_slice_mut(slice: &mut [u8]) -> &mut [gf256] {
+fn poly_from_slice_mut(slice: &mut [u8]) -> &mut [__gf] {
     // I couldn't find a safe way to do this cheaply+safely 
     unsafe {
-        std::slice::from_raw_parts_mut(
-            slice.as_mut_ptr() as *mut gf256,
+        slice::from_raw_parts_mut(
+            slice.as_mut_ptr() as *mut __gf,
             slice.len()
         )
     }
@@ -143,8 +128,8 @@ fn rs_poly_from_slice_mut(slice: &mut [u8]) -> &mut [gf256] {
 ///
 /// Note polynomials here are ordered biggest-coefficient first
 ///
-fn rs_poly_eval(f: &[gf256], x: gf256) -> gf256 {
-    let mut y = gf256(0);
+fn poly_eval(f: &[__gf], x: __gf) -> __gf {
+    let mut y = __gf(0);
     for c in f {
         y = y*x + c;
     }
@@ -152,14 +137,14 @@ fn rs_poly_eval(f: &[gf256], x: gf256) -> gf256 {
 }
 
 /// Multiply a polynomial by a scalar
-fn rs_poly_scale(f: &mut [gf256], c: gf256) {
+fn poly_scale(f: &mut [__gf], c: __gf) {
     for i in 0..f.len() {
         f[i] *= c;
     }
 }
 
 /// Add two polynomials together
-fn rs_poly_add(f: &mut [gf256], g: &[gf256]) {
+fn poly_add(f: &mut [__gf], g: &[__gf]) {
     debug_assert!(f.len() >= g.len());
 
     // note g.len() may be <= f.len()!
@@ -169,8 +154,8 @@ fn rs_poly_add(f: &mut [gf256], g: &[gf256]) {
 }
 
 /// Multiply two polynomials together
-fn rs_poly_mul(f: &mut [gf256], g: &[gf256]) {
-    debug_assert!(f[..g.len()-1].iter().all(|x| *x == gf256(0)));
+fn poly_mul(f: &mut [__gf], g: &[__gf]) {
+    debug_assert!(f[..g.len()-1].iter().all(|x| *x == __gf(0)));
 
     // This is in-place, at the cost of being a bit confusing,
     // note that we only write to i+j, and i+j is always >= i
@@ -182,7 +167,7 @@ fn rs_poly_mul(f: &mut [gf256], g: &[gf256]) {
     //
     for i in (0..f.len()-g.len()+1).rev() {
         let fi = f[f.len()-1-i];
-        f[f.len()-1-i] = gf256(0);
+        f[f.len()-1-i] = __gf(0);
 
         for j in 0..g.len() {
             f[f.len()-1-(i+j)] += fi * g[g.len()-1-j];
@@ -194,7 +179,7 @@ fn rs_poly_mul(f: &mut [gf256], g: &[gf256]) {
 ///
 /// Note both the quotient and remainder are left in the dividend
 ///
-fn rs_poly_divrem(f: &mut [gf256], g: &[gf256]) {
+fn poly_divrem(f: &mut [__gf], g: &[__gf]) {
     debug_assert!(f.len() >= g.len());
 
     // find leading coeff to normalize g, note you could avoid
@@ -202,7 +187,7 @@ fn rs_poly_divrem(f: &mut [gf256], g: &[gf256]) {
     let leading_coeff = g[0];
 
     for i in 0 .. (f.len() - g.len() + 1) {
-        if f[i] != gf256(0) {
+        if f[i] != __gf(0) {
             f[i] /= leading_coeff;
 
             for j in 1..g.len() {
@@ -223,7 +208,7 @@ fn rs_poly_divrem(f: &mut [gf256], g: &[gf256]) {
 /// Note we expect the message to only take up the first message.len()-ECC_SIZE
 /// bytes, but this can be smaller than BLOCK_SIZE
 ///
-pub fn rs_encode(message: &mut [u8]) {
+pub fn encode(message: &mut [u8]) {
     assert!(message.len() <= BLOCK_SIZE);
     assert!(message.len() >= ECC_SIZE);
     let data_len = message.len() - ECC_SIZE;
@@ -237,8 +222,8 @@ pub fn rs_encode(message: &mut [u8]) {
     rem[data_len..].fill(0);
 
     // divide by our generator polynomial
-    rs_poly_divrem(
-        rs_poly_from_slice_mut(&mut rem),
+    poly_divrem(
+        poly_from_slice_mut(&mut rem),
         &GENERATOR_POLY
     );
 
@@ -251,11 +236,11 @@ pub fn rs_encode(message: &mut [u8]) {
 ///
 /// S(x) = M(g^x)
 ///
-fn rs_find_syndromes(f: &[gf256]) -> Vec<gf256> {
+fn find_syndromes(f: &[__gf]) -> Vec<__gf> {
     let mut syndromes = vec![];
     for i in (0..ECC_SIZE).rev() {
         syndromes.push(
-            rs_poly_eval(f, gf256::GENERATOR.pow(u8::try_from(i).unwrap()))
+            poly_eval(f, __gf::GENERATOR.pow(u8::try_from(i).unwrap()))
         );
     }
     syndromes
@@ -264,14 +249,14 @@ fn rs_find_syndromes(f: &[gf256]) -> Vec<gf256> {
 /// Find Forney syndromes, these hide known erasures from the original syndromes
 /// so error detection doesn't try (and possibly fail) to find known erasures
 ///
-fn rs_find_forney_syndromes(
-    syndromes: &[gf256],
+fn find_forney_syndromes(
+    syndromes: &[__gf],
     erasures: &[usize]
-) -> Vec<gf256> {
+) -> Vec<__gf> {
     let mut fs = Vec::from(syndromes);
 
     for i in erasures {
-        let x = gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap());
+        let x = __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap());
         for j in 0..fs.len()-1 {
             let fs_len = fs.len();
             fs[fs_len-1-j] = fs[fs_len-1-j]*x + fs[fs_len-1-(j+1)];
@@ -287,15 +272,15 @@ fn rs_find_forney_syndromes(
 ///
 /// Λ(x) = π (1 - xg^i)
 ///
-fn rs_find_erasure_locator(erasures: &[usize]) -> Vec<gf256> {
-    let mut el = vec![gf256(0); erasures.len()+1];
+fn find_erasure_locator(erasures: &[usize]) -> Vec<__gf> {
+    let mut el = vec![__gf(0); erasures.len()+1];
     let el_len = el.len();
-    el[el_len-1] = gf256(1);
+    el[el_len-1] = __gf(1);
 
     for i in erasures {
-        rs_poly_mul(&mut el, &[
-            gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap()),
-            gf256(1)
+        poly_mul(&mut el, &[
+            __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap()),
+            __gf(1)
         ]);
     }
 
@@ -306,11 +291,11 @@ fn rs_find_erasure_locator(erasures: &[usize]) -> Vec<gf256> {
 ///
 /// Ω(x) = S(x)*Λ(x)
 ///
-fn rs_find_erasure_evaluator(syndromes: &[gf256], el: &[gf256]) -> Vec<gf256> {
-    let mut ee = vec![gf256(0); syndromes.len()+el.len()+2];
+fn find_erasure_evaluator(syndromes: &[__gf], el: &[__gf]) -> Vec<__gf> {
+    let mut ee = vec![__gf(0); syndromes.len()+el.len()+2];
     let ee_len = ee.len();
     ee[ee_len-syndromes.len()-1..ee_len-1].copy_from_slice(syndromes);
-    rs_poly_mul(&mut ee, el);
+    poly_mul(&mut ee, el);
 
     ee.drain(0 .. ee_len-el.len());
     ee
@@ -319,14 +304,14 @@ fn rs_find_erasure_evaluator(syndromes: &[gf256], el: &[gf256]) -> Vec<gf256> {
 /// Iteratively find the error locator polynomial using the
 /// Berlekamp-Massey algorithm
 ///
-fn rs_find_error_locator(syndromes: &[gf256]) -> Vec<gf256> {
-    let mut old_el = vec![gf256(0); syndromes.len()+1];
+fn find_error_locator(syndromes: &[__gf]) -> Vec<__gf> {
+    let mut old_el = vec![__gf(0); syndromes.len()+1];
     let old_el_len = old_el.len();
-    old_el[old_el_len-1] = gf256(1);
+    old_el[old_el_len-1] = __gf(1);
 
-    let mut new_el = vec![gf256(0); syndromes.len()+1];
+    let mut new_el = vec![__gf(0); syndromes.len()+1];
     let new_el_len = new_el.len();
-    new_el[new_el_len-1] = gf256(1);
+    new_el[new_el_len-1] = __gf(1);
 
     // l is the current estimate on number of errors
     let mut l = 0;
@@ -341,21 +326,21 @@ fn rs_find_error_locator(syndromes: &[gf256]) -> Vec<gf256> {
         // shift polynomial
         old_el.copy_within(1.., 0);
         let old_el_len = old_el.len();
-        old_el[old_el_len-1] = gf256(0);
+        old_el[old_el_len-1] = __gf(0);
 
-        if delta != gf256(0) {
-            rs_poly_scale(&mut old_el, delta);
+        if delta != __gf(0) {
+            poly_scale(&mut old_el, delta);
             if 2*l <= i {
                 new_el.swap_with_slice(&mut old_el);
                 l = i+1-l;
             }
-            rs_poly_add(&mut new_el, &old_el);
-            rs_poly_scale(&mut old_el, delta.recip());
+            poly_add(&mut new_el, &old_el);
+            poly_scale(&mut old_el, delta.recip());
         }
     }
 
     // trim leading zeros
-    let zeros = new_el.iter().take_while(|x| **x == gf256(0)).count();
+    let zeros = new_el.iter().take_while(|x| **x == __gf(0)).count();
     new_el.drain(0 .. zeros);
 
     new_el.reverse();
@@ -368,16 +353,16 @@ fn rs_find_error_locator(syndromes: &[gf256]) -> Vec<gf256> {
 /// message, if they equal 0, aka are a root, then we found the
 /// error location in our message.
 ///
-fn rs_find_errors(error_locator: &[gf256]) -> Vec<usize> {
+fn find_errors(error_locator: &[__gf]) -> Vec<usize> {
     let mut errors = vec![];
 
     for i in 0..BLOCK_SIZE {
-        let y = rs_poly_eval(
+        let y = poly_eval(
             error_locator,
-            gf256::GENERATOR.pow(u8::try_from(i).unwrap())
+            __gf::GENERATOR.pow(u8::try_from(i).unwrap())
         );
 
-        if y == gf256(0) {
+        if y == __gf(0) {
             // found a root!
             errors.push(BLOCK_SIZE-1-i);
         }
@@ -405,37 +390,37 @@ fn rs_find_errors(error_locator: &[gf256]) -> Vec<usize> {
 /// then Λ'(x) = Σ (Σ (a_i*x^i-1))
 ///              i  j
 ///
-fn rs_find_erasure_magnitude(
+fn find_erasure_magnitude(
     erasures: &[usize],
-    erasure_evaluator: &[gf256]
-) -> Vec<gf256>{
+    erasure_evaluator: &[__gf]
+) -> Vec<__gf>{
     // find erasure roots
     let mut erasure_roots = Vec::with_capacity(erasures.len());
     for i in erasures {
         erasure_roots.push(
-            gf256::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap())
+            __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap())
         );
     }
 
     // find erasure magnitudes using Forney's algorithm
-    let mut erasure_magnitude = vec![gf256(0); BLOCK_SIZE];
+    let mut erasure_magnitude = vec![__gf(0); BLOCK_SIZE];
     for i in 0..erasure_roots.len() {
         let root = erasure_roots[i];
         let root_inv = root.recip();
 
-        let mut derivative = gf256(1);
+        let mut derivative = __gf(1);
         for j in 0..erasure_roots.len() {
             if j != i {
-                derivative *= gf256(1) - root_inv*erasure_roots[j];
+                derivative *= __gf(1) - root_inv*erasure_roots[j];
             }
         }
 
         // derivative should never be zero, though this can happen if there
         // are redundant erasures
-        assert!(derivative != gf256(0));
+        assert!(derivative != __gf(0));
 
         // evaluate error evaluator
-        let y = root * rs_poly_eval(&erasure_evaluator, root_inv);
+        let y = root * poly_eval(&erasure_evaluator, root_inv);
 
         // find the actual magnitude
         erasure_magnitude[erasures[i]] = y / derivative;
@@ -448,24 +433,24 @@ fn rs_find_erasure_magnitude(
 ///
 /// Note this is quite a bit faster than correcting the errors
 ///
-pub fn rs_is_correct(message: &[u8]) -> bool {
-    let message_poly = rs_poly_from_slice(message);
+pub fn is_correct(message: &[u8]) -> bool {
+    let message_poly = poly_from_slice(message);
 
     // find syndromes, syndromes of all zero means there are no errors
-    let syndromes = rs_find_syndromes(message_poly);
-    syndromes.iter().all(|s| *s == gf256(0))
+    let syndromes = find_syndromes(message_poly);
+    syndromes.iter().all(|s| *s == __gf(0))
 }
 
 /// Correct up to ECC_SIZE erasures at known locations
-pub fn rs_correct_erasures(
+pub fn correct_erasures(
     message: &mut [u8],
     erasures: &[usize]
-) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+) -> Result<usize, Error> {
+    let message_poly = poly_from_slice_mut(message);
 
     // too many erasures?
     if erasures.len() > ECC_SIZE {
-        return Err(RsError::TooManyErrors);
+        return Err(Error::TooManyErrors);
     }
 
     // adjust erasures for implicitly prepended zeros?
@@ -477,25 +462,25 @@ pub fn rs_correct_erasures(
     }
 
     // find syndromes, syndromes of all zero means there are no errors
-    let syndromes = rs_find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == gf256(0)) {
+    let syndromes = find_syndromes(message_poly);
+    if syndromes.iter().all(|s| *s == __gf(0)) {
         return Ok(0);
     }
 
     // find erasure locator polynomial
-    let erasure_locator = rs_find_erasure_locator(&erasures);
+    let erasure_locator = find_erasure_locator(&erasures);
 
     // find erasure evaluator polynomial
-    let erasure_evaluator = rs_find_erasure_evaluator(&syndromes, &erasure_locator);
+    let erasure_evaluator = find_erasure_evaluator(&syndromes, &erasure_locator);
 
     // find erasure magnitude using Forney's algorithm
-    let erasure_magnitude = rs_find_erasure_magnitude(
+    let erasure_magnitude = find_erasure_magnitude(
         &erasures,
         &erasure_evaluator
     );
 
     // correct the errors
-    rs_poly_add(
+    poly_add(
         message_poly,
         &erasure_magnitude[BLOCK_SIZE-message_poly.len()..]
     );
@@ -503,41 +488,41 @@ pub fn rs_correct_erasures(
 }
 
 /// Correct up to ECC_SIZE/2 errors at unknown locations
-pub fn rs_correct_errors(message: &mut [u8]) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+pub fn correct_errors(message: &mut [u8]) -> Result<usize, Error> {
+    let message_poly = poly_from_slice_mut(message);
 
     // find syndromes, syndromes of all zero means there are no errors
-    let syndromes = rs_find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == gf256(0)) {
+    let syndromes = find_syndromes(message_poly);
+    if syndromes.iter().all(|s| *s == __gf(0)) {
         return Ok(0);
     }
 
     // find error locator polynomial
-    let error_locator = rs_find_error_locator(&syndromes);
+    let error_locator = find_error_locator(&syndromes);
 
     // too many errors?
     let error_count = error_locator.len() - 1;
     if error_count*2 > ECC_SIZE {
-        return Err(RsError::TooManyErrors);
+        return Err(Error::TooManyErrors);
     }
 
     // find error locations
-    let errors = rs_find_errors(&error_locator);
+    let errors = find_errors(&error_locator);
 
     // find erasure locator polynomial
-    let erasure_locator = rs_find_erasure_locator(&errors);
+    let erasure_locator = find_erasure_locator(&errors);
 
     // find erasure evaluator polynomial
-    let erasure_evaluator = rs_find_erasure_evaluator(&syndromes, &erasure_locator);
+    let erasure_evaluator = find_erasure_evaluator(&syndromes, &erasure_locator);
 
     // find erasure magnitude using Forney's algorithm
-    let erasure_magnitude = rs_find_erasure_magnitude(
+    let erasure_magnitude = find_erasure_magnitude(
         &errors,
         &erasure_evaluator
     );
 
     // correct the errors
-    rs_poly_add(
+    poly_add(
         message_poly,
         &erasure_magnitude[BLOCK_SIZE-message_poly.len()..]
     );
@@ -546,11 +531,11 @@ pub fn rs_correct_errors(message: &mut [u8]) -> Result<usize, RsError> {
 
 /// Correct a mixture of erasures at unknown locations and erasures
 /// as known locations, can correct up to 2*errors+erasures <= ECC_SIZE
-pub fn rs_correct(
+pub fn correct(
     message: &mut [u8],
     erasures: &[usize]
-) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+) -> Result<usize, Error> {
+    let message_poly = poly_from_slice_mut(message);
 
     // adjust erasures for implicitly prepended zeros?
     let mut erasures = Cow::Borrowed(erasures);
@@ -561,42 +546,42 @@ pub fn rs_correct(
     }
 
     // find syndromes, syndromes of all zero means there are no errors
-    let syndromes = rs_find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == gf256(0)) {
+    let syndromes = find_syndromes(message_poly);
+    if syndromes.iter().all(|s| *s == __gf(0)) {
         return Ok(0);
     }
 
     // find Forney syndromes, hiding known erasures from the syndromes
-    let fsyndromes = rs_find_forney_syndromes(&syndromes, &erasures);
+    let fsyndromes = find_forney_syndromes(&syndromes, &erasures);
 
     // find error locator polynomial
-    let error_locator = rs_find_error_locator(&fsyndromes);
+    let error_locator = find_error_locator(&fsyndromes);
 
     // too many errors/erasures?
     let error_count = error_locator.len() - 1;
     let erasure_count = erasures.len();
     if error_count*2 +erasure_count > ECC_SIZE {
-        return Err(RsError::TooManyErrors);
+        return Err(Error::TooManyErrors);
     }
 
     // find all error locations
-    let mut errors = rs_find_errors(&error_locator);
+    let mut errors = find_errors(&error_locator);
     errors.extend_from_slice(&erasures);
 
     // find erasure locator polynomial
-    let erasure_locator = rs_find_erasure_locator(&errors);
+    let erasure_locator = find_erasure_locator(&errors);
 
     // find erasure evaluator polynomial
-    let erasure_evaluator = rs_find_erasure_evaluator(&syndromes, &erasure_locator);
+    let erasure_evaluator = find_erasure_evaluator(&syndromes, &erasure_locator);
 
     // find erasure magnitude using Forney's algorithm
-    let erasure_magnitude = rs_find_erasure_magnitude(
+    let erasure_magnitude = find_erasure_magnitude(
         &errors,
         &erasure_evaluator
     );
 
     // correct the errors
-    rs_poly_add(
+    poly_add(
         message_poly,
         &erasure_magnitude[BLOCK_SIZE-message_poly.len()..]
     );
@@ -604,123 +589,3 @@ pub fn rs_correct(
 }
 
 
-
-fn main() {
-    fn hex(xs: &[u8]) -> String {
-        xs.iter()
-            .map(|x| format!("{:02x}", x))
-            .collect()
-    }
-
-    fn ascii(xs: &[u8]) -> String {
-        xs.iter()
-            .map(|x| {
-                if *x < b' ' || *x > b'~' {
-                    '.'
-                } else {
-                    char::from(*x)
-                }
-            })
-            .collect::<String>()
-    }
-
-    let orig_message = b"Hello World!";
-    println!();
-    println!("testing rs({:?})", ascii(orig_message));
-
-    println!("dimension = ({},{}), {} errors, {} erasures",
-        BLOCK_SIZE,
-        DATA_SIZE,
-        ECC_SIZE / 2,
-        ECC_SIZE
-    );
-
-    println!("generator = {}",
-        hex(&GENERATOR_POLY.iter()
-            .map(|b| u8::from(*b))
-            .collect::<Vec<_>>())
-    );
-
-    let mut message = vec![0u8; orig_message.len()+ECC_SIZE];
-    message[..orig_message.len()].copy_from_slice(&orig_message[..]);
-    rs_encode(&mut message);
-    println!("{:<19} => {}  {}",
-        "rs_encode",
-        ascii(&message),
-        hex(&message)
-    );
-
-    // we can correct up to ECC_SIZE erasures (known location)
-    let mut rng = rand::thread_rng();
-    let errors = rand::seq::index::sample(&mut rng, message.len(), ECC_SIZE).into_vec();
-    for error in errors.iter() {
-        message[*error] = b'x';
-    }
-    println!("{:<19} => {}  {}",
-        format!("corrupted ({},{})", ECC_SIZE, 0),
-        ascii(&message),
-        hex(&message)
-    );
-
-    rs_correct_erasures(&mut message, &errors).unwrap();
-    println!("{:<19} => {}  {}",
-        "rs_correct_erasures",
-        ascii(&message),
-        hex(&message)
-    );
-    assert_eq!(
-        &message[0..orig_message.len()],
-        orig_message
-    );
-
-    // we can correct up to ECC_SIZE/2 errors (unknown locations)
-    let mut rng = rand::thread_rng();
-    let errors = rand::seq::index::sample(&mut rng, message.len(), ECC_SIZE/2).into_vec();
-    for error in errors.iter() {
-        message[*error] = b'x';
-    }
-    println!("{:<19} => {}  {}",
-        format!("corrupted ({},{})", 0, ECC_SIZE/2),
-        ascii(&message),
-        hex(&message)
-    );
-
-    rs_correct_errors(&mut message).unwrap();
-    println!("{:<19} => {}  {}",
-        "rs_correct_errors",
-        ascii(&message),
-        hex(&message)
-    );
-    assert_eq!(
-        &message[0..orig_message.len()],
-        orig_message
-    );
-
-    // we can correct up to ECC_SIZE = erasures + 2*errors (knowns and unkonwns)
-    let mut rng = rand::thread_rng();
-    let erasure_count = rng.gen_range(0..ECC_SIZE);
-    let errors = rand::seq::index::sample(&mut rng, message.len(),
-            erasure_count + (ECC_SIZE-erasure_count)/2
-        ).into_vec();
-    for error in errors.iter() {
-        message[*error] = b'x';
-    }
-    println!("{:<19} => {}  {}",
-        format!("corrupted ({},{})", erasure_count, (ECC_SIZE-erasure_count)/2),
-        ascii(&message),
-        hex(&message)
-    );
-
-    rs_correct(&mut message, &errors[..erasure_count]).unwrap();
-    println!("{:<19} => {}  {}",
-        "rs_correct",
-        ascii(&message),
-        hex(&message)
-    );
-    assert_eq!(
-        &message[0..orig_message.len()],
-        orig_message
-    );
-
-    println!();
-}

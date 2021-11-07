@@ -8,6 +8,7 @@ mod gf;
 #[cfg(feature="crc")] mod crc;
 #[cfg(feature="shamir")] mod shamir;
 #[cfg(feature="raid")] mod raid;
+#[cfg(feature="rs")] mod rs;
 
 
 #[proc_macro_attribute]
@@ -60,4 +61,13 @@ pub fn raid(
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
     raid::raid(args, input)
+}
+
+#[cfg(feature="rs")]
+#[proc_macro_attribute]
+pub fn rs(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream
+) -> proc_macro::TokenStream {
+    rs::rs(args, input)
 }
