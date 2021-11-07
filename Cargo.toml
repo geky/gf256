@@ -28,6 +28,9 @@ no-xmul = ["gf256-macros/no-xmul"]
 #
 thread-rng = ["rand/std", "rand/std_rng"]
 
+# Make LFSR macros and structs available
+lfsr = ["gf256-macros/lfsr", "rand"]
+
 # Make CRC macros and functions available
 crc = ["gf256-macros/crc"]
 

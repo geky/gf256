@@ -23,8 +23,6 @@ struct GfArgs {
     polynomial: U128Wrapper,
     generator: u64,
 
-    #[darling(default)]
-    width: Option<usize>,
     #[darling(default, rename="usize")]
     is_usize: Option<bool>,
     #[darling(default)]
@@ -63,15 +61,12 @@ pub fn gf(
         }
     };
 
-    let width = match args.width {
-        Some(width) => width,
-        None => {
-            // default to 1 less than the width of the irreducible polynomial
-            // that defines the field, since, well, this is actually the only
-            // width that would work with that polynomial
-            let polynomial = args.polynomial.0;
-            (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
-        }
+    let width = {
+        // default to 1 less than the width of the irreducible polynomial
+        // that defines the field, since, well, this is actually the only
+        // width that would work with that polynomial
+        let polynomial = args.polynomial.0;
+        (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
     };
 
     let is_usize = match args.is_usize {

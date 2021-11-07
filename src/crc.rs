@@ -2,8 +2,11 @@
 use crate::macros::crc;
 
 // crc functions
-#[crc(polynomial=0x11021)] fn crc16();
-#[crc(polynomial=0x104c11db7)] fn crc32();
+#[crc(polynomial=0x11021)]
+pub fn crc16() {}
+
+#[crc(polynomial=0x104c11db7)]
+pub fn crc32() {}
 
 
 #[cfg(test)]
@@ -18,17 +21,17 @@ mod test {
     }
 
     // explicit modes
-    #[crc(polynomial=0x11021, naive)] fn crc16_naive();
-    #[crc(polynomial=0x104c11db7, naive)] fn crc32_naive();
+    #[crc(polynomial=0x11021, naive)] fn crc16_naive() {}
+    #[crc(polynomial=0x104c11db7, naive)] fn crc32_naive() {}
 
-    #[crc(polynomial=0x11021, table)] fn crc16_table();
-    #[crc(polynomial=0x104c11db7, table)] fn crc32_table();
+    #[crc(polynomial=0x11021, table)] fn crc16_table() {}
+    #[crc(polynomial=0x104c11db7, table)] fn crc32_table() {}
 
-    #[crc(polynomial=0x11021, small_table)] fn crc16_small_table();
-    #[crc(polynomial=0x104c11db7, small_table)] fn crc32_small_table();
+    #[crc(polynomial=0x11021, small_table)] fn crc16_small_table() {}
+    #[crc(polynomial=0x104c11db7, small_table)] fn crc32_small_table() {}
 
-    #[crc(polynomial=0x11021, barret)] fn crc16_barret();
-    #[crc(polynomial=0x104c11db7, barret)] fn crc32_barret();
+    #[crc(polynomial=0x11021, barret)] fn crc16_barret() {}
+    #[crc(polynomial=0x104c11db7, barret)] fn crc32_barret() {}
 
     #[test]
     fn crc_naive() {
@@ -55,10 +58,10 @@ mod test {
     }
 
     // bit reversed 
-    #[crc(polynomial=0x104c11db7, naive, reversed=false)] fn crc32_naive_unreversed();
-    #[crc(polynomial=0x104c11db7, table, reversed=false)] fn crc32_table_unreversed();
-    #[crc(polynomial=0x104c11db7, small_table, reversed=false)] fn crc32_small_table_unreversed();
-    #[crc(polynomial=0x104c11db7, barret, reversed=false)] fn crc32_barret_unreversed();
+    #[crc(polynomial=0x104c11db7, naive, reversed=false)] fn crc32_naive_unreversed() {}
+    #[crc(polynomial=0x104c11db7, table, reversed=false)] fn crc32_table_unreversed() {}
+    #[crc(polynomial=0x104c11db7, small_table, reversed=false)] fn crc32_small_table_unreversed() {}
+    #[crc(polynomial=0x104c11db7, barret, reversed=false)] fn crc32_barret_unreversed() {}
 
     #[test]
     fn crc_unreversed() {
@@ -69,10 +72,10 @@ mod test {
     }
 
     // bit inverted 
-    #[crc(polynomial=0x104c11db7, naive, inverted=false)] fn crc32_naive_uninverted();
-    #[crc(polynomial=0x104c11db7, table, inverted=false)] fn crc32_table_uninverted();
-    #[crc(polynomial=0x104c11db7, small_table, inverted=false)] fn crc32_small_table_uninverted();
-    #[crc(polynomial=0x104c11db7, barret, inverted=false)] fn crc32_barret_uninverted();
+    #[crc(polynomial=0x104c11db7, naive, inverted=false)] fn crc32_naive_uninverted() {}
+    #[crc(polynomial=0x104c11db7, table, inverted=false)] fn crc32_table_uninverted() {}
+    #[crc(polynomial=0x104c11db7, small_table, inverted=false)] fn crc32_small_table_uninverted() {}
+    #[crc(polynomial=0x104c11db7, barret, inverted=false)] fn crc32_barret_uninverted() {}
 
     #[test]
     fn crc_uninverted() {
@@ -92,7 +95,7 @@ mod test {
         reversed=true,
         inverted=true,
     )]
-    fn crc32_all_params();
+    fn crc32_all_params() {}
 
     #[test]
     fn crc_all_params() {

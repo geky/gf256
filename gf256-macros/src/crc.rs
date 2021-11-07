@@ -23,8 +23,6 @@ struct CrcArgs {
     polynomial: U128Wrapper,
 
     #[darling(default)]
-    width: Option<usize>,
-    #[darling(default)]
     u: Option<syn::Path>,
     #[darling(default)]
     u2: Option<syn::Path>,
@@ -63,14 +61,11 @@ pub fn crc(
         }
     };
 
-    let width = match args.width {
-        Some(width) => width,
-        None => {
-            // default to 1 less than the width of the given polynomial, this
-            // is the only width that would really work
-            let polynomial = args.polynomial.0;
-            (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
-        }
+    let width = {
+        // default to 1 less than the width of the given polynomial, this
+        // is the only width that would really work
+        let polynomial = args.polynomial.0;
+        (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
     };
     assert!(width == width.next_power_of_two() && width >= 8);
 
@@ -102,7 +97,7 @@ pub fn crc(
     };
 
     // parse type
-    let ty = parse_macro_input!(input as syn::ForeignItemFn);
+    let ty = parse_macro_input!(input as syn::ItemFn);
     let attrs = ty.attrs;
     let vis = ty.vis;
     let crc = ty.sig.ident;

@@ -26,6 +26,10 @@ pub use p::*;
 pub mod gf;
 pub use gf::*;
 
+/// LFSR structs
+#[cfg(feature="lfsr")]
+pub mod lfsr;
+
 /// CRC functions
 #[cfg(feature="crc")]
 pub mod crc;

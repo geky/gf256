@@ -11,7 +11,7 @@ use crate::macros::shamir;
 //
 #[cfg(feature="thread-rng")]
 #[shamir]
-mod shamir {}
+pub mod shamir {}
 
 
 #[cfg(test)]

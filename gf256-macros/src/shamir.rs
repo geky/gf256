@@ -68,6 +68,7 @@ pub fn shamir(
     match args.rng.as_ref() {
         Some(ExprWrapper(rng)) => {
             overrides.push(quote! {
+                #[inline]
                 fn #__rng() -> impl #__crate::internal::rand::Rng {
                     #rng
                 }

@@ -587,6 +587,15 @@ impl From<__crate::p64> for __p {
     }
 }
 
+#[cfg(__if(__width < 8))]
+impl TryFrom<u8> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: u8) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl TryFrom<u16> for __p {
     type Error = TryFromIntError;
@@ -629,6 +638,15 @@ impl TryFrom<usize> for __p {
     #[inline]
     fn try_from(x: usize) -> Result<__p, Self::Error> {
         Ok(__p(__u::try_from(x)?))
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl TryFrom<__crate::p8> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __crate::p8) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x.0)?))
     }
 }
 
@@ -677,6 +695,14 @@ impl TryFrom<__crate::psize> for __p {
     }
 }
 
+#[cfg(__if(__width < 8))]
+impl FromLossy<u8> for __p {
+    #[inline]
+    fn from_lossy(x: u8) -> __p {
+        __p(x as __u)
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl FromLossy<u16> for __p {
     #[inline]
@@ -714,6 +740,14 @@ impl FromLossy<usize> for __p {
     #[inline]
     fn from_lossy(x: usize) -> __p {
         __p(x as __u)
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl FromLossy<__crate::p8> for __p {
+    #[inline]
+    fn from_lossy(x: __crate::p8) -> __p {
+        __p(x.0 as __u)
     }
 }
 
@@ -764,6 +798,14 @@ impl From<__p> for __u {
     #[inline]
     fn from(x: __p) -> __u {
         x.0
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl From<__p> for u8 {
+    #[inline]
+    fn from(x: __p) -> u8 {
+        u8::from(x.0)
     }
 }
 
@@ -889,6 +931,14 @@ impl FromLossy<__p> for usize {
     #[inline]
     fn from_lossy(x: __p) -> usize {
         x.0 as usize
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl From<__p> for i8 {
+    #[inline]
+    fn from(x: __p) -> i8 {
+        i8::from(x.0)
     }
 }
 

@@ -311,7 +311,6 @@ mod test {
     #[gf(
         polynomial=0x11d,
         generator=0x02,
-        width=8,
         usize=false,
         u=u8,
         u2=u16,

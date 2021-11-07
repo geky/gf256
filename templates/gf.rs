@@ -144,7 +144,6 @@ impl __gf {
     }
 
     /// Create a finite-field element
-    #[cfg(__if(!__is_pw2ge8))]
     #[inline]
     pub const unsafe fn new_unchecked(x: __u) -> __gf {
         __gf(x)
@@ -753,6 +752,26 @@ impl TryFrom<usize> for __gf {
     }
 }
 
+#[cfg(__if(__width < 8))]
+impl TryFrom<__crate::p8> for __gf {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: __crate::p8) -> Result<__gf, Self::Error> {
+        cfg_if! {
+            if #[cfg(__if(__is_pw2ge8))] {
+                Ok(__gf(__u::try_from(x.0)?))
+            } else {
+                if x.0 < __nonzeros+1 {
+                    Ok(__gf(__u::try_from(x.0)?))
+                } else {
+                    // force an error
+                    Err(__u::try_from(u128::MAX).unwrap_err())
+                }
+            }
+        }
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl TryFrom<__crate::p16> for __gf {
     type Error = TryFromIntError;
@@ -853,6 +872,20 @@ impl TryFrom<__crate::psize> for __gf {
     }
 }
 
+#[cfg(__if(__width < 8))]
+impl FromLossy<u8> for __gf {
+    #[inline]
+    fn from_lossy(x: u8) -> __gf {
+        cfg_if! {
+            if #[cfg(__if(__is_pw2ge8))] {
+                __gf(x as __u)
+            } else {
+                __gf((x as __u) & __nonzeros)
+            }
+        }
+    }
+}
+
 #[cfg(__if(__width < 16))]
 impl FromLossy<u16> for __gf {
     #[inline]
@@ -918,6 +951,20 @@ impl FromLossy<usize> for __gf {
                 __gf(x as __u)
             } else {
                 __gf((x as __u) & __nonzeros)
+            }
+        }
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl FromLossy<__crate::p8> for __gf {
+    #[inline]
+    fn from_lossy(x: __crate::p8) -> __gf {
+        cfg_if! {
+            if #[cfg(__if(__is_pw2ge8))] {
+                __gf(x.0 as __u)
+            } else {
+                __gf((x.0 as __u) & __nonzeros)
             }
         }
     }
@@ -1009,6 +1056,14 @@ impl From<__gf> for __u {
     #[inline]
     fn from(x: __gf) -> __u {
         x.0
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl From<__gf> for u8 {
+    #[inline]
+    fn from(x: __gf) -> u8 {
+        u8::from(x.0)
     }
 }
 
@@ -1134,6 +1189,14 @@ impl FromLossy<__gf> for usize {
     #[inline]
     fn from_lossy(x: __gf) -> usize {
         x.0 as usize
+    }
+}
+
+#[cfg(__if(__width < 8))]
+impl From<__gf> for i8 {
+    #[inline]
+    fn from(x: __gf) -> i8 {
+        x.0 as i8
     }
 }
 

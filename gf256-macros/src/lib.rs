@@ -4,6 +4,7 @@ extern crate proc_macro;
 mod common;
 mod p;
 mod gf;
+#[cfg(feature="lfsr")] mod lfsr;
 #[cfg(feature="crc")] mod crc;
 #[cfg(feature="shamir")] mod shamir;
 
@@ -22,6 +23,15 @@ pub fn gf(
     input: proc_macro::TokenStream
 ) -> proc_macro::TokenStream {
     gf::gf(args, input)
+}
+
+#[cfg(feature="lfsr")]
+#[proc_macro_attribute]
+pub fn lfsr(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream
+) -> proc_macro::TokenStream {
+    lfsr::lfsr(args, input)
 }
 
 #[cfg(feature="crc")]

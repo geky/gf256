@@ -67,19 +67,40 @@ use ::gf256::macros::*;
 
 /// A pretty terrible prng, with a period of only 255
 #[derive(Debug, Clone)]
-pub struct Gf256Rng(gf256);
+pub struct Lfsr8(gf256);
 
-impl SeedableRng for Gf256Rng {
-    type Seed = [u8; 1];
-
-    fn from_seed(mut seed: Self::Seed) -> Self {
+impl Lfsr8 {
+    pub fn new(mut seed: u8) -> Self {
         // make sure seed does not equal zero! otherwise our rng would only
         // ever output zero!
-        if seed.iter().all(|&x| x == 0) {
-            seed = [1];
+        if seed == 0 {
+            seed = 1;
         }
 
-        Gf256Rng(gf256::from_le_bytes(seed))
+        Self(gf256(seed))
+    }
+
+    pub fn next(&mut self) -> u8 {
+        // Stepping through the LFSR is equivalent to multiplying be our
+        // primitive element
+        self.0 *= gf256::GENERATOR;
+        u8::from(self.0)
+    }
+
+    pub fn prev(&mut self) -> u8 {
+        // Since division is the perfect inverse of multiplication in our
+        // field, we can even run our LFSR backwards
+        let x = self.0;
+        self.0 /= gf256::GENERATOR;
+        u8::from(x)
+    }
+}
+
+impl SeedableRng for Lfsr8 {
+    type Seed = [u8; 1];
+
+    fn from_seed(seed: Self::Seed) -> Self {
+        Self::new(u8::from_le_bytes(seed))
     }
 
     fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
@@ -88,15 +109,14 @@ impl SeedableRng for Gf256Rng {
             rng.try_fill_bytes(&mut seed)?;
         }
 
-        Ok(Gf256Rng::from_seed(seed))
+        Ok(Self::from_seed(seed))
     }
 }
 
-impl RngCore for Gf256Rng {
+impl RngCore for Lfsr8 {
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         for i in 0..dest.len() {
-            self.0 *= gf256::GENERATOR;
-            dest[i] = u8::from(self.0);
+            dest[i] = self.next();
         }
     }
 
@@ -127,19 +147,40 @@ type gf2p64;
 /// A better prng, with a period of 2^64, comparable to xorshift64
 ///
 #[derive(Debug, Clone)]
-pub struct Gf2p64Rng(gf2p64);
+pub struct Lfsr64(gf2p64);
 
-impl SeedableRng for Gf2p64Rng {
-    type Seed = [u8; 8];
-
-    fn from_seed(mut seed: Self::Seed) -> Self {
+impl Lfsr64 {
+    pub fn new(mut seed: u64) -> Self {
         // make sure seed does not equal zero! otherwise our rng would only
         // ever output zero!
-        if seed.iter().all(|&x| x == 0) {
-            seed = [1,2,3,4,5,6,7,8];
+        if seed == 0 {
+            seed = 1;
         }
 
-        Gf2p64Rng(gf2p64::from_le_bytes(seed))
+        Self(gf2p64(seed))
+    }
+
+    pub fn next(&mut self) -> u64 {
+        // Stepping through the LFSR is equivalent to multiplying be our
+        // primitive element
+        self.0 *= gf2p64::GENERATOR;
+        u64::from(self.0)
+    }
+
+    pub fn prev(&mut self) -> u64 {
+        // Since division is the perfect inverse of multiplication in our
+        // field, we can even run our LFSR backwards
+        let x = self.0;
+        self.0 /= gf2p64::GENERATOR;
+        u64::from(x)
+    }
+}
+
+impl SeedableRng for Lfsr64 {
+    type Seed = [u8; 8];
+
+    fn from_seed(seed: Self::Seed) -> Self {
+        Self::new(u64::from_le_bytes(seed))
     }
 
     fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
@@ -148,11 +189,11 @@ impl SeedableRng for Gf2p64Rng {
             rng.try_fill_bytes(&mut seed)?;
         }
 
-        Ok(Gf2p64Rng::from_seed(seed))
+        Ok(Self::from_seed(seed))
     }
 }
 
-impl RngCore for Gf2p64Rng {
+impl RngCore for Lfsr64 {
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         rand_core::impls::fill_bytes_via_next(self, dest)
     }
@@ -166,8 +207,7 @@ impl RngCore for Gf2p64Rng {
     }
 
     fn next_u64(&mut self) -> u64 {
-        self.0 *= gf2p64::GENERATOR;
-        u64::from(self.0)
+        self.next()
     }
 }
 
@@ -209,16 +249,32 @@ fn main() {
     }
 
     println!();
-    let mut gf256rng = Gf256Rng::from_seed([1]);
-    let mut gf2p64rng = Gf2p64Rng::from_seed([1,2,3,4,5,6,7,8]);
+    let mut lfsr8 = Lfsr8::from_seed([1]);
+    let mut lfsr64 = Lfsr64::from_seed([1,2,3,4,5,6,7,8]);
 
     let mut buffer = [0u8; 32];
-    gf256rng.fill_bytes(&mut buffer);
-    println!("{:<9} => {}", "gf256rng", hex(&buffer));
+    for i in 0..buffer.len() {
+        buffer[i] = lfsr8.next();
+    }
+    println!("{:<11} => {}", "lfsr8", hex(&buffer));
 
     let mut buffer = [0u8; 32];
-    gf2p64rng.fill_bytes(&mut buffer);
-    println!("{:<9} => {}", "gf2p64rng", hex(&buffer));
+    for i in 0..buffer.len() {
+        buffer[i] = lfsr64.next() as u8;
+    }
+    println!("{:<11} => {}", "lfsr64", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = lfsr8.prev();
+    }
+    println!("{:<11} => {}", "rev(lfsr8)", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = lfsr64.prev() as u8;
+    }
+    println!("{:<11} => {}", "rev(lfsr64)", hex(&buffer));
     println!();
 
 
@@ -229,11 +285,11 @@ fn main() {
     const WIDTH: usize = 128;
     const HEIGHT: usize = 64;
 
-    println!("{} gf256rng samples:", SAMPLES);
+    println!("{} lfsr8 samples:", SAMPLES);
     let mut buffer = [0u8; WIDTH*HEIGHT];
     for _ in 0..SAMPLES {
-        let x = gf256rng.gen_range(0..WIDTH/2) + gf256rng.gen_range(0..WIDTH/2);
-        let y = gf256rng.gen_range(0..HEIGHT/2) + gf256rng.gen_range(0..HEIGHT/2);
+        let x = lfsr8.gen_range(0..WIDTH/2) + lfsr8.gen_range(0..WIDTH/2);
+        let y = lfsr8.gen_range(0..HEIGHT/2) + lfsr8.gen_range(0..HEIGHT/2);
         buffer[x+y*WIDTH] += 1;
     }
 
@@ -273,11 +329,11 @@ fn main() {
     }
     println!();
 
-    println!("{} gf2p64rng samples:", SAMPLES);
+    println!("{} lfsr64 samples:", SAMPLES);
     let mut buffer = [0u8; WIDTH*HEIGHT];
     for _ in 0..SAMPLES {
-        let x = gf2p64rng.gen_range(0..WIDTH/2) + gf2p64rng.gen_range(0..WIDTH/2);
-        let y = gf2p64rng.gen_range(0..HEIGHT/2) + gf2p64rng.gen_range(0..HEIGHT/2);
+        let x = lfsr64.gen_range(0..WIDTH/2) + lfsr64.gen_range(0..WIDTH/2);
+        let y = lfsr64.gen_range(0..HEIGHT/2) + lfsr64.gen_range(0..HEIGHT/2);
         buffer[x+y*WIDTH] += 1;
     }
 
