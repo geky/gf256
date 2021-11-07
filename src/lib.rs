@@ -38,13 +38,18 @@ pub mod crc;
 #[cfg(feature="shamir")]
 pub mod shamir;
 
+/// RAID-parity structs
+#[cfg(feature="raid")]
+pub mod raid;
+
 
 /// re-exported for proc_macros
 #[path="."]
 pub mod internal {
     pub mod xmul;
     pub use cfg_if;
-    #[cfg(feature="shamir")] pub use rand;
+    #[cfg(any(feature="lfsr", feature="shamir"))]
+    pub use rand;
 }
 
 pub use internal::xmul::HAS_XMUL;

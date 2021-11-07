@@ -14,6 +14,7 @@ no-xmul = []
 crc = []
 lfsr = []
 shamir = []
+raid = []
 
 [dependencies]
 syn = {version="1.0.73", features=["full"]}
