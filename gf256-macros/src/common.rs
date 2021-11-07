@@ -23,22 +23,25 @@ pub(crate) fn crate_path() -> TokenTree {
     ))
 }
 
-// TODO does this xmul query even work out of crate? (feature flag?)
 pub(crate) fn xmul_predicate() -> TokenStream {
-    quote! {
-        any(
-            all(
-                not(feature="no-xmul"),
-                target_arch="x86_64",
-                target_feature="pclmulqdq"
-            ),
-            all(
-                not(feature="no-xmul"),
-                feature="nightly",
-                target_arch="aarch64",
-                target_feature="neon"
+    // override here since our features won't be available
+    // in dependent crates
+    if cfg!(feature="no-xmul") {
+        quote! { any() }
+    } else {
+        quote! {
+            any(
+                all(
+                    target_arch="x86_64",
+                    target_feature="pclmulqdq"
+                ),
+                all(
+                    feature="nightly",
+                    target_arch="aarch64",
+                    target_feature="neon"
+                )
             )
-        )
+        }
     }
 }
 

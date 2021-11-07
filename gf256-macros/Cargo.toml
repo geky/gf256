@@ -1,7 +1,7 @@
 [package]
 name = "gf256-macros"
 description = "Proc-macros for the gf256 crate"
-authors = ["Christopher Haster <christopher.haster@arm.com>"]
+authors = ["Christopher Haster <chaster@utexas.edu>"]
 version = "0.1.0"
 edition = "2018"
 

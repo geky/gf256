@@ -791,6 +791,96 @@ impl FromLossy<__crate::psize> for __p {
     }
 }
 
+impl TryFrom<i8> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: i8) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl TryFrom<i16> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: i16) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl TryFrom<i32> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: i32) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl TryFrom<i64> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: i64) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl TryFrom<i128> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: i128) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl TryFrom<isize> for __p {
+    type Error = TryFromIntError;
+    #[inline]
+    fn try_from(x: isize) -> Result<__p, Self::Error> {
+        Ok(__p(__u::try_from(x)?))
+    }
+}
+
+impl FromLossy<i8> for __p {
+    #[inline]
+    fn from_lossy(x: i8) -> __p {
+        __p(x as __u)
+    }
+}
+
+impl FromLossy<i16> for __p {
+    #[inline]
+    fn from_lossy(x: i16) -> __p {
+        __p(x as __u)
+    }
+}
+
+impl FromLossy<i32> for __p {
+    #[inline]
+    fn from_lossy(x: i32) -> __p {
+        __p(x as __u)
+    }
+}
+
+impl FromLossy<i64> for __p {
+    #[inline]
+    fn from_lossy(x: i64) -> __p {
+        __p(x as __u)
+    }
+}
+
+impl FromLossy<i128> for __p {
+    #[inline]
+    fn from_lossy(x: i128) -> __p {
+        __p(x as __u)
+    }
+}
+
+impl FromLossy<isize> for __p {
+    #[inline]
+    fn from_lossy(x: isize) -> __p {
+        __p(x as __u)
+    }
+}
+
 
 //// Conversions from __p ////
 

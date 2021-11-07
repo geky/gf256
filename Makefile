@@ -34,6 +34,10 @@ bench:
 	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir --bench raid   -- --noplot
 	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir --bench rs     -- --noplot
 
+.PHONY: doc
+doc:
+	$(ENV) cargo +nightly doc --no-deps --features nightly,thread-rng,lfsr,crc,shamir
+
 .PHONY: clean
 clean:
 	$(ENV) cargo clean
