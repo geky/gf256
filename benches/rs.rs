@@ -41,7 +41,10 @@ fn bench_rs(c: &mut Criterion) {
         |data| {
             data.chunks(rs::DATA_SIZE)
                 .map(|chunk| {
-                    rs::rs_encode(chunk)
+                    let mut chunk = Vec::from(chunk);
+                    chunk.resize(chunk.len() + rs::ECC_SIZE, 0);
+                    rs::rs_encode(&mut chunk);
+                    chunk
                 })
                 .collect::<Vec<_>>()
         },
@@ -55,7 +58,10 @@ fn bench_rs(c: &mut Criterion) {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
                 .map(|chunk| {
-                    rs::rs_encode(chunk)
+                    let mut chunk = Vec::from(chunk);
+                    chunk.resize(chunk.len() + rs::ECC_SIZE, 0);
+                    rs::rs_encode(&mut chunk);
+                    chunk
                 })
                 .collect::<Vec<_>>()
         },
@@ -74,7 +80,9 @@ fn bench_rs(c: &mut Criterion) {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
                 .map(|chunk| {
-                    let mut chunk = rs::rs_encode(chunk);
+                    let mut chunk = Vec::from(chunk);
+                    chunk.resize(chunk.len() + rs::ECC_SIZE, 0);
+                    rs::rs_encode(&mut chunk);
                     let chunk_len = chunk.len();
 
                     let mut erasures = HashSet::new();
@@ -106,7 +114,9 @@ fn bench_rs(c: &mut Criterion) {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
                 .map(|chunk| {
-                    let mut chunk = rs::rs_encode(chunk);
+                    let mut chunk = Vec::from(chunk);
+                    chunk.resize(chunk.len() + rs::ECC_SIZE, 0);
+                    rs::rs_encode(&mut chunk);
                     let chunk_len = chunk.len();
 
                     for error in
@@ -136,7 +146,9 @@ fn bench_rs(c: &mut Criterion) {
             let data = (&mut xs).take(SIZE).map(|x| x as u8).collect::<Vec<u8>>();
             data.chunks(rs::DATA_SIZE)
                 .map(|chunk| {
-                    let mut chunk = rs::rs_encode(chunk);
+                    let mut chunk = Vec::from(chunk);
+                    chunk.resize(chunk.len() + rs::ECC_SIZE, 0);
+                    rs::rs_encode(&mut chunk);
                     let chunk_len = chunk.len();
 
                     let erasure_count = ((&mut xs).next().unwrap() as usize)

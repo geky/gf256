@@ -152,11 +152,14 @@ pub fn p(
                 use #xmul as #__xmul;
             })
         }
-        _ => {
+        Some(darling::util::Override::Inherit) => {
             let xmul = TokenTree::Ident(Ident::new(&format!("xmul{}", width), Span::call_site()));
             overrides.push(quote! {
                 use #__crate::internal::xmul::#xmul as #__xmul;
             })
+        }
+        None => {
+            // no xmul
         }
     };
 

@@ -5,8 +5,8 @@ override ENV += RUSTFLAGS="-Ctarget-cpu=native"
 all build:
 	$(ENV) cargo +nightly build --features nightly
 
-.PHONY: test-features
-test-features:
+.PHONY: test-configs
+test-configs:
 	$(ENV) cargo test --lib
 	$(ENV) cargo test --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --lib
 	$(ENV) cargo test --features thread-rng,lfsr,crc,shamir,raid,rs --lib

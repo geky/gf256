@@ -6,10 +6,7 @@ use criterion::Criterion;
 use criterion::BatchSize;
 use criterion::Throughput;
 use std::iter;
-use std::io;
 use std::convert::TryFrom;
-use std::cell::RefCell;
-use std::io::Write;
 
 #[allow(dead_code)]
 #[path = "../examples/raid.rs"]
@@ -37,36 +34,36 @@ fn bench_raid(c: &mut Criterion) {
     let mut xs = xorshift64(42).map(|x| x as u8);
     group.throughput(Throughput::Bytes((COUNT*SIZE) as u64));
     group.bench_function("raid4_format", |b| b.iter_batched_ref(
-        || {
+        || {(
             iter::repeat_with(|| {
-                io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
+                (&mut xs).take(SIZE).collect::<Vec<u8>>()
             })
-            .take(COUNT+1)
-            .collect::<Vec<_>>()
-        },
-        |disks| raid::Raid4::format(disks),
+                .take(COUNT)
+                .collect::<Vec<_>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
+        )},
+        |(disks, p)| raid::raid4_format(disks, p),
         BatchSize::SmallInput
     ));
 
     // update
     let mut xs = xorshift64(42).map(|x| x as u8);
     let mut disks = iter::repeat_with(|| {
-            io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
         })
-        .take(COUNT+1)
+        .take(COUNT)
         .collect::<Vec<_>>();
-    raid::Raid4::format(&mut disks).unwrap();
-    let disks = RefCell::new(disks);
-    let mut raid_ = raid::Raid4::mount(&disks).unwrap();
+    let mut p = (&mut xs).take(SIZE).collect::<Vec<u8>>();
+    raid::raid4_format(&disks, &mut p);
     group.throughput(Throughput::Bytes(SIZE as u64));
     group.bench_function("raid4_update", |b| b.iter_batched_ref(
-        || (
+        || {(
             usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT).unwrap()),
             (&mut xs).take(SIZE).collect::<Vec<u8>>(),
-        ),
+        )},
         |(i, data)| {
-            raid_[*i].write_all(data).unwrap();
-            raid_[*i].flush().unwrap();
+            raid::raid4_update(*i, &disks[*i], data, &mut p);
+            disks[*i].copy_from_slice(data);
         },
         BatchSize::SmallInput
     ));
@@ -75,17 +72,16 @@ fn bench_raid(c: &mut Criterion) {
     let mut xs = xorshift64(42).map(|x| x as u8);
     group.throughput(Throughput::Bytes((1*SIZE) as u64));
     group.bench_function("raid4_repair", |b| b.iter_batched_ref(
-        || {
-            (
-                usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT+1).unwrap()),
-                iter::repeat_with(|| {
-                    io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
-                })
-                .take(COUNT+1)
-                .collect::<Vec<_>>()
-            )
-        },
-        |(i, disks)| raid::Raid4::repair(disks, &[*i]),
+        || {(
+            usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT+1).unwrap()),
+            iter::repeat_with(|| {
+                (&mut xs).take(SIZE).collect::<Vec<u8>>()
+            })
+                .take(COUNT)
+                .collect::<Vec<_>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
+        )},
+        |(i, disks, p)| raid::raid4_repair(disks, p, &[*i]),
         BatchSize::SmallInput
     ));
 
@@ -93,36 +89,38 @@ fn bench_raid(c: &mut Criterion) {
     let mut xs = xorshift64(42).map(|x| x as u8);
     group.throughput(Throughput::Bytes((COUNT*SIZE) as u64));
     group.bench_function("raid6_format", |b| b.iter_batched_ref(
-        || {
+        || {(
             iter::repeat_with(|| {
-                io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
-            })
-            .take(COUNT+2)
-            .collect::<Vec<_>>()
-        },
-        |disks| raid::Raid6::format(disks),
+                    (&mut xs).take(SIZE).collect::<Vec<u8>>()
+                })
+                .take(COUNT)
+                .collect::<Vec<_>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
+        )},
+        |(disks, p, q)| raid::raid6_format(disks, p, q),
         BatchSize::SmallInput
     ));
 
     // update
     let mut xs = xorshift64(42).map(|x| x as u8);
     let mut disks = iter::repeat_with(|| {
-            io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
         })
         .take(COUNT+2)
         .collect::<Vec<_>>();
-    raid::Raid6::format(&mut disks).unwrap();
-    let disks = RefCell::new(disks);
-    let mut raid_ = raid::Raid6::mount(&disks).unwrap();
+    let mut p = (&mut xs).take(SIZE).collect::<Vec<u8>>();
+    let mut q = (&mut xs).take(SIZE).collect::<Vec<u8>>();
+    raid::raid6_format(&mut disks, &mut p, &mut q);
     group.throughput(Throughput::Bytes(SIZE as u64));
     group.bench_function("raid6_update", |b| b.iter_batched_ref(
-        || (
+        || {(
             usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT).unwrap()),
             (&mut xs).take(SIZE).collect::<Vec<u8>>(),
-        ),
+        )},
         |(i, data)| {
-            raid_[*i].write_all(data).unwrap();
-            raid_[*i].flush().unwrap();
+            raid::raid6_update(*i, &disks[*i], data, &mut p, &mut q);
+            disks[*i].copy_from_slice(data);
         },
         BatchSize::SmallInput
     ));
@@ -131,17 +129,17 @@ fn bench_raid(c: &mut Criterion) {
     let mut xs = xorshift64(42).map(|x| x as u8);
     group.throughput(Throughput::Bytes((1*SIZE) as u64));
     group.bench_function("raid6_repair_1", |b| b.iter_batched_ref(
-        || {
-            (
-                usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT+2).unwrap()),
-                iter::repeat_with(|| {
-                    io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
+        || {(
+            usize::from((&mut xs).next().unwrap() % u8::try_from(COUNT+2).unwrap()),
+            iter::repeat_with(|| {
+                    (&mut xs).take(SIZE).collect::<Vec<u8>>()
                 })
                 .take(COUNT+2)
-                .collect::<Vec<_>>()
-            )
-        },
-        |(i, disks)| raid::Raid6::repair(disks, &[*i]),
+                .collect::<Vec<_>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>(),
+            (&mut xs).take(SIZE).collect::<Vec<u8>>()
+        )},
+        |(i, disks, p, q)| raid::raid6_repair(disks, p, q, &[*i]),
         BatchSize::SmallInput
     ));
 
@@ -155,13 +153,15 @@ fn bench_raid(c: &mut Criterion) {
                 i,
                 (i+1) % (COUNT+2),
                 iter::repeat_with(|| {
-                    io::Cursor::new((&mut xs).take(SIZE).collect::<Vec<u8>>())
-                })
-                .take(COUNT+2)
-                .collect::<Vec<_>>()
+                        (&mut xs).take(SIZE).collect::<Vec<u8>>()
+                    })
+                    .take(COUNT+2)
+                    .collect::<Vec<_>>(),
+                (&mut xs).take(SIZE).collect::<Vec<u8>>(),
+                (&mut xs).take(SIZE).collect::<Vec<u8>>()
             )
         },
-        |(i, j, disks)| raid::Raid6::repair(disks, &[*i, *j]),
+        |(i, j, disks, p, q)| raid::raid6_repair(disks, p, q, &[*i, *j]),
         BatchSize::SmallInput
     ));
 }

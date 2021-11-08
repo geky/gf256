@@ -145,7 +145,7 @@ fn bench_lfsr(c: &mut Criterion) {
     ));
 
     // gf2p64 timing
-    let mut gf2p64 = lfsr::Gf2p64Rng::from_seed([1,2,3,4,5,6,7,8]);
+    let mut gf2p64 = lfsr::Lfsr64::from_seed([1,2,3,4,5,6,7,8]);
     group.bench_function("gf2p64", |b| b.iter(
         || gf2p64.fill_bytes(&mut buffer)
     ));
@@ -175,7 +175,7 @@ fn bench_lfsr_compressability(c: &mut Criterion<Compressability>) {
     ));
 
     // gf2p64 compressability
-    let mut gf2p64 = lfsr::Gf2p64Rng::from_seed([1,2,3,4,5,6,7,8]);
+    let mut gf2p64 = lfsr::Lfsr64::from_seed([1,2,3,4,5,6,7,8]);
     group.bench_function("gf2p64_compressability", |b| b.iter_custom(
         |iters| {
             let mut sum = 0.0;
