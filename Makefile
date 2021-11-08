@@ -1,5 +1,8 @@
 
-override ENV += RUSTFLAGS="-Ctarget-cpu=native"
+override RUSTFLAGS += -Ctarget-cpu=native
+
+# this indirection is so commands with env are easily copied on the terminal
+override ENV += RUSTFLAGS="$(RUSTFLAGS)"
 
 .PHONY: all build
 all build:
@@ -18,7 +21,7 @@ test-configs:
 test:
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1
+	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1 -q
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example crc
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example shamir
