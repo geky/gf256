@@ -13,7 +13,7 @@ use std::iter::FromIterator;
 use crate::common::*;
 
 // template files are relative to the current file
-const LFSR_TEMPLATE: &'static str = include_str!("../../templates/lfsr.rs");
+const LFSR_TEMPLATE: &'static str = include_str!("../templates/lfsr.rs");
 
 
 #[derive(Debug, FromMeta)]

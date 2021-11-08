@@ -15,7 +15,7 @@ use std::cmp::max;
 use crate::common::*;
 
 // template files are relative to the current file
-const CRC_TEMPLATE: &'static str = include_str!("../../templates/crc.rs");
+const CRC_TEMPLATE: &'static str = include_str!("../templates/crc.rs");
 
 
 #[derive(Debug, FromMeta)]

@@ -13,7 +13,7 @@ use std::iter::FromIterator;
 use crate::common::*;
 
 // template files are relative to the current file
-const RAID_TEMPLATE: &'static str = include_str!("../../templates/raid.rs");
+const RAID_TEMPLATE: &'static str = include_str!("../templates/raid.rs");
 
 
 #[derive(Debug, FromMeta)]

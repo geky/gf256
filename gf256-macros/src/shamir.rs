@@ -13,7 +13,7 @@ use std::iter::FromIterator;
 use crate::common::*;
 
 // template files are relative to the current file
-const SHAMIR_TEMPLATE: &'static str = include_str!("../../templates/shamir.rs");
+const SHAMIR_TEMPLATE: &'static str = include_str!("../templates/shamir.rs");
 
 
 #[derive(Debug, FromMeta)]

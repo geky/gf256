@@ -2,8 +2,10 @@
 name = "gf256-macros"
 description = "Proc-macros for the gf256 crate"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
+repository = "https://github.com/geky/gf256"
 version = "0.1.0"
 edition = "2018"
+license = "MIT"
 
 [lib]
 proc-macro = true
