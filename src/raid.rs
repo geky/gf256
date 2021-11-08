@@ -2,116 +2,106 @@
 use crate::macros::raid;
 
 
-// Default RAID-parity structs
+// RAID-parity functions
 //
 
 #[raid(parity=1)]
-pub struct Raid4 {}
+pub mod raid4 {}
 
 #[raid(parity=2)]
-pub struct Raid6 {}
+pub mod raid6 {}
 
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::gf::*;
-    use core::cell::RefCell;
 
     extern crate alloc;
     use alloc::vec::Vec;
 
-    extern crate std;
-    use std::io;
-    use std::io::Write;
-
     #[test]
     fn raid4() {
         let mut blocks = [
-            io::Cursor::new((80..90).collect::<Vec<u8>>()),
-            io::Cursor::new((20..30).collect::<Vec<u8>>()),
-            io::Cursor::new((30..40).collect::<Vec<u8>>()),
-            io::Cursor::new((40..50).collect::<Vec<u8>>()),
+            (80..90).collect::<Vec<u8>>(),
+            (20..30).collect::<Vec<u8>>(),
+            (30..40).collect::<Vec<u8>>(),
         ];
+        let mut p = (40..50).collect::<Vec<u8>>();
 
         // format
-        Raid4::format(&mut blocks).unwrap();
+        raid4::format(&mut blocks, &mut p);
 
-        // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid4::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let mut blocks = blocks_cell.into_inner();
-        assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-        assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
-        assert_eq!(blocks[2].get_ref(), &(30..40).collect::<Vec<u8>>());
+        // update
+        raid4::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
+        assert_eq!(&blocks[2], &(30..40).collect::<Vec<u8>>());
 
         for i in 0..blocks.len() {
             // clobber
-            blocks[i].get_mut().fill(b'x');
+            blocks[i].fill(b'x');
             // repair
-            Raid4::repair(&mut blocks, &[i]).unwrap();
-            assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-            assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
-            assert_eq!(blocks[2].get_ref(), &(30..40).collect::<Vec<u8>>());
+            raid4::repair(&mut blocks, &mut p, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+            assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
+            assert_eq!(&blocks[2], &(30..40).collect::<Vec<u8>>());
         }
     }
 
     #[test]
     fn raid4_large() {
         let mut blocks = Vec::new();
-        for i in 0..255+1 {
-            blocks.push(io::Cursor::new(((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>()));
+        for i in 0..255 {
+            blocks.push(((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
+        let mut p = (10..20).collect::<Vec<u8>>();
 
         // format
-        Raid4::format(&mut blocks).unwrap();
+        raid4::format(&mut blocks, &mut p);
 
         // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid4::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let mut blocks = blocks_cell.into_inner();
+        raid4::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
         for i in 0..255 {
-            assert_eq!(blocks[i].get_ref(), &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
+            assert_eq!(&blocks[i], &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
 
         // clobber
-        blocks[0].get_mut().fill(b'x');
+        blocks[0].fill(b'x');
         // repair
-        Raid4::repair(&mut blocks, &[0]).unwrap();
+        raid4::repair(&mut blocks, &mut p, &[0]).unwrap();
         for i in 0..255 {
-            assert_eq!(blocks[i].get_ref(), &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
+            assert_eq!(&blocks[i], &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
     }
 
     #[test]
     fn raid6() {
         let mut blocks = [
-            io::Cursor::new((80..90).collect::<Vec<u8>>()),
-            io::Cursor::new((20..30).collect::<Vec<u8>>()),
-            io::Cursor::new((30..40).collect::<Vec<u8>>()),
-            io::Cursor::new((40..50).collect::<Vec<u8>>()),
+            (80..90).collect::<Vec<u8>>(),
+            (20..30).collect::<Vec<u8>>(),
         ];
+        let mut p = (30..40).collect::<Vec<u8>>();
+        let mut q = (40..50).collect::<Vec<u8>>();
 
         // format
-        Raid6::format(&mut blocks).unwrap();
+        raid6::format(&mut blocks, &mut p, &mut q);
 
-        // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid6::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let mut blocks = blocks_cell.into_inner();
-        assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-        assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+        // update
+        raid6::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
 
         for i in 0..blocks.len() {
             // clobber
-            blocks[i].get_mut().fill(b'x');
+            blocks[i].fill(b'x');
             // repair
-            Raid6::repair(&mut blocks, &[i]).unwrap();
-            assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-            assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+            raid6::repair(&mut blocks, &mut p, &mut q, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+            assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
         }
 
         for i in 0..blocks.len() {
@@ -121,12 +111,12 @@ mod test {
                 }
 
                 // clobber
-                blocks[i].get_mut().fill(b'x');
-                blocks[j].get_mut().fill(b'x');
+                blocks[i].fill(b'x');
+                blocks[j].fill(b'x');
                 // repair
-                Raid6::repair(&mut blocks, &[i, j]).unwrap();
-                assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-                assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+                raid6::repair(&mut blocks, &mut p, &mut q, &[i, j]).unwrap();
+                assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+                assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
             }
         }
     }
@@ -134,90 +124,86 @@ mod test {
     #[test]
     fn raid6_large() {
         let mut blocks = Vec::new();
-        for i in 0..255+2 {
-            blocks.push(io::Cursor::new(((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>()));
+        for i in 0..255 {
+            blocks.push(((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
+        let mut p = (10..20).collect::<Vec<u8>>();
+        let mut q = (10..20).collect::<Vec<u8>>();
 
         // format
-        Raid6::format(&mut blocks).unwrap();
+        raid6::format(&mut blocks, &mut p, &mut q);
 
         // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid6::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let mut blocks = blocks_cell.into_inner();
+        raid6::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
         for i in 0..255 {
-            assert_eq!(blocks[i].get_ref(), &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
+            assert_eq!(&blocks[i], &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
 
         // clobber
-        blocks[0].get_mut().fill(b'x');
-        blocks[1].get_mut().fill(b'x');
+        blocks[0].fill(b'x');
+        blocks[1].fill(b'x');
         // repair
-        Raid6::repair(&mut blocks, &[0, 1]).unwrap();
+        raid6::repair(&mut blocks, &mut p, &mut q, &[0, 1]).unwrap();
         for i in 0..255 {
-            assert_eq!(blocks[i].get_ref(), &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
+            assert_eq!(&blocks[i], &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
         }
     }
 
     // why do we have this option?
     #[raid(parity=0)]
-    pub struct Raid0 {}
+    pub mod raid0 {}
 
     #[test]
     fn raid0() {
         let mut blocks = [
-            io::Cursor::new((80..90).collect::<Vec<u8>>()),
-            io::Cursor::new((20..30).collect::<Vec<u8>>()),
-            io::Cursor::new((30..40).collect::<Vec<u8>>()),
-            io::Cursor::new((40..50).collect::<Vec<u8>>()),
+            (80..90).collect::<Vec<u8>>(),
+            (20..30).collect::<Vec<u8>>(),
+            (30..40).collect::<Vec<u8>>(),
+            (40..50).collect::<Vec<u8>>(),
         ];
 
         // format
-        Raid0::format(&mut blocks).unwrap();
+        raid0::format(&mut blocks);
 
-        // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid0::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let blocks = blocks_cell.into_inner();
-        assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-        assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
-        assert_eq!(blocks[2].get_ref(), &(30..40).collect::<Vec<u8>>());
-        assert_eq!(blocks[3].get_ref(), &(40..50).collect::<Vec<u8>>());
+        // update
+        raid0::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>());
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
+        assert_eq!(&blocks[2], &(30..40).collect::<Vec<u8>>());
+        assert_eq!(&blocks[3], &(40..50).collect::<Vec<u8>>());
     }
 
     // all RAID-parity params
     #[raid(parity=2, gf=gf256)]
-    pub struct Raid6AllParams;
+    pub mod raid6_all_params {}
 
     #[test]
     fn raid_all_params() {
         let mut blocks = [
-            io::Cursor::new((80..90).collect::<Vec<u8>>()),
-            io::Cursor::new((20..30).collect::<Vec<u8>>()),
-            io::Cursor::new((30..40).collect::<Vec<u8>>()),
-            io::Cursor::new((40..50).collect::<Vec<u8>>()),
+            (80..90).collect::<Vec<u8>>(),
+            (20..30).collect::<Vec<u8>>(),
         ];
+        let mut p = (30..40).collect::<Vec<u8>>();
+        let mut q = (40..50).collect::<Vec<u8>>();
 
         // format
-        Raid6AllParams::format(&mut blocks).unwrap();
+        raid6_all_params::format(&mut blocks, &mut p, &mut q);
 
-        // mount and update
-        let blocks_cell = RefCell::new(blocks);
-        let mut disks = Raid6AllParams::mount(&blocks_cell).unwrap();
-        disks[0].write_all(&(10..20).collect::<Vec<u8>>()).unwrap();
-        let mut blocks = blocks_cell.into_inner();
-        assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-        assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+        // update
+        raid6_all_params::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
 
         for i in 0..blocks.len() {
             // clobber
-            blocks[i].get_mut().fill(b'x');
+            blocks[i].fill(b'x');
             // repair
-            Raid6AllParams::repair(&mut blocks, &[i]).unwrap();
-            assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-            assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+            raid6_all_params::repair(&mut blocks, &mut p, &mut q, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+            assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
         }
 
         for i in 0..blocks.len() {
@@ -227,12 +213,12 @@ mod test {
                 }
 
                 // clobber
-                blocks[i].get_mut().fill(b'x');
-                blocks[j].get_mut().fill(b'x');
+                blocks[i].fill(b'x');
+                blocks[j].fill(b'x');
                 // repair
-                Raid6AllParams::repair(&mut blocks, &[i, j]).unwrap();
-                assert_eq!(blocks[0].get_ref(), &(10..20).collect::<Vec<u8>>());
-                assert_eq!(blocks[1].get_ref(), &(20..30).collect::<Vec<u8>>());
+                raid6_all_params::repair(&mut blocks, &mut p, &mut q, &[i, j]).unwrap();
+                assert_eq!(&blocks[0], &(10..20).collect::<Vec<u8>>());
+                assert_eq!(&blocks[1], &(20..30).collect::<Vec<u8>>());
             }
         }
     }

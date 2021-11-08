@@ -49,631 +49,428 @@
 //! Which ends up covering all cases for 2 block failures.
 //!
 
-use std::io;
-use std::slice;
-use std::cell::RefCell;
-use std::io::Write;
-use std::io::Seek;
 use std::convert::TryFrom;
 use std::cmp::min;
 use std::cmp::max;
+use std::fmt;
 use rand;
 use ::gf256::*;
 
 
-//// Raid4 ////
-
-#[derive(Clone)]
-pub struct Raid4<'a, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    // This looks really complicated, but it's just a way to share mutable
-    // references between objects safely
-    //
-    blocks: &'a RefCell<dyn AsMut<[B]>>,
-    i: usize,
+/// Error codes for RAID arrays
+#[derive(Debug, Clone)]
+pub enum RaidError {
+    /// RAID-parity can fail to decode if there are more bad-blocks
+    /// than there are parity blocks
+    ///
+    TooManyBadBlocks,
 }
 
-impl<'a, B> Raid4<'a, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    /// Format blocks with RAID4, aka single block of parity
-    ///
-    /// Requires N+1 blocks, with the last block being used for parity
-    ///
-    pub fn format(blocks: &mut [B]) -> Result<(), io::Error> {
-        assert!(blocks.len() >= 1+1);
-
-        for i in 0..blocks.len() {
-            blocks[i].rewind()?;
+impl fmt::Display for RaidError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RaidError::TooManyBadBlocks => write!(f, "Too many bad-blocks to repair"),
         }
+    }
+}
 
-        loop {
-            let mut p = 0;
-            let mut done = true;
+/// Convert mut slice of u8s to gf256s
+fn gf256_slice_mut(slice: &mut [u8]) -> &mut [gf256] {
+    // I couldn't find a safe way to do this cheaply+safely
+    unsafe {
+        std::slice::from_raw_parts_mut(
+            slice.as_mut_ptr() as *mut gf256,
+            slice.len()
+        )
+    }
+}
 
-            for i in 0..blocks.len()-1 {
-                // read from blocks
-                let mut x = 0;
-                match blocks[i].read(slice::from_mut(&mut x)) {
-                    Ok(0)    => { continue; }
-                    Ok(..)   => { done = false; }
-                    Err(err) => { Err(err)?; }
-                }
 
-                // this could be gf256(a) + gf256(b), but that's just xor anyways
-                p ^= x;
-            }
+//// RAID4 ////
 
-            if done {
-                break;
-            }
+/// Format blocks with RAID4, aka single block of parity
+pub fn raid4_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8]) {
+    let len = p.len();
+    assert!(blocks.iter().all(|b| b.as_ref().len() == len));
 
-            // write parity to last block
-            blocks[blocks.len()-1].write_all(slice::from_ref(&p))?;
-        }
-
-        Ok(())
+    for i in 0..len {
+        p[i] = 0;
     }
 
-    /// Repair up to one block of failure
-    pub fn repair(
-        blocks: &mut [B],
-        bad_blocks: &[usize]
-    ) -> Result<(), io::Error> {
-        assert!(blocks.len() >= 1+1);
-
-        for i in 0..blocks.len() {
-            blocks[i].rewind()?;
+    for b in blocks {
+        for i in 0..len {
+            // this could be gf256(a) + gf256(b), but that's just xor anyways
+            p[i] ^= b.as_ref()[i];
         }
+    }
+}
 
-        if bad_blocks.len() == 0 {
-            // no repair needed
-            Ok(())
-        } else if bad_blocks.len() == 1 {
+/// Repair up to one block of failure
+pub fn raid4_repair<B: AsMut<[u8]>>(
+    blocks: &mut [B],
+    p: &mut [u8],
+    bad_blocks: &[usize]
+) -> Result<(), RaidError> {
+    let len = p.len();
+
+    if bad_blocks.len() == 0 {
+        // no repair needed
+        Ok(())
+    } else if bad_blocks.len() == 1 {
+        let bad_block = bad_blocks[0];
+        assert!(bad_block < blocks.len()+1);
+
+        if bad_block < blocks.len() {
             // repair using p
-            let bad_block = bad_blocks[0];
-            loop {
-                let mut p = 0;
-                let mut done = true;
+            let (before, after) = blocks.split_at_mut(bad_block);
+            let (d, after) = after.split_first_mut().unwrap();
+            let d = d.as_mut();
 
-                for i in (0..blocks.len()).filter(|i| *i != bad_block) {
-                    // read from blocks
-                    let mut x = 0;
-                    match blocks[i].read(slice::from_mut(&mut x)) {
-                        Ok(0)    => { continue; }
-                        Ok(..)   => { done = false; }
-                        Err(err) => { Err(err)?; }
-                    }
-
-                    p ^= x;
-                }
-
-                if done {
-                    break;
-                }
-
-                // write repaired block
-                blocks[bad_block].write_all(slice::from_ref(&p))?;
+            for i in 0..len {
+                d[i] = p[i];
             }
 
+            for b in before.iter_mut().chain(after.iter_mut()) {
+                for i in 0..len {
+                    d[i] ^= b.as_mut()[i];
+                }
+            }
+            Ok(())
+        } else if bad_block == blocks.len()+0 {
+            // regenerate p
+            for i in 0..len {
+                p[i] = 0;
+            }
+
+            for b in blocks.iter_mut() {
+                for i in 0..len {
+                    p[i] ^= b.as_mut()[i];
+                }
+            }
             Ok(())
         } else {
-            // can't repair
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Too many errors to correct ({} > 1)",
-                    bad_blocks.len()
-                )
-            ))
+            unreachable!()
         }
-    }
-
-    /// Create a set of Raid4 blocks, each mapping to an underlying data
-    /// block. Writes to a Raid4 will also update the parity block.
-    ///
-    /// Note this returns N-1 blocks.
-    ///
-    pub fn mount(blocks: &'a RefCell<dyn AsMut<[B]>>) -> Result<Vec<Self>, io::Error> {
-        assert!(blocks.borrow_mut().as_mut().len() >= 1+1);
-
-        {
-            let mut blocks = blocks.borrow_mut();
-            let blocks = blocks.as_mut();
-            for i in 0..blocks.len() {
-                blocks[i].rewind()?;
-            }
-        }
-
-        Ok(
-            (0..blocks.borrow_mut().as_mut().len()-1)
-                .map(|i| {
-                    Self { 
-                        blocks: blocks,
-                        i: i
-                    }
-                })
-                .collect::<Vec<_>>()
-        )
+    } else {
+        // can't repair
+        Err(RaidError::TooManyBadBlocks)
     }
 }
 
-impl<B> io::Read for Raid4<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
-        // just pass to our block
-        self.blocks.borrow_mut().as_mut()[self.i].read(buf)
+/// Add a block to a RAID4 array
+///
+/// Note the block index must be unique in the array! This does not
+/// update other block indices.
+///
+pub fn raid4_add(_j: usize, new: &[u8], p: &mut [u8]) {
+    let len = p.len();
+
+    for i in 0..len {
+        // calculate new parity
+        p[i] ^= new[i];
     }
 }
 
-impl<B> io::Write for Raid4<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
-        let mut blocks = self.blocks.borrow_mut();
-        let blocks = blocks.as_mut();
-        let p_i = blocks.len()-1;
+/// Add a block from a RAID4 array
+///
+/// Note the block index must already exit in the array, otherwise the
+/// array will become corrupted. This does not update other block indices.
+///
+pub fn raid4_remove(_j: usize, old: &[u8], p: &mut [u8]) {
+    let len = p.len();
 
-        // make sure parity block is at the right position, since we
-        // share this it can always be moved
-        let pos = blocks[self.i].stream_position()?;
-        blocks[p_i].seek(io::SeekFrom::Start(pos))?;
+    for i in 0..len {
+        // calculate new parity
+        p[i] ^= old[i];
+    }
+}
 
-        for b in buf {
-            // read old values so we can calculate new values without
-            // recomputing the entire parity
-            //
-            // note if we're eof, the values are treated as zero
-            //
-            let mut old_b = 0;
-            let diff = blocks[self.i].read(slice::from_mut(&mut old_b))?;
-            blocks[self.i].seek(io::SeekFrom::Current(-(diff as i64)))?;
+/// Update a block in a RAID4 array
+///
+/// This is functionally equivalent to remove(i)+add(i), but more efficient.
+///
+pub fn raid4_update(_j: usize, old: &[u8], new: &[u8], p: &mut [u8]) {
+    let len = p.len();
 
-            let mut old_p = 0;
-            let diff = blocks[p_i].read(slice::from_mut(&mut old_p))?;
-            blocks[p_i].seek(io::SeekFrom::Current(-(diff as i64)))?;
+    for i in 0..len {
+        // calculate new parity
+        p[i] ^= old[i] ^ new[i];
+    }
+}
 
-            // calculate new parity
-            let p = old_p ^ old_b ^ *b;
 
-            // write updated value and parity
-            blocks[self.i].write_all(slice::from_ref(&b))?;
-            blocks[p_i].write_all(slice::from_ref(&p))?;
-        }
+//// RAID6 ////
 
-        Ok(buf.len())
+/// Format blocks with RAID6, aka two blocks of parity
+pub fn raid6_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8], q: &mut [u8]) {
+    let len = p.len();
+    assert!(q.len() == len);
+    assert!(blocks.iter().all(|b| b.as_ref().len() == len));
+    assert!(blocks.len() <= 255);
+    let p = gf256_slice_mut(p);
+    let q = gf256_slice_mut(q);
+
+    for i in 0..len {
+        p[i] = gf256(0);
+        q[i] = gf256(0);
     }
 
-    fn flush(&mut self) -> Result<(), io::Error> {
-        // flush both our block and the parity block
-        let mut blocks = self.blocks.borrow_mut();
-        let blocks = blocks.as_mut();
-        let p_i = blocks.len()-1;
-        blocks[self.i].flush()?;
-        blocks[p_i].flush()?;
+    for (j, b) in blocks.iter().enumerate() {
+        let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+        for i in 0..len {
+            p[i] += gf256(b.as_ref()[i]);
+            q[i] += gf256(b.as_ref()[i]) * g;
+        }
+    }
+}
+
+/// Repair up to two blocks of failure
+pub fn raid6_repair<B: AsMut<[u8]>>(
+    blocks: &mut [B],
+    p: &mut [u8],
+    q: &mut [u8],
+    bad_blocks: &[usize]
+) -> Result<(), RaidError> {
+    let len = p.len();
+    let p = gf256_slice_mut(p);
+    let q = gf256_slice_mut(q);
+
+    if bad_blocks.len() == 0 {
+        // no repair needed
         Ok(())
-    }
-}
+    } else if bad_blocks.len() == 1 {
+        let bad_block = bad_blocks[0];
+        assert!(bad_block < blocks.len()+2);
 
-impl<B> io::Seek for Raid4<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn seek(&mut self, from_: io::SeekFrom) -> Result<u64, io::Error> {
-        // seek our current block, we'll lazily seek the parity block
-        // since it is shared across raid blocks
-        self.blocks.borrow_mut().as_mut()[self.i].seek(from_)
-    }
-}
+        if bad_block < blocks.len() {
+            // repair using p
+            let (before, after) = blocks.split_at_mut(bad_block);
+            let (d, after)  = after.split_first_mut().unwrap();
+            let d = gf256_slice_mut(d.as_mut());
 
+            for i in 0..len {
+                d[i] = p[i];
+            }
 
-//// Raid6 ////
-
-#[derive(Clone)]
-pub struct Raid6<'a, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    // This looks really complicated, but it's just a way to share mutable
-    // references between objects safely
-    //
-    blocks: &'a RefCell<dyn AsMut<[B]>>,
-    i: usize,
-    coeff: gf256,
-}
-
-impl<'a, B> Raid6<'a, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    /// Format blocks with RAID4, aka two blocks of parity
-    ///
-    /// Requires N+2 blocks, with the last two blocks being used for parity
-    ///
-    pub fn format(blocks: &mut [B]) -> Result<(), io::Error> {
-        assert!(blocks.len() >= 1+2);
-        assert!(blocks.len() <= 255+2);
-
-        for i in 0..blocks.len() {
-            blocks[i].rewind()?;
-        }
-
-        loop {
-            let mut p = gf256(0);
-            let mut q = gf256(0);
-            let mut done = true;
-
-            for i in 0..blocks.len()-2 {
-                // read from blocks
-                let mut x = 0;
-                match blocks[i].read(slice::from_mut(&mut x)) {
-                    Ok(0)    => { continue; }
-                    Ok(..)   => { done = false; }
-                    Err(err) => { Err(err)?; }
+            for b in before.iter_mut().chain(after.iter_mut()) {
+                for i in 0..len {
+                    d[i] -= gf256(b.as_mut()[i]);
                 }
-
-                p += gf256(x);
-                q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
             }
-
-            if done {
-                break;
-            }
-
-            // write parity to last two blocks
-            blocks[blocks.len()-2].write_all(slice::from_ref(&u8::from(p)))?;
-            blocks[blocks.len()-1].write_all(slice::from_ref(&u8::from(q)))?;
-        }
-
-        Ok(())
-    }
-
-    /// Repair up to two block of failure
-    pub fn repair(
-        blocks: &mut [B],
-        bad_blocks: &[usize]
-    ) -> Result<(), io::Error> {
-        assert!(blocks.len() >= 1+2);
-        assert!(blocks.len() <= 255+2);
-
-        for i in 0..blocks.len() {
-            blocks[i].rewind()?;
-        }
-
-        if bad_blocks.len() == 0 {
-            // no repair needed
             Ok(())
-        } else if bad_blocks.len() == 1 {
-            let bad_block = bad_blocks[0];
-            if bad_block == blocks.len()-1 {
-                // regenerate q
-                loop {
-                    let mut q = gf256(0);
-                    let mut done = true;
-
-                    for i in 0..blocks.len()-2 {
-                        // read from blocks
-                        let mut x = 0;
-                        match blocks[i].read(slice::from_mut(&mut x)) {
-                            Ok(0)    => { continue; }
-                            Ok(..)   => { done = false; }
-                            Err(err) => { Err(err)?; }
-                        }
-
-                        q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
-                    }
-
-                    if done {
-                        break;
-                    }
-
-                    // write repaired block
-                    blocks[bad_block].write_all(slice::from_ref(&u8::from(q)))?;
-                }
-
-                Ok(())
-            } else {
-                // repair using p
-                let bad_block = bad_blocks[0];
-                loop {
-                    let mut p = gf256(0);
-                    let mut done = true;
-
-                    for i in (0..blocks.len()-1).filter(|i| *i != bad_block) {
-                        // read from blocks
-                        let mut x = 0;
-                        match blocks[i].read(slice::from_mut(&mut x)) {
-                            Ok(0)    => { continue; }
-                            Ok(..)   => { done = false; }
-                            Err(err) => { Err(err)?; }
-                        }
-
-                        p -= gf256(x);
-                    }
-
-                    if done {
-                        break;
-                    }
-
-                    // write repaired block
-                    blocks[bad_block].write_all(slice::from_ref(&u8::from(p)))?;
-                }
-
-                Ok(())
+        } else if bad_block == blocks.len()+0 {
+            // regenerate p
+            for i in 0..len {
+                p[i] = gf256(0);
             }
-        } else if bad_blocks.len() == 2 {
-            let bad_block1 = min(bad_blocks[0], bad_blocks[1]);
-            let bad_block2 = max(bad_blocks[0], bad_blocks[1]);
 
-            if bad_block2 == blocks.len()-1 {
-                // repair data block using p, and then regenerate q
-                loop {
-                    let mut p = gf256(0);
-                    let mut q = gf256(0);
-                    let mut done = true;
-
-                    for i in (0..blocks.len()-1).filter(|i| *i != bad_block1) {
-                        // read from blocks
-                        let mut x = 0;
-                        match blocks[i].read(slice::from_mut(&mut x)) {
-                            Ok(0)    => { continue; }
-                            Ok(..)   => { done = false; }
-                            Err(err) => { Err(err)?; }
-                        }
-
-                        p -= gf256(x);
-                        if i < blocks.len()-2 {
-                            q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
-                        }
-                    }
-
-                    if done {
-                        break;
-                    }
-
-                    // q depends on final value
-                    if bad_block1 < blocks.len()-2 {
-                        q += p * gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-                    }
-
-                    // write repaired blocks
-                    blocks[bad_block1].write_all(slice::from_ref(&u8::from(p)))?;
-                    blocks[bad_block2].write_all(slice::from_ref(&u8::from(q)))?;
+            for b in blocks.iter_mut() {
+                for i in 0..len {
+                    p[i] += gf256(b.as_mut()[i]);
                 }
-
-                Ok(())
-            } else if bad_block2 == blocks.len()-2 {
-                // repair data block using q, and then regenerate p
-                loop {
-
-                    let mut p = gf256(0);
-                    let mut q;
-                    let mut done = true;
-
-                    let mut x = 0;
-                    match blocks[blocks.len()-1].read(slice::from_mut(&mut x)) {
-                        Ok(0)    => { break; }
-                        Ok(..)   => { done = false; }
-                        Err(err) => { Err(err)?; }
-                    }
-                    q = gf256(x);
-
-                    for i in (0..blocks.len()-2).filter(|i| *i != bad_block1) {
-                        // read from blocks
-                        let mut x = 0;
-                        match blocks[i].read(slice::from_mut(&mut x)) {
-                            Ok(0)    => { continue; }
-                            Ok(..)   => { done = false; }
-                            Err(err) => { Err(err)?; }
-                        }
-
-                        p += gf256(x);
-                        q -= gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
-                    }
-
-                    if done {
-                        break;
-                    }
-
-                    // find final data and p
-                    q /= gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-                    p += q;
-
-                    // write repaired blocks
-                    blocks[bad_block1].write_all(slice::from_ref(&u8::from(q)))?;
-                    blocks[bad_block2].write_all(slice::from_ref(&u8::from(p)))?;
-                }
-
-                Ok(())
-            } else {
-                // repair data blocks using p and q
-                loop {
-                    let mut p;
-                    let mut q;
-                    let mut done = true;
-
-                    let mut x = 0;
-                    match blocks[blocks.len()-2].read(slice::from_mut(&mut x)) {
-                        Ok(0)    => { break; }
-                        Ok(..)   => { done = false; }
-                        Err(err) => { Err(err)?; }
-                    }
-                    p = gf256(x);
-
-                    let mut x = 0;
-                    match blocks[blocks.len()-1].read(slice::from_mut(&mut x)) {
-                        Ok(0)    => { break; }
-                        Ok(..)   => { done = false; }
-                        Err(err) => { Err(err)?; }
-                    }
-                    q = gf256(x);
-
-                    for i in (0..blocks.len()-2).filter(|i| *i != bad_block1 && *i != bad_block2) {
-                        // read from blocks
-                        let mut x = 0;
-                        match blocks[i].read(slice::from_mut(&mut x)) {
-                            Ok(0)    => { continue; }
-                            Ok(..)   => { done = false; }
-                            Err(err) => { Err(err)?; }
-                        }
-
-                        p += gf256(x);
-                        q += gf256(x) * gf256::GENERATOR.pow(u8::try_from(i).unwrap());
-                    }
-
-                    if done {
-                        break;
-                    }
-
-                    // find final data points
-                    //
-                    // d_x +     d_y     = p-sum(d_i)
-                    // d_x*g^x + d_y*g^y = q-sum(d_i*g^i)
-                    //
-                    //       (p-sum(d_i))*g^y + (q-sum(d_i*g^i))
-                    // d_x = -----------------------------------
-                    //                   g^x + g^y
-                    //
-                    let g1 = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-                    let g2 = gf256::GENERATOR.pow(u8::try_from(bad_block2).unwrap());
-                    let d1 = (p*g2 + q) / (g1+g2);
-                    let d2 = p + d1;
-
-                    // write repaired blocks
-                    blocks[bad_block1].write_all(slice::from_ref(&u8::from(d1)))?;
-                    blocks[bad_block2].write_all(slice::from_ref(&u8::from(d2)))?;
-                }
-
-                Ok(())
             }
+            Ok(())
+        } else if bad_block == blocks.len()+1 {
+            // regenerate q
+            for i in 0..len {
+                q[i] = gf256(0);
+            }
+
+            for (j, b) in blocks.iter_mut().enumerate() {
+                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+                for i in 0..len {
+                    q[i] += gf256(b.as_mut()[i]) * g;
+                }
+            }
+            Ok(())
         } else {
-            // can't repair
-            Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Too many errors to correct ({} > 2)",
-                    bad_blocks.len()
-                )
-            ))
+            unreachable!()
         }
-    }
+    } else if bad_blocks.len() == 2 {
+        let bad_block1 = min(bad_blocks[0], bad_blocks[1]);
+        let bad_block2 = max(bad_blocks[0], bad_blocks[1]);
+        assert!(bad_block1 < blocks.len()+2);
+        assert!(bad_block2 < blocks.len()+2);
 
-    /// Create a set of Raid6 blocks, each mapping to an underlying data
-    /// block. Writes to a Raid6 will also update the parity blocks.
-    ///
-    /// Note this returns N-2 blocks.
-    ///
-    pub fn mount(blocks: &'a RefCell<dyn AsMut<[B]>>) -> Result<Vec<Self>, io::Error> {
-        assert!(blocks.borrow_mut().as_mut().len() >= 1+2);
-        assert!(blocks.borrow_mut().as_mut().len() <= 255+2);
+        if bad_block1 < blocks.len() && bad_block2 < blocks.len() {
+            // repair d1 and d2 using p and q
+            let (before, between) = blocks.split_at_mut(bad_block1);
+            let (d1, between) = between.split_first_mut().unwrap();
+            let (between, after) = between.split_at_mut(bad_block2-(bad_block1+1));
+            let (d2, after) = after.split_first_mut().unwrap();
+            let d1 = gf256_slice_mut(d1.as_mut());
+            let d2 = gf256_slice_mut(d2.as_mut());
 
-        {
-            let mut blocks = blocks.borrow_mut();
-            let blocks = blocks.as_mut();
-            for i in 0..blocks.len() {
-                blocks[i].rewind()?;
+            // find intermediate values
+            //
+            // p-sum(d_i)
+            // q-sum(d_i*g^i)
+            //
+            for i in 0..len {
+                d1[i] = p[i];
+                d2[i] = q[i];
             }
-        }
 
-        Ok(
-            (0..blocks.borrow_mut().as_mut().len()-1)
-                .map(|i| {
-                    Self { 
-                        blocks: blocks,
-                        i: i,
-                        coeff: gf256::GENERATOR.pow(u8::try_from(i).unwrap()),
-                    }
-                })
-                .collect::<Vec<_>>()
-        )
-    }
-}
+            for (j, b) in before.iter_mut().enumerate()
+                .chain((bad_block1+1..).zip(between.iter_mut()))
+                .chain((bad_block2+1..).zip(after.iter_mut()))
+            {
+                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+                for i in 0..len {
+                    d1[i] -= gf256(b.as_mut()[i]);
+                    d2[i] -= gf256(b.as_mut()[i]) * g;
+                }
+            }
 
-impl<B> io::Read for Raid6<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
-        // just pass to our block
-        self.blocks.borrow_mut().as_mut()[self.i].read(buf)
-    }
-}
-
-impl<B> io::Write for Raid6<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
-        let mut blocks = self.blocks.borrow_mut();
-        let blocks = blocks.as_mut();
-        let p_i = blocks.len()-2;
-        let q_i = blocks.len()-1;
-
-        // make sure parity blocks are at the right position, since we
-        // share these they can always be moved
-        let pos = blocks[self.i].stream_position()?;
-        blocks[p_i].seek(io::SeekFrom::Start(pos))?;
-        blocks[q_i].seek(io::SeekFrom::Start(pos))?;
-
-        for b in buf {
-            // read old values so we can calculate new values without
-            // recomputing the entire parity
+            // find final d1/d2
             //
-            // note if we're eof, the values are treated as zero
+            // d_x +     d_y     = p-sum(d_i)
+            // d_x*g^x + d_y*g^y = q-sum(d_i*g^i)
             //
-            let mut old_b = 0;
-            let diff = blocks[self.i].read(slice::from_mut(&mut old_b))?;
-            blocks[self.i].seek(io::SeekFrom::Current(-(diff as i64)))?;
+            //       (p-sum(d_i))*g^y + (q-sum(d_i*g^i))
+            // d_x = -----------------------------------
+            //                   g^x + g^y
+            //
+            let g1 = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+            let g2 = gf256::GENERATOR.pow(u8::try_from(bad_block2).unwrap());
+            for i in 0..len {
+                let p = d1[i];
+                let q = d2[i];
+                d1[i] = (p*g2 + q) / (g1+g2);
+                d2[i] = p - d1[i];
+            }
+            Ok(())
+        } else if bad_block1 < blocks.len() && bad_block2 == blocks.len()+0 {
+            // repair d using q, and then regenerate p
+            let (before, after) = blocks.split_at_mut(bad_block1);
+            let (d, after) = after.split_first_mut().unwrap();
+            let d = gf256_slice_mut(d.as_mut());
 
-            let mut old_p = 0;
-            let diff = blocks[p_i].read(slice::from_mut(&mut old_p))?;
-            blocks[p_i].seek(io::SeekFrom::Current(-(diff as i64)))?;
+            for i in 0..len {
+                d[i] = q[i];
+                p[i] = gf256(0);
+            }
 
-            let mut old_q = 0;
-            let diff = blocks[q_i].read(slice::from_mut(&mut old_q))?;
-            blocks[q_i].seek(io::SeekFrom::Current(-(diff as i64)))?;
+            for (j, b) in before.iter_mut().enumerate()
+                .chain((bad_block1+1..).zip(after.iter_mut()))
+            {
+                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+                for i in 0..len {
+                    d[i] -= gf256(b.as_mut()[i]) * g;
+                    p[i] += gf256(b.as_mut()[i]);
+                }
+            }
 
-            // calculate new parity
-            let p = gf256(old_p) + (gf256(*b) - gf256(old_b));
-            let q = gf256(old_q) + self.coeff*(gf256(*b) - gf256(old_b));
+            // update p and d based on final value of d
+            let g = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+            for i in 0..len {
+                d[i] /= g;
+                p[i] += d[i];
+            }
+            Ok(())
+        } else if bad_block1 < blocks.len() && bad_block2 == blocks.len()+1 {
+            // repair d using p, and then regenerate q
+            let (before, after) = blocks.split_at_mut(bad_block1);
+            let (d, after) = after.split_first_mut().unwrap();
+            let d = gf256_slice_mut(d.as_mut());
 
-            // write updated value and parity
-            blocks[self.i].write_all(slice::from_ref(&b))?;
-            blocks[p_i].write_all(slice::from_ref(&u8::from(p)))?;
-            blocks[q_i].write_all(slice::from_ref(&u8::from(q)))?;
+            for i in 0..len {
+                d[i] = p[i];
+                q[i] = gf256(0);
+            }
+
+            for (j, b) in before.iter_mut().enumerate()
+                .chain((bad_block1+1..).zip(after.iter_mut()))
+            {
+                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+                for i in 0..len {
+                    d[i] -= gf256(b.as_mut()[i]);
+                    q[i] += gf256(b.as_mut()[i]) * g;
+                }
+            }
+
+            // update q based on final value of d
+            let g = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+            for i in 0..len {
+                q[i] += d[i] * g;
+            }
+            Ok(())
+        } else if bad_block1 == blocks.len()+0 && bad_block2 == blocks.len()+1 {
+            // regenerate p and q
+            for i in 0..len {
+                p[i] = gf256(0);
+                q[i] = gf256(0);
+            }
+
+            for (j, b) in blocks.iter_mut().enumerate() {
+                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+                for i in 0..len {
+                    p[i] += gf256(b.as_mut()[i]);
+                    q[i] += gf256(b.as_mut()[i]) * g;
+                }
+            }
+            Ok(())
+        } else {
+            unreachable!()
         }
-
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<(), io::Error> {
-        // flush both our block and the parity blocks
-        let mut blocks = self.blocks.borrow_mut();
-        let blocks = blocks.as_mut();
-        let p_i = blocks.len()-2;
-        let q_i = blocks.len()-1;
-        blocks[self.i].flush()?;
-        blocks[p_i].flush()?;
-        blocks[q_i].flush()?;
-        Ok(())
+    } else {
+        // can't repair
+        Err(RaidError::TooManyBadBlocks)
     }
 }
 
-impl<B> io::Seek for Raid6<'_, B>
-where
-    B: io::Read + io::Write + io::Seek
-{
-    fn seek(&mut self, from_: io::SeekFrom) -> Result<u64, io::Error> {
-        // seek our current block, we'll lazily seek the parity blocks
-        // since they are shared across raid blocks
-        self.blocks.borrow_mut().as_mut()[self.i].seek(from_)
+/// Add a block to a RAID6 array
+///
+/// Note the block index must be unique in the array! This does not
+/// update other block indices.
+///
+pub fn raid6_add(j: usize, new: &[u8], p: &mut [u8], q: &mut [u8]) {
+    let len = p.len();
+    let p = gf256_slice_mut(p);
+    let q = gf256_slice_mut(q);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    for i in 0..len {
+        // calculate new parity
+        p[i] += gf256(new[i]);
+        q[i] += gf256(new[i]) * g;
     }
 }
 
+/// Add a block from a RAID6 array
+///
+/// Note the block index must already exit in the array, otherwise the
+/// array will become corrupted. This does not update other block indices.
+///
+pub fn raid6_remove(j: usize, old: &[u8], p: &mut [u8], q: &mut [u8]) {
+    let len = p.len();
+    let p = gf256_slice_mut(p);
+    let q = gf256_slice_mut(q);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    for i in 0..len {
+        // calculate new parity
+        p[i] -= gf256(old[i]);
+        q[i] -= gf256(old[i]) * g;
+    }
+}
+
+/// Update a block in a RAID6 array
+///
+/// This is functionally equivalent to remove(i)+add(i), but more efficient.
+///
+pub fn raid6_update(j: usize, old: &[u8], new: &[u8], p: &mut [u8], q: &mut [u8]) {
+    let len = p.len();
+    let p = gf256_slice_mut(p);
+    let q = gf256_slice_mut(q);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    for i in 0..len {
+        // calculate new parity
+        p[i] += gf256(new[i]) - gf256(old[i]);
+        q[i] += (gf256(new[i]) - gf256(old[i])) * g;
+    }
+}
 
 
 pub fn main() {
@@ -696,189 +493,222 @@ pub fn main() {
     }
 
 
-    // test Raid4
+    // testing RAID4
 
     let mut blocks = [
-        io::Cursor::new(Vec::from(b"Hell".as_ref())),
-        io::Cursor::new(Vec::from(b"o Wo".as_ref())),
-        io::Cursor::new(Vec::from(b"rld?".as_ref())),
-        io::Cursor::new(Vec::from(b"    ".as_ref())),
+        Vec::from(b"Hell".as_ref()),
+        Vec::from(b"o Wo".as_ref()),
+        Vec::from(b"rld?".as_ref()),
     ];
+    let mut parity = Vec::from(b"    ".as_ref());
 
     println!();
     println!("testing raid4({:?})",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
-            .take(3)
+            .map(|b| ascii(b))
             .collect::<String>()
     );
 
-    Raid4::format(&mut blocks).unwrap();
+    raid4_format(&blocks, &mut parity);
     println!("{:<7} => {}  {}",
         "format",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
-    let blocks_ref = RefCell::new(blocks);
-    let mut raid_blocks = Raid4::mount(&blocks_ref).unwrap();
-    raid_blocks[2].seek(io::SeekFrom::Start(3)).unwrap();
-    raid_blocks[2].write_all(b"!").unwrap();
-    let mut blocks = blocks_ref.into_inner();
+    let old = blocks[2][3];
+    blocks[2][3] = b'!';
+    raid4_update(2, &[old], &[b'!'], &mut parity[3..4]);
     println!("{:<7} => {}  {}",
         "update",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
     let mut rng = rand::thread_rng();
-    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len(), 1).into_vec();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+1, 1).into_vec();
     for bad_block in bad_blocks.iter() {
-        blocks[*bad_block].get_mut().fill(b'x');
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity.fill(b'x');
+        } else {
+            unreachable!();
+        }
     }
     println!("{:<7} => {}  {}",
         "corrupt",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
-    Raid4::repair(&mut blocks, &bad_blocks).unwrap();
+    raid4_repair(&mut blocks, &mut parity, &bad_blocks).unwrap();
     println!("{:<7} => {}  {}",
         "repair",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity])
+            .map(|b| hex(b))
             .collect::<String>()
     );
     assert_eq!(
         blocks.iter()
-            .take(3)
-            .map(|b| ascii(b.get_ref()))
+            .map(|b| ascii(b))
             .collect::<String>(),
         "Hello World!"
     );
 
 
-    // test Raid6
+    // testing RAID6
 
     let mut blocks = [
-        io::Cursor::new(Vec::from(b"Hell".as_ref())),
-        io::Cursor::new(Vec::from(b"o Wo".as_ref())),
-        io::Cursor::new(Vec::from(b"rld?".as_ref())),
-        io::Cursor::new(Vec::from(b"    ".as_ref())),
-        io::Cursor::new(Vec::from(b"    ".as_ref())),
+        Vec::from(b"Hell".as_ref()),
+        Vec::from(b"o Wo".as_ref()),
+        Vec::from(b"rld?".as_ref()),
     ];
+    let mut parity1 = Vec::from(b"    ".as_ref());
+    let mut parity2 = Vec::from(b"    ".as_ref());
 
     println!();
     println!("testing raid6({:?})",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
-            .take(3)
+            .map(|b| ascii(b))
             .collect::<String>()
     );
 
-    Raid6::format(&mut blocks).unwrap();
+    raid6_format(&blocks, &mut parity1, &mut parity2);
     println!("{:<7} => {}  {}",
         "format",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
-    let blocks_ref = RefCell::new(blocks);
-    let mut raid_blocks = Raid6::mount(&blocks_ref).unwrap();
-    raid_blocks[2].seek(io::SeekFrom::Start(3)).unwrap();
-    raid_blocks[2].write_all(b"!").unwrap();
-    let mut blocks = blocks_ref.into_inner();
+    let old = blocks[2][3];
+    blocks[2][3] = b'!';
+    raid6_update(2, &[old], &[b'!'], &mut parity1[3..4], &mut parity2[3..4]);
     println!("{:<7} => {}  {}",
         "update",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
     let mut rng = rand::thread_rng();
-    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len(), 1).into_vec();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+2, 1).into_vec();
     for bad_block in bad_blocks.iter() {
-        blocks[*bad_block].get_mut().fill(b'x');
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity1.fill(b'x');
+        } else if *bad_block == blocks.len()+1 {
+            parity2.fill(b'x');
+        } else {
+            unreachable!();
+        }
     }
     println!("{:<7} => {}  {}",
         "corrupt",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
-    Raid6::repair(&mut blocks, &bad_blocks).unwrap();
+    raid6_repair(&mut blocks, &mut parity1, &mut parity2, &bad_blocks).unwrap();
     println!("{:<7} => {}  {}",
         "repair",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
     assert_eq!(
         blocks.iter()
-            .take(3)
-            .map(|b| ascii(b.get_ref()))
+            .map(|b| ascii(b))
             .collect::<String>(),
         "Hello World!"
     );
 
     let mut rng = rand::thread_rng();
-    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len(), 2).into_vec();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+2, 2).into_vec();
     for bad_block in bad_blocks.iter() {
-        blocks[*bad_block].get_mut().fill(b'x');
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity1.fill(b'x');
+        } else if *bad_block == blocks.len()+1 {
+            parity2.fill(b'x');
+        } else {
+            unreachable!();
+        }
     }
     println!("{:<7} => {}  {}",
         "corrupt",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
 
-    Raid6::repair(&mut blocks, &bad_blocks).unwrap();
+    raid6_repair(&mut blocks, &mut parity1, &mut parity2, &bad_blocks).unwrap();
     println!("{:<7} => {}  {}",
         "repair",
         blocks.iter()
-            .map(|b| ascii(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| ascii(b))
             .collect::<String>(),
         blocks.iter()
-            .map(|b| hex(b.get_ref()))
+            .chain([&parity1, &parity2])
+            .map(|b| hex(b))
             .collect::<String>()
     );
     assert_eq!(
         blocks.iter()
-            .take(3)
-            .map(|b| ascii(b.get_ref()))
+            .map(|b| ascii(b))
             .collect::<String>(),
         "Hello World!"
     );

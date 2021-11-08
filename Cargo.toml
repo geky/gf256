@@ -42,11 +42,6 @@ crc = ["gf256-macros/crc"]
 shamir = ["gf256-macros/shamir", "rand"]
 
 # Make RAID-parity macros and structs available
-#
-# Note this requires std for Read/Write/Seek traits
-#
-# See: https://github.com/rust-lang/rust/issues/48331
-#
 raid = ["gf256-macros/raid"]
 
 # Make Reed-Solomon macros and functions available

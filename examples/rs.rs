@@ -32,6 +32,7 @@
 
 use std::convert::TryFrom;
 use std::borrow::Cow;
+use std::fmt;
 use rand;
 use rand::Rng;
 use ::gf256::*;
@@ -114,6 +115,14 @@ pub enum RsError {
     /// - 2*errors + erasures > ECC_SIZE
     ///
     TooManyErrors,
+}
+
+impl fmt::Display for RsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RsError::TooManyErrors => write!(f, "Too many errors to correct"),
+        }
+    }
 }
 
 

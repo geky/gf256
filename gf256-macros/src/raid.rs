@@ -42,12 +42,11 @@ pub fn raid(
     assert!(args.parity <= 2);
 
     // parse type
-    let ty = parse_macro_input!(input as syn::ItemStruct);
+    let ty = parse_macro_input!(input as syn::ItemMod);
     let attrs = ty.attrs;
     let vis = ty.vis;
     let raid = ty.ident;
 
-    let __mod = Ident::new(&format!("__{}_gen", raid.to_string()), Span::call_site());
     let __gf = Ident::new(&format!("__{}_gf", raid.to_string()), Span::call_site());
 
     // overrides in parent's namespace
@@ -86,8 +85,7 @@ pub fn raid(
     };
 
     let output = quote! {
-        #(#attrs)* #vis use #__mod::#raid;
-        mod #__mod {
+        #(#attrs)* #vis mod #raid {
             #template
         }
 
