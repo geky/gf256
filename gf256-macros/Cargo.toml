@@ -11,6 +11,8 @@ proc-macro = true
 [features]
 # See gf256/Cargo.toml for documentation over these features
 no-xmul = []
+no-tables = []
+small-tables = []
 crc = []
 lfsr = []
 shamir = []

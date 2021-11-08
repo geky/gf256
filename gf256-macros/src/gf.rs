@@ -91,9 +91,17 @@ pub fn gf(
         (false, false, false, true , false) => (false, false, false, true , false),
         (false, false, false, false, true ) => (false, false, false, false, true ),
 
+        // if no-tables/small-tables are enabled, stick to Barret reduction as
+        // it is only beaten by the 2x256-byte log-tables
+        (false, false, false, false, false)
+            if cfg!(any(feature="no-tables", feature="small-tables"))
+            => (false, false, false, false, true),
+
         // if width <= 8, default to log_table as this is currently the fastest
         // implementation, but uses O(2^n) memory
-        (false, false, false, false, false) if width <= 8 => (false, true, false, false, false),
+        (false, false, false, false, false)
+            if width <= 8
+            => (false, true, false, false, false),
 
         // otherwise it turns out Barret reduction is the fastest, even when
         // carry-less multiplication isn't available

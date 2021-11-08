@@ -21,6 +21,22 @@ nightly = []
 #
 no-xmul = ["gf256-macros/no-xmul"]
 
+# Disable lookup tables, relying only on hardware or naive
+# implementations
+#
+# This may be useful on memory constrained devices
+#
+no-tables = ["gf256-macros/no-tables"]
+
+# Limit lookup tables to "small tables", tables with <16 elements
+#
+# This provides a compromise between full 256-byte tables and no-tables,
+# which may be useful on memory constrained devices
+#
+# Currently only affects CRC-function generation
+#
+small-tables = ["gf256-macros/small-tables"]
+
 # Enable features that depend on ThreadRng
 #
 # This is primarily used to provide a default Rng implementation for

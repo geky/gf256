@@ -8,8 +8,10 @@ all build:
 .PHONY: test-configs
 test-configs:
 	$(ENV) cargo test --lib
-	$(ENV) cargo test --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --lib
 	$(ENV) cargo test --features thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(ENV) cargo test --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(ENV) cargo test --features no-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(ENV) cargo test --features small-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
 
 .PHONY: test

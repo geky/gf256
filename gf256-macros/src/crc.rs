@@ -79,6 +79,17 @@ pub fn crc(
         (false, false, true,  false) => (false, false, true,  false),
         (false, false, false, true ) => (false, false, false, true ),
 
+        // if no-tables is enabled, stick to Barret reduction, it beats
+        // a naive implementation even without hardware xmul
+        (false, false, false, false)
+            if cfg!(feature="no-tables")
+            => (false, false, false, true),
+
+        // if small-tables is enabled, we can use a smaller 16-element table
+        (false, false, false, false)
+            if cfg!(feature="small-tables")
+            => (false, false, true, false),
+
         (false, false, false, false) => {
             // if xmul is available, Barret reduction is the fastest option for
             // CRCs, otherwise a table-based approach wins
