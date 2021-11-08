@@ -7,6 +7,7 @@ use core::num::TryFromIntError;
 use core::num::ParseIntError;
 use core::fmt;
 use core::str::FromStr;
+use core::slice;
 use __crate::traits::TryFrom;
 use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
@@ -494,6 +495,28 @@ impl __p {
         match self.naive_checked_rem(other) {
             Some(x) => x,
             None => __p(self.0 / 0),
+        }
+    }
+
+    /// Convert slice of unsigned-types to slice of polynomial-types
+    #[inline]
+    pub fn slice_from_slice(slice: &[__u]) -> &[__p] {
+        unsafe {
+            slice::from_raw_parts(
+                slice.as_ptr() as *const __p,
+                slice.len()
+            )
+        }
+    }
+
+    /// Convert mut slice of unsigned-types to slice of polynomial-types
+    #[inline]
+    pub fn slice_from_slice_mut(slice: &mut [__u]) -> &mut [__p] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut __p,
+                slice.len()
+            )
         }
     }
 }

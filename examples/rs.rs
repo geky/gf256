@@ -126,28 +126,6 @@ impl fmt::Display for RsError {
 }
 
 
-/// Convert slice of u8s to gf256s
-fn rs_poly_from_slice(slice: &[u8]) -> &[gf256] {
-    // I couldn't find a safe way to do this cheaply+safely 
-    unsafe {
-        std::slice::from_raw_parts(
-            slice.as_ptr() as *const gf256,
-            slice.len()
-        )
-    }
-}
-
-/// Convert mut slice of u8s to gf256s
-fn rs_poly_from_slice_mut(slice: &mut [u8]) -> &mut [gf256] {
-    // I couldn't find a safe way to do this cheaply+safely 
-    unsafe {
-        std::slice::from_raw_parts_mut(
-            slice.as_mut_ptr() as *mut gf256,
-            slice.len()
-        )
-    }
-}
-
 /// Evaluate a polynomial at x using Horner's method
 ///
 /// Note polynomials here are ordered biggest-coefficient first
@@ -247,7 +225,7 @@ pub fn rs_encode(message: &mut [u8]) {
 
     // divide by our generator polynomial
     rs_poly_divrem(
-        rs_poly_from_slice_mut(&mut rem),
+        gf256::slice_from_slice_mut(&mut rem),
         &GENERATOR_POLY
     );
 
@@ -458,7 +436,7 @@ fn rs_find_erasure_magnitude(
 /// Note this is quite a bit faster than correcting the errors
 ///
 pub fn rs_is_correct(message: &[u8]) -> bool {
-    let message_poly = rs_poly_from_slice(message);
+    let message_poly = gf256::slice_from_slice(message);
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = rs_find_syndromes(message_poly);
@@ -470,7 +448,7 @@ pub fn rs_correct_erasures(
     message: &mut [u8],
     erasures: &[usize]
 ) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+    let message_poly = gf256::slice_from_slice_mut(message);
 
     // too many erasures?
     if erasures.len() > ECC_SIZE {
@@ -513,7 +491,7 @@ pub fn rs_correct_erasures(
 
 /// Correct up to ECC_SIZE/2 errors at unknown locations
 pub fn rs_correct_errors(message: &mut [u8]) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+    let message_poly = gf256::slice_from_slice_mut(message);
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = rs_find_syndromes(message_poly);
@@ -559,7 +537,7 @@ pub fn rs_correct(
     message: &mut [u8],
     erasures: &[usize]
 ) -> Result<usize, RsError> {
-    let message_poly = rs_poly_from_slice_mut(message);
+    let message_poly = gf256::slice_from_slice_mut(message);
 
     // adjust erasures for implicitly prepended zeros?
     let mut erasures = Cow::Borrowed(erasures);

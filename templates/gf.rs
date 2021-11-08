@@ -6,8 +6,8 @@ use core::fmt;
 use core::str::FromStr;
 use core::num::TryFromIntError;
 use core::num::ParseIntError;
-#[allow(unused)]
 use core::mem::size_of;
+use core::slice;
 
 use __crate::traits::TryFrom;
 use __crate::traits::FromLossy;
@@ -531,6 +531,28 @@ impl __gf {
     pub fn div(self, other: __gf) -> __gf {
         self.checked_div(other)
             .expect("gf division by zero")
+    }
+
+    /// Convert slice of unsigned-types to slice of gf-types
+    #[inline]
+    pub fn slice_from_slice(slice: &[__u]) -> &[__gf] {
+        unsafe {
+            slice::from_raw_parts(
+                slice.as_ptr() as *const __gf,
+                slice.len()
+            )
+        }
+    }
+
+    /// Convert mut slice of unsigned-types to slice of gf-types
+    #[inline]
+    pub fn slice_from_slice_mut(slice: &mut [__u]) -> &mut [__gf] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut __gf,
+                slice.len()
+            )
+        }
     }
 }
 
