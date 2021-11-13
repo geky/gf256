@@ -1,13 +1,8 @@
 
 use crate::macros::rs;
 
-
 // Reed-Solomon error-correction functions
 //
-
-#[rs(block=26, data=16)]
-pub mod rs26w16 {}
-
 #[rs(block=255, data=223)]
 pub mod rs255w223 {}
 
@@ -19,6 +14,10 @@ mod test {
 
     extern crate alloc;
     use alloc::vec::Vec;
+
+    // a smaller Reed-Solomon code
+    #[rs(block=26, data=16)]
+    pub mod rs26w16 {}
 
     #[test]
     fn rs26w16() {

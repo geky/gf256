@@ -1,9 +1,15 @@
 
 use crate::macros::gf;
 
-// Galois field type
-#[gf(polynomial=0x11d, generator=0x02)]
+// Galois field types
+#[gf(polynomial=0x11d, generator=0x2)]
 pub type gf256;
+#[gf(polynomial=0x1002d, generator=0x2)]
+pub type gf2p16;
+#[gf(polynomial=0x1000000af, generator=0x2)]
+pub type gf2p32;
+#[gf(polynomial=0x1000000000000001b, generator=0x2)]
+pub type gf2p64;
 
 
 #[cfg(test)]
@@ -13,17 +19,17 @@ mod test {
 
     // Create a custom gf type here (Rijndael's finite field) to test a
     // different polynomial
-    #[gf(polynomial=0x11b, generator=0x03)]
+    #[gf(polynomial=0x11b, generator=0x3)]
     type gf256_rijndael;
 
     // Test both table-based and Barret reduction implementations
-    #[gf(polynomial=0x11d, generator=0x02, log_table)]
+    #[gf(polynomial=0x11d, generator=0x2, log_table)]
     type gf256_log_table;
-    #[gf(polynomial=0x11d, generator=0x02, rem_table)]
+    #[gf(polynomial=0x11d, generator=0x2, rem_table)]
     type gf256_rem_table;
-    #[gf(polynomial=0x11d, generator=0x02, small_rem_table)]
+    #[gf(polynomial=0x11d, generator=0x2, small_rem_table)]
     type gf256_small_rem_table;
-    #[gf(polynomial=0x11d, generator=0x02, barret)]
+    #[gf(polynomial=0x11d, generator=0x2, barret)]
     type gf256_barret;
 
     #[test]
@@ -190,14 +196,10 @@ mod test {
     //
     #[gf(polynomial=0x13, generator=0x2)]
     type gf16;
-    #[gf(polynomial=0x1009, generator=0x003)]
+    #[gf(polynomial=0x1053, generator=0x2)]
     type gf4096;
-    #[gf(polynomial=0x1002b, generator=0x0003)]
-    type gf2p16;
-    #[gf(polynomial=0x10000008d, generator=0x00000003)]
-    type gf2p32;
-    #[gf(polynomial=0x1000000000000001b, generator=0x0000000000000002)]
-    type gf2p64;
+    #[gf(polynomial=0x800021, generator=0x2)]
+    type gf2p23;
 
     macro_rules! test_axioms {
         ($name:ident; $t:ty; $gf:expr; $nz:expr; $x:expr) => {
@@ -238,6 +240,7 @@ mod test {
     test_axioms! { gf256_axioms;   gf256;  gf256; 255; 0x11 }
     test_axioms! { gf4096_axioms;  gf4096; |x| gf4096::new(x).unwrap(); 4095; 0x111 }
     test_axioms! { gf2p16_axioms;  gf2p16; gf2p16; 65535; 0x1111 }
+    test_axioms! { gf2p23_axioms;  gf2p23; |x| gf2p23::new(x).unwrap(); 8388607; 0x111111 }
     test_axioms! { gf2p32_axioms;  gf2p32; gf2p32; 4294967295; 0x11111111 }
     test_axioms! { gf2p64_axioms;  gf2p64; gf2p64; 18446744073709551615; 0x1111111111111111 }
 
@@ -255,62 +258,71 @@ mod test {
 
     #[gf(polynomial=0x13, generator=0x2, rem_table)]
     type gf16_rem_table;
-    #[gf(polynomial=0x1009, generator=0x003, rem_table)]
+    #[gf(polynomial=0x1053, generator=0x2, rem_table)]
     type gf4096_rem_table;
-    #[gf(polynomial=0x1002b, generator=0x0003, rem_table)]
+    #[gf(polynomial=0x1002d, generator=0x2, rem_table)]
     type gf2p16_rem_table;
-    #[gf(polynomial=0x10000008d, generator=0x00000003, rem_table)]
+    #[gf(polynomial=0x800021, generator=0x2, rem_table)]
+    type gf2p23_rem_table;
+    #[gf(polynomial=0x1000000af, generator=0x2, rem_table)]
     type gf2p32_rem_table;
-    #[gf(polynomial=0x1000000000000001b, generator=0x0000000000000002, rem_table)]
+    #[gf(polynomial=0x1000000000000001b, generator=0x2, rem_table)]
     type gf2p64_rem_table;
 
     test_axioms! { gf16_rem_table_axioms;    gf16_rem_table;   |x| gf16_rem_table::new(x).unwrap(); 15;  0x1 }
     test_axioms! { gf256_rem_table_axioms;   gf256_rem_table;  gf256_rem_table; 255; 0x11 }
     test_axioms! { gf4096_rem_table_axioms;  gf4096_rem_table; |x| gf4096_rem_table::new(x).unwrap(); 4095; 0x111 }
     test_axioms! { gf2p16_rem_table_axioms;  gf2p16_rem_table; gf2p16_rem_table; 65535; 0x1111 }
+    test_axioms! { gf2p23_rem_table_axioms;  gf2p23_rem_table; |x| gf2p23_rem_table::new(x).unwrap(); 8388607; 0x111111 }
     test_axioms! { gf2p32_rem_table_axioms;  gf2p32_rem_table; gf2p32_rem_table; 4294967295; 0x11111111 }
     test_axioms! { gf2p64_rem_table_axioms;  gf2p64_rem_table; gf2p64_rem_table; 18446744073709551615; 0x1111111111111111 }
 
     #[gf(polynomial=0x13, generator=0x2, small_rem_table)]
     type gf16_small_rem_table;
-    #[gf(polynomial=0x1009, generator=0x003, small_rem_table)]
+    #[gf(polynomial=0x1053, generator=0x2, small_rem_table)]
     type gf4096_small_rem_table;
-    #[gf(polynomial=0x1002b, generator=0x0003, small_rem_table)]
+    #[gf(polynomial=0x1002d, generator=0x2, small_rem_table)]
     type gf2p16_small_rem_table;
-    #[gf(polynomial=0x10000008d, generator=0x00000003, small_rem_table)]
+    #[gf(polynomial=0x800021, generator=0x2, small_rem_table)]
+    type gf2p23_small_rem_table;
+    #[gf(polynomial=0x1000000af, generator=0x2, small_rem_table)]
     type gf2p32_small_rem_table;
-    #[gf(polynomial=0x1000000000000001b, generator=0x0000000000000002, small_rem_table)]
+    #[gf(polynomial=0x1000000000000001b, generator=0x2, small_rem_table)]
     type gf2p64_small_rem_table;
 
     test_axioms! { gf16_small_rem_table_axioms;    gf16_small_rem_table;   |x| gf16_small_rem_table::new(x).unwrap(); 15;  0x1 }
     test_axioms! { gf256_small_rem_table_axioms;   gf256_small_rem_table;  gf256_small_rem_table; 255; 0x11 }
     test_axioms! { gf4096_small_rem_table_axioms;  gf4096_small_rem_table; |x| gf4096_small_rem_table::new(x).unwrap(); 4095; 0x111 }
     test_axioms! { gf2p16_small_rem_table_axioms;  gf2p16_small_rem_table; gf2p16_small_rem_table; 65535; 0x1111 }
+    test_axioms! { gf2p23_small_rem_table_axioms;  gf2p23_small_rem_table; |x| gf2p23_small_rem_table::new(x).unwrap(); 8388607; 0x111111 }
     test_axioms! { gf2p32_small_rem_table_axioms;  gf2p32_small_rem_table; gf2p32_small_rem_table; 4294967295; 0x11111111 }
     test_axioms! { gf2p64_small_rem_table_axioms;  gf2p64_small_rem_table; gf2p64_small_rem_table; 18446744073709551615; 0x1111111111111111 }
 
     #[gf(polynomial=0x13, generator=0x2, barret)]
     type gf16_barret;
-    #[gf(polynomial=0x1009, generator=0x003, barret)]
+    #[gf(polynomial=0x1053, generator=0x2, barret)]
     type gf4096_barret;
-    #[gf(polynomial=0x1002b, generator=0x0003, barret)]
+    #[gf(polynomial=0x1002d, generator=0x2, barret)]
     type gf2p16_barret;
-    #[gf(polynomial=0x10000008d, generator=0x00000003, barret)]
+    #[gf(polynomial=0x800021, generator=0x2, barret)]
+    type gf2p23_barret;
+    #[gf(polynomial=0x1000000af, generator=0x2, barret)]
     type gf2p32_barret;
-    #[gf(polynomial=0x1000000000000001b, generator=0x0000000000000002, barret)]
+    #[gf(polynomial=0x1000000000000001b, generator=0x2, barret)]
     type gf2p64_barret;
 
     test_axioms! { gf16_barret_axioms;    gf16_barret;   |x| gf16_barret::new(x).unwrap(); 15;  0x1 }
     test_axioms! { gf256_barret_axioms;   gf256_barret;  gf256_barret; 255; 0x11 }
     test_axioms! { gf4096_barret_axioms;  gf4096_barret; |x| gf4096_barret::new(x).unwrap(); 4095; 0x111 }
     test_axioms! { gf2p16_barret_axioms;  gf2p16_barret; gf2p16_barret; 65535; 0x1111 }
+    test_axioms! { gf2p23_barret_axioms;  gf2p23_barret; |x| gf2p23_barret::new(x).unwrap(); 8388607; 0x111111 }
     test_axioms! { gf2p32_barret_axioms;  gf2p32_barret; gf2p32_barret; 4294967295; 0x11111111 }
     test_axioms! { gf2p64_barret_axioms;  gf2p64_barret; gf2p64_barret; 18446744073709551615; 0x1111111111111111 }
 
     // all Galois-field params
     #[gf(
         polynomial=0x11d,
-        generator=0x02,
+        generator=0x2,
         usize=false,
         u=u8,
         u2=u16,

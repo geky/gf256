@@ -80,8 +80,8 @@ impl __gf {
         let mut i = 0;
         while i < rem_table.len() {
             rem_table[i] = __p(
-                __p2((i as __u2) << __width)
-                    .naive_rem(__p2(__polynomial))
+                __p2((i as __u2) << 8*size_of::<__u>())
+                    .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                     .0 as __u
             );
             i += 1;
@@ -99,8 +99,8 @@ impl __gf {
         let mut i = 0;
         while i < rem_table.len() {
             rem_table[i] = __p(
-                __p2((i as __u2) << __width)
-                    .naive_rem(__p2(__polynomial))
+                __p2((i as __u2) << 8*size_of::<__u>())
+                    .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                     .0 as __u
             );
             i += 1;
@@ -130,8 +130,8 @@ impl __gf {
         // leaving 2 xmuls and 2 xors.
         //
         __p(
-            __p2((__polynomial & __nonzeros) << __width)
-                .naive_div(__p2(__polynomial))
+            __p2((__polynomial & __nonzeros) << ((8*size_of::<__u>()-__width) + 8*size_of::<__u>()))
+                .naive_div(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u
         )
     };
@@ -318,14 +318,8 @@ impl __gf {
                 }
             } else if #[cfg(__if(__rem_table))] {
                 // multiplication with a per-byte remainder table
-                let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
-                cfg_if! {
-                    if #[cfg(__if(!__is_pw2ge8))] {
-                        // align overflow to a word
-                        hi = (hi << (8*size_of::<__u>() - __width))
-                            | (lo >> __width);
-                    }
-                }
+                let (mut lo, mut hi) = __p(self.0 << (8*size_of::<__u>()-__width))
+                    .widening_mul(__p(other.0));
 
                 let mut x = __p(0);
                 for b in hi.to_be_bytes() {
@@ -335,32 +329,25 @@ impl __gf {
                                 x.0 ^ b)) };
                         } else {
                             x = (x << 8) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                                ((x >> (__width-8u32)).0 as u8) ^ b)) };
+                                ((x >> (8*size_of::<__u>()-8)).0 as u8) ^ b)) };
                         }
                     }
                 }
 
-                __gf((x + lo).0 & __nonzeros)
+                __gf((x + lo).0 >> (8*size_of::<__u>()-__width))
             } else if #[cfg(__if(__small_rem_table))] {
                 // multiplication with a per-nibble remainder table
-                let (mut lo, mut hi) = __p(self.0).widening_mul(__p(other.0));
-                cfg_if! {
-                    if #[cfg(__if(!__is_pw2ge8))] {
-                        // align overflow to a word
-                        hi = (hi << (8*size_of::<__u>() - __width))
-                            | (lo >> __width);
-                    }
-                }
+                let (mut lo, mut hi) = __p(self.0 << (8*size_of::<__u>()-__width)).widening_mul(__p(other.0));
 
                 let mut x = __p(0);
                 for b in hi.to_be_bytes() {
                     x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                        (((x >> (__width-4u32)).0 as u8) ^ (b >> 4)) & 0xf)) };
+                        (((x >> (8*size_of::<__u>()-4)).0 as u8) ^ (b >> 4)) & 0xf)) };
                     x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                        (((x >> (__width-4u32)).0 as u8) ^ (b >> 0)) & 0xf)) };
+                        (((x >> (8*size_of::<__u>()-4)).0 as u8) ^ (b >> 0)) & 0xf)) };
                 }
 
-                __gf((x + lo).0 & __nonzeros)
+                __gf((x + lo).0 >> (8*size_of::<__u>()-__width))
             } else if #[cfg(__if(__barret))] {
                 // multiplication using Barret reduction
                 //
@@ -369,26 +356,11 @@ impl __gf {
                 // useful here if we have hardware xmul instructions, though
                 // it may be more expensive if xmul is naive.
                 //
-                let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
-                let x = {cfg_if! {
-                    if #[cfg(__if(__is_pw2ge8))] {
-                        lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                            .wrapping_mul(__p(__polynomial & __nonzeros))
-                    } else {
-                        // Barret reduction with < (2^8)^n, note the top bits
-                        // are left with garbage, but we mask these away at the end
-                        fn reduction((lo, hi): (__p, __p)) -> (__p, __p) {
-                            let hi = (hi << (8*size_of::<__u>() - __width as usize))
-                                | (lo >> __width as usize);
-                            (lo, hi)
-                        }
-
-                        let (lo, hi) = reduction((lo, hi));
-                        lo + (reduction(hi.widening_mul(Self::BARRET_CONSTANT)).1 + hi)
-                            .wrapping_mul(__p(__polynomial & __nonzeros))
-                    }
-                }};
-                __gf(x.0 & __nonzeros)
+                let (lo, hi) = __p(self.0 << (8*size_of::<__u>()-__width))
+                    .widening_mul(__p(other.0));
+                let x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                    .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
+                __gf(x.0 >> (8*size_of::<__u>()-__width))
             } else {
                 // fallback to naive multiplication
                 //
@@ -2411,12 +2383,12 @@ impl __gf {
     }
 
     #[inline]
-    pub const fn to_le_bytes(self) -> [u8; (__width+7)/8] {
+    pub const fn to_le_bytes(self) -> [u8; size_of::<__u>()] {
         self.0.to_le_bytes()
     }
 
     #[inline]
-    pub const fn from_le_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+    pub const fn from_le_bytes(bytes: [u8; size_of::<__u>()]) -> __gf {
         __gf(__u::from_le_bytes(bytes))
     }
 
@@ -2431,22 +2403,22 @@ impl __gf {
     }
 
     #[inline]
-    pub const fn to_be_bytes(self) -> [u8; (__width+7)/8] {
+    pub const fn to_be_bytes(self) -> [u8; size_of::<__u>()] {
         self.0.to_be_bytes()
     }
 
     #[inline]
-    pub const fn from_be_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+    pub const fn from_be_bytes(bytes: [u8; size_of::<__u>()]) -> __gf {
         __gf(__u::from_be_bytes(bytes))
     }
 
     #[inline]
-    pub const fn to_ne_bytes(self) -> [u8; (__width+7)/8] {
+    pub const fn to_ne_bytes(self) -> [u8; size_of::<__u>()] {
         self.0.to_ne_bytes()
     }
 
     #[inline]
-    pub const fn from_ne_bytes(bytes: [u8; (__width+7)/8]) -> __gf {
+    pub const fn from_ne_bytes(bytes: [u8; size_of::<__u>()]) -> __gf {
         __gf(__u::from_ne_bytes(bytes))
     }
 }

@@ -32,9 +32,11 @@ struct CrcArgs {
     p2: Option<syn::Path>,
 
     #[darling(default)]
-    reversed: Option<bool>,
+    reflected: Option<bool>,
     #[darling(default)]
-    inverted: Option<bool>,
+    init: Option<U128Wrapper>,
+    #[darling(default)]
+    xor: Option<U128Wrapper>,
 
     #[darling(default)]
     naive: bool,
@@ -67,7 +69,6 @@ pub fn crc(
         let polynomial = args.polynomial.0;
         (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
     };
-    assert!(width == width.next_power_of_two() && width >= 8);
 
     // decide between implementations
     let (naive, table, small_table, barret) = match
@@ -183,6 +184,12 @@ pub fn crc(
         ("__width".to_owned(), TokenTree::Literal(
             Literal::usize_unsuffixed(width)
         )),
+        ("__nonzeros".to_owned(), TokenTree::Literal(
+            Literal::u128_unsuffixed((1u128 << width) - 1)
+        )),
+        ("__is_pw2ge8".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", width.is_power_of_two() && width >= 8), Span::call_site())
+        )),
         ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__u }
         }))),
@@ -195,11 +202,20 @@ pub fn crc(
         ("__p2".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__p2 }
         }))),
-        ("__reversed".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", args.reversed.unwrap_or(true)), Span::call_site())
+        ("__reflected".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", args.reflected.unwrap_or(true)), Span::call_site())
         )),
-        ("__inverted".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", args.inverted.unwrap_or(true)), Span::call_site())
+        ("__init".to_owned(), TokenTree::Literal(
+            Literal::u128_unsuffixed(
+                args.init.map(|init| init.0)
+                    .unwrap_or_else(|| (1u128 << width) - 1)
+            )
+        )),
+        ("__xor".to_owned(), TokenTree::Literal(
+            Literal::u128_unsuffixed(
+                args.xor.map(|xor| xor.0)
+                    .unwrap_or_else(|| (1u128 << width) - 1)
+            )
         )),
         ("__naive".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", naive), Span::call_site())
