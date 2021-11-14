@@ -123,6 +123,11 @@ fn bench_lfsr(c: &mut Criterion) {
         || buffer.fill_with(|| lfs64_naive.next(64))
     ));
 
+    let mut lfs64_divrem = lfsr::Lfsr64DivRem::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_divrem", |b| b.iter(
+        || buffer.fill_with(|| lfs64_divrem.next(64))
+    ));
+
     let mut lfs64_table = lfsr::Lfsr64Table::new(0x123456789abcdef0);
     group.bench_function("lfsr64_table", |b| b.iter(
         || buffer.fill_with(|| lfs64_table.next(64))
@@ -136,6 +141,16 @@ fn bench_lfsr(c: &mut Criterion) {
     let mut lfs64_barret = lfsr::Lfsr64Barret::new(0x123456789abcdef0);
     group.bench_function("lfsr64_barret", |b| b.iter(
         || buffer.fill_with(|| lfs64_barret.next(64))
+    ));
+
+    let mut lfs64_table_barret = lfsr::Lfsr64TableBarret::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_table_barret", |b| b.iter(
+        || buffer.fill_with(|| lfs64_table_barret.next(64))
+    ));
+
+    let mut lfs64_small_table_barret = lfsr::Lfsr64SmallTableBarret::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_small_table_barret", |b| b.iter(
+        || buffer.fill_with(|| lfs64_small_table_barret.next(64))
     ));
 }
 

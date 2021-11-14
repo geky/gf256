@@ -475,7 +475,6 @@ impl __p {
             // TODO should this be constant-time?
             let mut a = self.0;
             let b = other.0;
-            let mut x = 0;
             while a.leading_zeros() <= b.leading_zeros() {
                 a ^= b << (b.leading_zeros()-a.leading_zeros());
             }

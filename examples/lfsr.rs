@@ -69,7 +69,7 @@ use ::gf256::traits::FromLossy;
 // TODO we can actually use NonZero
 
 const POLYNOMIAL: p128 = p128(0x1000000000000001b);
-const CYCLE: u64 = u64::MAX;
+const NONZEROS: u64 = u64::MAX;
 
 
 /// A naive LFSR, implemented with bit-shifts and xors
@@ -143,7 +143,7 @@ impl Lfsr64Naive {
 }
 
 
-/// An LFSR implemented with more efficient polynomial operations
+/// An LFSR implemented with polynomial operations
 #[derive(Debug, Clone)]
 pub struct Lfsr64DivRem(p64);
 
@@ -213,7 +213,7 @@ impl Lfsr64DivRem {
         // cycle with 2^width-1 elements. Which means backwards skips are the
         // same as skipping 2^width-1-(skip % 2^width-1) elements
         // 
-        self.skip(CYCLE - (bits % CYCLE))
+        self.skip(NONZEROS - (bits % NONZEROS))
     }
 }
 
@@ -291,7 +291,7 @@ impl Lfsr64Table {
         let mut x = self.0;
         let mut q = 0;
         for i in (0..bits/8).rev() {
-            let n = min(8, bits-i);
+            let n = min(8, bits-8*i);
             q = (q << n) | u64::from(Self::DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]);
             x = (x << n) ^ Self::REM_TABLE[usize::try_from(x >> (64-n)).unwrap()];
         }
@@ -304,7 +304,7 @@ impl Lfsr64Table {
         let mut x = self.0;
         let mut q = 0;
         for i in 0..bits/8 {
-            let n = min(8, bits-i);
+            let n = min(8, bits-8*i);
             let m = (1 << n)-1;
             q |= u64::from(Self::INVERSE_DIV_TABLE[usize::try_from(x & m).unwrap()]) << (8*i);
             x = (x >> n) ^ Self::INVERSE_REM_TABLE[usize::try_from(x & m).unwrap()];
@@ -355,7 +355,7 @@ impl Lfsr64Table {
         // cycle with 2^width-1 elements. Which means backwards skips are the
         // same as skipping 2^width-1-(skip % 2^width-1) elements
         // 
-        self.skip(CYCLE - (bits % CYCLE))
+        self.skip(NONZEROS - (bits % NONZEROS))
     }
 }
 
@@ -434,7 +434,7 @@ impl Lfsr64SmallTable {
         let mut x = self.0;
         let mut q = 0;
         for i in (0..bits/4).rev() {
-            let n = min(4, bits-i);
+            let n = min(4, bits-4*i);
             q = (q << n) | u64::from(Self::DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]);
             x = (x << n) ^ Self::REM_TABLE[usize::try_from(x >> (64-n)).unwrap()];
         }
@@ -447,7 +447,7 @@ impl Lfsr64SmallTable {
         let mut x = self.0;
         let mut q = 0;
         for i in 0..bits/4 {
-            let n = min(4, bits-i);
+            let n = min(4, bits-4*i);
             let m = (1 << n)-1;
             q |= u64::from(Self::INVERSE_DIV_TABLE[usize::try_from(x & m).unwrap()]) << (4*i);
             x = (x >> n) ^ Self::INVERSE_REM_TABLE[usize::try_from(x & m).unwrap()];
@@ -500,7 +500,7 @@ impl Lfsr64SmallTable {
         // cycle with 2^width-1 elements. Which means backwards skips are the
         // same as skipping 2^width-1-(skip % 2^width-1) elements
         // 
-        self.skip(CYCLE - (bits % CYCLE))
+        self.skip(NONZEROS - (bits % NONZEROS))
     }
 }
 
@@ -597,7 +597,256 @@ impl Lfsr64Barret {
         // cycle with 2^width-1 elements. Which means backwards skips are the
         // same as skipping 2^width-1-(skip % 2^width-1) elements
         // 
-        self.skip(CYCLE - (bits % CYCLE))
+        self.skip(NONZEROS - (bits % NONZEROS))
+    }
+}
+
+
+/// An LFSR implemention combining Barret reduction with a division table
+///
+#[derive(Debug, Clone)]
+pub struct Lfsr64TableBarret(p64);
+
+impl Lfsr64TableBarret {
+    // div/rem tables
+    const DIV_TABLE: [u8; 256] = {
+        let mut div_table = [0; 256];
+        let mut i = 0;
+        while i < div_table.len() {
+            div_table[i] = p128((i as u128) << 64)
+                .naive_div(POLYNOMIAL)
+                .0 as u8;
+            i += 1;
+        }
+        div_table
+    };
+
+    const INVERSE_DIV_TABLE: [u8; 256] = {
+        let mut div_table = [0; 256];
+        let mut i = 0;
+        while i < div_table.len() {
+            div_table[i] = (p128((i as u128) << 64)
+                .naive_div(p128(POLYNOMIAL.0.reverse_bits() >> 63u64))
+                .0 as u8)
+                .reverse_bits();
+            i += 1;
+        }
+        div_table
+    };
+
+    // Barret constants
+    const BARRET_CONSTANT: p64 = {
+        p64(p128(POLYNOMIAL.0 << 64)
+            .naive_div(POLYNOMIAL).0 as u64)
+    };
+
+    const INVERSE_BARRET_CONSTANT: p64 = {
+        p64(p128((POLYNOMIAL.0.reverse_bits() >> 63) << 64)
+            .naive_div(p128(POLYNOMIAL.0.reverse_bits() >> 63)).0 as u64)
+    };
+
+    // implementation starts here
+    pub fn new(mut seed: u64) -> Self {
+        // make sure seed does not equal zero! otherwise our rng would only
+        // ever output zero!
+        if seed == 0 {
+            seed = 1;
+        }
+
+        Self(p64(seed))
+    }
+
+    pub fn next(&mut self, bits: u64) -> u64 {
+        debug_assert!(bits <= 64);
+        let mut x = self.0;
+        let mut q = 0;
+        for i in (0..bits/8).rev() {
+            let n = min(8, bits-8*i);
+            q = (q << n) | u64::from(Self::DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]);
+            x = (x << n) + ((x >> (64-n)).widening_mul(Self::BARRET_CONSTANT).1 + (x >> (64-n)))
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL));
+        }
+        self.0 = x;
+        q
+    }
+
+    pub fn prev(&mut self, bits: u64) -> u64 {
+        debug_assert!(bits <= 64);
+        let mut x = self.0.reverse_bits();
+        let mut q = 0;
+        for i in (0..bits/8).rev() {
+            let n = min(8, bits-8*i);
+            q |= u64::from(Self::INVERSE_DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]) << (bits-8-8*i);
+            x = (x << n) + ((x >> (64-n)).widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + (x >> (64-n)))
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL.reverse_bits() >> 63u64));
+        }
+        self.0 = x.reverse_bits();
+        q
+    }
+
+    pub fn skip(&mut self, bits: u64) {
+        // Each step of the lfsr is equivalent to multiplication in a finite
+        // field by a primitive element g=2, which means we can use exponents of
+        // g=2 to efficiently jump around states of the lfsr.
+        //
+        // lfsr' = 2^skip
+        // 
+        let mul = |a: p64, b: p64| -> p64 {
+            let (lo, hi) = a.widening_mul(b);
+            lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL))
+        };
+
+        // Binary exponentiation
+        let mut a = p64(2);
+        let mut bits = bits;
+        let mut g = p64(1);
+        loop {
+            if bits & 1 != 0 {
+                g = mul(g, a);
+            }
+
+            bits >>= 1;
+            if bits == 0 {
+                break;
+            }
+            a = mul(a, a);
+        };
+
+        // Final multiplication
+        self.0 = mul(self.0, g);
+    }
+
+    pub fn skip_backwards(&mut self, bits: u64) {
+        // Assuming our lfsr is well constructed, we're in a multiplicative
+        // cycle with 2^width-1 elements. Which means backwards skips are the
+        // same as skipping 2^width-1-(skip % 2^width-1) elements
+        // 
+        self.skip(NONZEROS - (bits % NONZEROS))
+    }
+}
+
+/// An LFSR implemention combining Barret reduction with a small division table
+///
+#[derive(Debug, Clone)]
+pub struct Lfsr64SmallTableBarret(p64);
+
+impl Lfsr64SmallTableBarret {
+    // div/rem tables
+    const DIV_TABLE: [u8; 16] = {
+        let mut div_table = [0; 16];
+        let mut i = 0;
+        while i < div_table.len() {
+            div_table[i] = p128((i as u128) << 64)
+                .naive_div(POLYNOMIAL)
+                .0 as u8;
+            i += 1;
+        }
+        div_table
+    };
+
+    const INVERSE_DIV_TABLE: [u8; 16] = {
+        let mut div_table = [0; 16];
+        let mut i = 0;
+        while i < div_table.len() {
+            div_table[i] = (p128((i as u128) << 64)
+                .naive_div(p128(POLYNOMIAL.0.reverse_bits() >> 63u64))
+                .0 as u8)
+                .reverse_bits() >> 4;
+            i += 1;
+        }
+        div_table
+    };
+
+    // Barret constants
+    const BARRET_CONSTANT: p64 = {
+        p64(p128(POLYNOMIAL.0 << 64)
+            .naive_div(POLYNOMIAL).0 as u64)
+    };
+
+    const INVERSE_BARRET_CONSTANT: p64 = {
+        p64(p128((POLYNOMIAL.0.reverse_bits() >> 63) << 64)
+            .naive_div(p128(POLYNOMIAL.0.reverse_bits() >> 63)).0 as u64)
+    };
+
+    // implementation starts here
+    pub fn new(mut seed: u64) -> Self {
+        // make sure seed does not equal zero! otherwise our rng would only
+        // ever output zero!
+        if seed == 0 {
+            seed = 1;
+        }
+
+        Self(p64(seed))
+    }
+
+    pub fn next(&mut self, bits: u64) -> u64 {
+        debug_assert!(bits <= 64);
+        let mut x = self.0;
+        let mut q = 0;
+        for i in (0..bits/4).rev() {
+            let n = min(4, bits-4*i);
+            q = (q << n) | u64::from(Self::DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]);
+            x = (x << n) + ((x >> (64-n)).widening_mul(Self::BARRET_CONSTANT).1 + (x >> (64-n)))
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL));
+        }
+        self.0 = x;
+        q
+    }
+
+    pub fn prev(&mut self, bits: u64) -> u64 {
+        debug_assert!(bits <= 64);
+        let mut x = self.0.reverse_bits();
+        let mut q = 0;
+        for i in (0..bits/4).rev() {
+            let n = min(4, bits-4*i);
+            q |= u64::from(Self::INVERSE_DIV_TABLE[usize::try_from(x >> (64-n)).unwrap()]) << (bits-4-4*i);
+            x = (x << n) + ((x >> (64-n)).widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + (x >> (64-n)))
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL.reverse_bits() >> 63u64));
+        }
+        self.0 = x.reverse_bits();
+        q
+    }
+
+    pub fn skip(&mut self, bits: u64) {
+        // Each step of the lfsr is equivalent to multiplication in a finite
+        // field by a primitive element g=2, which means we can use exponents of
+        // g=2 to efficiently jump around states of the lfsr.
+        //
+        // lfsr' = 2^skip
+        // 
+        let mul = |a: p64, b: p64| -> p64 {
+            let (lo, hi) = a.widening_mul(b);
+            lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                .wrapping_mul(p64::from_lossy(POLYNOMIAL))
+        };
+
+        // Binary exponentiation
+        let mut a = p64(2);
+        let mut bits = bits;
+        let mut g = p64(1);
+        loop {
+            if bits & 1 != 0 {
+                g = mul(g, a);
+            }
+
+            bits >>= 1;
+            if bits == 0 {
+                break;
+            }
+            a = mul(a, a);
+        };
+
+        // Final multiplication
+        self.0 = mul(self.0, g);
+    }
+
+    pub fn skip_backwards(&mut self, bits: u64) {
+        // Assuming our lfsr is well constructed, we're in a multiplicative
+        // cycle with 2^width-1 elements. Which means backwards skips are the
+        // same as skipping 2^width-1-(skip % 2^width-1) elements
+        // 
+        self.skip(NONZEROS - (bits % NONZEROS))
     }
 }
 
@@ -649,35 +898,49 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_naive.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_naive", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_naive", hex(&buffer));
 
     let mut lfsr64_divrem = Lfsr64DivRem::new(1);
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_divrem.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_divrem", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_divrem", hex(&buffer));
 
     let mut lfsr64_table = Lfsr64Table::new(1);
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_table", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_table", hex(&buffer));
 
     let mut lfsr64_small_table = Lfsr64SmallTable::new(1);
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_small_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_small_table", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_small_table", hex(&buffer));
 
     let mut lfsr64_barret = Lfsr64Barret::new(1);
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_barret.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_barret", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_barret", hex(&buffer));
+
+    let mut lfsr64_table_barret = Lfsr64TableBarret::new(1);
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_table_barret", hex(&buffer));
+
+    let mut lfsr64_small_table_barret = Lfsr64SmallTableBarret::new(1);
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_small_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_small_table_barret", hex(&buffer));
 
 
     // Test reverse iteration
@@ -686,31 +949,43 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_naive.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_naive)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_naive)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_divrem.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_divrem)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_divrem)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_table.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_table)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_table)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_small_table.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_small_table)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_small_table)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_barret.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_barret)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_barret)", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_table_barret.prev(8)).unwrap();
+    }
+    println!("{:<35} => {}", "rev(lfsr64_table_barret)", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_small_table_barret.prev(8)).unwrap();
+    }
+    println!("{:<35} => {}", "rev(lfsr64_small_table_barret)", hex(&buffer));
 
 
     // What about 9000 steps in the future?
@@ -721,7 +996,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_naive.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_naive+9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_naive+9000", hex(&buffer));
 
     lfsr64_divrem.skip(9000);
 
@@ -729,7 +1004,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_divrem.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_divrem+9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_divrem+9000", hex(&buffer));
 
     lfsr64_table.skip(9000);
 
@@ -737,7 +1012,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_table+9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_table+9000", hex(&buffer));
 
     lfsr64_small_table.skip(9000);
 
@@ -745,7 +1020,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_small_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_small_table+9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_small_table+9000", hex(&buffer));
 
     lfsr64_barret.skip(9000);
 
@@ -753,7 +1028,23 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_barret.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_barret+9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_barret+9000", hex(&buffer));
+
+    lfsr64_table_barret.skip(9000);
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_table_barret+9000", hex(&buffer));
+
+    lfsr64_small_table_barret.skip(9000);
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_small_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_small_table_barret+9000", hex(&buffer));
 
 
     // And reverse
@@ -762,31 +1053,43 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_naive.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_naive+9000)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_naive+9000)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_divrem.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_divrem+9000)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_divrem+9000)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_table.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_table+9000)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_table+9000)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_small_table.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_small_table+9000)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_small_table+9000)", hex(&buffer));
 
     let mut buffer = [0u8; 32];
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_barret.prev(8)).unwrap();
     }
-    println!("{:<28} => {}", "rev(lfsr64_barret+9000)", hex(&buffer));
+    println!("{:<35} => {}", "rev(lfsr64_barret+9000)", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_table_barret.prev(8)).unwrap();
+    }
+    println!("{:<35} => {}", "rev(lfsr64_table_barret+9000)", hex(&buffer));
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_small_table_barret.prev(8)).unwrap();
+    }
+    println!("{:<35} => {}", "rev(lfsr64_small_table_barret+9000)", hex(&buffer));
 
 
     // And then skip back to the beginning
@@ -797,7 +1100,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_naive.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_naive+9000-9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_naive+9000-9000", hex(&buffer));
 
     lfsr64_divrem.skip_backwards(9000);
 
@@ -805,7 +1108,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_divrem.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_divrem+9000-9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_divrem+9000-9000", hex(&buffer));
 
     lfsr64_table.skip_backwards(9000);
 
@@ -813,7 +1116,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_table+9000-9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_table+9000-9000", hex(&buffer));
 
     lfsr64_small_table.skip_backwards(9000);
 
@@ -821,7 +1124,7 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_small_table.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_small_table+9000-9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_small_table+9000-9000", hex(&buffer));
 
     lfsr64_barret.skip_backwards(9000);
 
@@ -829,7 +1132,23 @@ fn main() {
     for i in 0..buffer.len() {
         buffer[i] = u8::try_from(lfsr64_barret.next(8)).unwrap();
     }
-    println!("{:<28} => {}", "lfsr64_barret+9000-9000", hex(&buffer));
+    println!("{:<35} => {}", "lfsr64_barret+9000-9000", hex(&buffer));
+
+    lfsr64_table_barret.skip_backwards(9000);
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_table_barret+9000-9000", hex(&buffer));
+
+    lfsr64_small_table_barret.skip_backwards(9000);
+
+    let mut buffer = [0u8; 32];
+    for i in 0..buffer.len() {
+        buffer[i] = u8::try_from(lfsr64_small_table_barret.next(8)).unwrap();
+    }
+    println!("{:<35} => {}", "lfsr64_small_table_barret+9000-9000", hex(&buffer));
 
     println!();
     
