@@ -6,16 +6,16 @@ use criterion::Criterion;
 use criterion::Throughput;
 use criterion::measurement::Measurement;
 use criterion::measurement::ValueFormatter;
-use rand::SeedableRng;
-use rand::RngCore;
 use flate2::Compression;
 use flate2::write::DeflateEncoder;
 use std::io::Write;
+use std::mem::size_of;
 
 
 #[allow(dead_code)]
 #[path = "../examples/lfsr.rs"]
 mod lfsr;
+
 
 /// An xorshift64 implementation to compare against
 ///
@@ -25,45 +25,18 @@ mod lfsr;
 /// https://en.wikipedia.org/wiki/Xorshift
 ///
 #[derive(Debug, Clone)]
-struct Xorshift64Rng(u64);
+struct Xorshift64(u64);
 
-impl SeedableRng for Xorshift64Rng {
-    type Seed = [u8; 8];
-
-    fn from_seed(mut seed: Self::Seed) -> Self {
-        // make sure seed does not equal zero! otherwise our rng would only
-        // ever output zero!
-        if seed.iter().all(|&x| x == 0) {
-            seed = [1,2,3,4,5,6,7,8];
+impl Xorshift64 {
+    fn new(mut seed: u64) -> Self {
+        if seed == 0 {
+            seed = 1;
         }
 
-        Xorshift64Rng(u64::from_le_bytes(seed))
+        Self(seed)
     }
 
-    fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
-        let mut seed = [0; 8];
-        while seed.iter().all(|&x| x == 0) {
-            rng.try_fill_bytes(&mut seed)?;
-        }
-
-        Ok(Xorshift64Rng::from_seed(seed))
-    }
-}
-
-impl RngCore for Xorshift64Rng {
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        rand_core::impls::fill_bytes_via_next(self, dest)
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        Ok(self.fill_bytes(dest))
-    }
-
-    fn next_u32(&mut self) -> u32 {
-        self.next_u64() as u32
-    }
-
-    fn next_u64(&mut self) -> u64 {
+    fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
@@ -136,18 +109,33 @@ fn bench_lfsr(c: &mut Criterion) {
     // size to bench
     const SIZE: usize = 1024*1024;
     group.throughput(Throughput::Bytes(SIZE as u64));
-    let mut buffer = vec![0; SIZE];
+    let mut buffer = vec![0u64; SIZE/size_of::<u64>()];
 
     // xorshift timing
-    let mut xorshift64 = Xorshift64Rng::from_seed([1,2,3,4,5,6,7,8]);
+    let mut xorshift64 = Xorshift64::new(0x123456789abcdef0);
     group.bench_function("xorshift64", |b| b.iter(
-        || xorshift64.fill_bytes(&mut buffer)
+        || buffer.fill_with(|| xorshift64.next())
     ));
 
-    // gf2p64 timing
-    let mut gf2p64 = lfsr::Lfsr64::from_seed([1,2,3,4,5,6,7,8]);
-    group.bench_function("gf2p64", |b| b.iter(
-        || gf2p64.fill_bytes(&mut buffer)
+    // lfsr64 timings
+    let mut lfs64_naive = lfsr::Lfsr64Naive::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_naive", |b| b.iter(
+        || buffer.fill_with(|| lfs64_naive.next(64))
+    ));
+
+    let mut lfs64_table = lfsr::Lfsr64Table::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_table", |b| b.iter(
+        || buffer.fill_with(|| lfs64_table.next(64))
+    ));
+
+    let mut lfs64_small_table = lfsr::Lfsr64SmallTable::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_small_table", |b| b.iter(
+        || buffer.fill_with(|| lfs64_small_table.next(64))
+    ));
+
+    let mut lfs64_barret = lfsr::Lfsr64Barret::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_barret", |b| b.iter(
+        || buffer.fill_with(|| lfs64_barret.next(64))
     ));
 }
 
@@ -159,12 +147,12 @@ fn bench_lfsr_compressability(c: &mut Criterion<Compressability>) {
     let mut buffer = vec![0; SIZE];
 
     // xorshift compressability
-    let mut xorshift64 = Xorshift64Rng::from_seed([1,2,3,4,5,6,7,8]);
+    let mut xorshift64 = Xorshift64::new(0x123456789abcdef0);
     group.bench_function("xorshift64_compressability", |b| b.iter_custom(
         |iters| {
             let mut sum = 0.0;
             for _ in 0..iters { 
-                xorshift64.fill_bytes(&mut buffer);
+                buffer.fill_with(|| xorshift64.next() as u8);
                 let mut comp = DeflateEncoder::new(Vec::new(), Compression::best());
                 comp.write_all(&buffer).unwrap();
                 let comp = comp.finish().unwrap();
@@ -174,13 +162,16 @@ fn bench_lfsr_compressability(c: &mut Criterion<Compressability>) {
         }
     ));
 
-    // gf2p64 compressability
-    let mut gf2p64 = lfsr::Lfsr64::from_seed([1,2,3,4,5,6,7,8]);
-    group.bench_function("gf2p64_compressability", |b| b.iter_custom(
+    // lfsr64 compressability
+    //
+    // this should be consistent across all implementations, unless
+    // one of them is broken
+    let mut lfsr64 = lfsr::Lfsr64Table::new(0x123456789abcdef0);
+    group.bench_function("lfsr64_compressability", |b| b.iter_custom(
         |iters| {
             let mut sum = 0.0;
-            for _ in 0..iters { 
-                gf2p64.fill_bytes(&mut buffer);
+            for _ in 0..iters {
+                buffer.fill_with(|| lfsr64.next(8) as u8);
                 let mut comp = DeflateEncoder::new(Vec::new(), Compression::best());
                 comp.write_all(&buffer).unwrap();
                 let comp = comp.finish().unwrap();
