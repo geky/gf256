@@ -187,9 +187,6 @@ pub fn crc(
         ("__nonzeros".to_owned(), TokenTree::Literal(
             Literal::u128_unsuffixed((1u128 << width) - 1)
         )),
-        ("__is_pw2ge8".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", width.is_power_of_two() && width >= 8), Span::call_site())
-        )),
         ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__u }
         }))),
