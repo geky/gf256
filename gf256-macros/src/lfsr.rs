@@ -272,7 +272,7 @@ pub fn lfsr(
             quote! { super::#__p2 }
         }))),
         ("__reflected".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", args.reflected.unwrap_or(true)), Span::call_site())
+            Ident::new(&format!("{}", args.reflected.unwrap_or(false)), Span::call_site())
         )),
         ("__naive".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", naive), Span::call_site())

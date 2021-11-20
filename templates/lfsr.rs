@@ -31,9 +31,10 @@ impl __lfsr {
     const DIV_TABLE: [u8; 256] = {
         let mut div_table = [0; 256];
         let mut i = 0;
+        // TODO make this consistent in both gf and crc?
         while i < div_table.len() {
-            div_table[i] = __p2((i as __u2) << __width)
-                .naive_div(__p2(__polynomial))
+            div_table[i] = __p2((i as __u2) << (8*size_of::<__u>()))
+                .naive_div(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as u8;
             i += 1;
         }
@@ -44,8 +45,8 @@ impl __lfsr {
         let mut rem_table = [0; 256];
         let mut i = 0;
         while i < rem_table.len() {
-            rem_table[i] = __p2((i as __u2) << __width)
-                .naive_rem(__p2(__polynomial))
+            rem_table[i] = __p2((i as __u2) << (8*size_of::<__u>()))
+                .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u;
             i += 1;
         }
@@ -60,13 +61,13 @@ impl __lfsr {
         while i < div_table.len() {
             cfg_if! {
                 if #[cfg(__if(__table_barret))] {
-                    div_table[i] = (__p2((i as __u2) << __width)
-                        .naive_div(__p2(__inverse_polynomial))
+                    div_table[i] = (__p2((i as __u2) << (8*size_of::<__u>()))
+                        .naive_div(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                         .0 as u8)
                         .reverse_bits();
                 } else {
-                    div_table[i] = (__p2(((i as u8).reverse_bits() as __u2) << __width)
-                        .naive_div(__p2(__inverse_polynomial))
+                    div_table[i] = (__p2(((i as u8).reverse_bits() as __u2) << (8*size_of::<__u>()))
+                        .naive_div(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                         .0 as u8)
                         .reverse_bits();
                 }
@@ -80,8 +81,8 @@ impl __lfsr {
         let mut rem_table = [0; 256];
         let mut i = 0;
         while i < rem_table.len() {
-            rem_table[i] = (__p2(((i as u8).reverse_bits() as __u2) << __width)
-                .naive_rem(__p2(__inverse_polynomial))
+            rem_table[i] = (__p2(((i as u8).reverse_bits() as __u2) << (8*size_of::<__u>()))
+                .naive_rem(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u)
                 .reverse_bits();
             i += 1;
@@ -95,8 +96,8 @@ impl __lfsr {
         let mut div_table = [0; 16];
         let mut i = 0;
         while i < div_table.len() {
-            div_table[i] = __p2((i as __u2) << __width)
-                .naive_div(__p2(__polynomial))
+            div_table[i] = __p2((i as __u2) << (8*size_of::<__u>()))
+                .naive_div(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as u8;
             i += 1;
         }
@@ -107,8 +108,8 @@ impl __lfsr {
         let mut rem_table = [0; 16];
         let mut i = 0;
         while i < rem_table.len() {
-            rem_table[i] = __p2((i as __u2) << __width)
-                .naive_rem(__p2(__polynomial))
+            rem_table[i] = __p2((i as __u2) << (8*size_of::<__u>()))
+                .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u;
             i += 1;
         }
@@ -123,13 +124,13 @@ impl __lfsr {
         while i < div_table.len() {
             cfg_if! {
                 if #[cfg(__if(__small_table_barret))] {
-                    div_table[i] = (__p2((i as __u2) << __width)
-                        .naive_div(__p2(__inverse_polynomial))
+                    div_table[i] = (__p2((i as __u2) << (8*size_of::<__u>()))
+                        .naive_div(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                         .0 as u8)
                         .reverse_bits() >> 4;
                 } else {
-                    div_table[i] = (__p2((((i as u8).reverse_bits() >> 4) as __u2) << __width)
-                        .naive_div(__p2(__inverse_polynomial))
+                    div_table[i] = (__p2((((i as u8).reverse_bits() >> 4) as __u2) << (8*size_of::<__u>()))
+                        .naive_div(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                         .0 as u8)
                         .reverse_bits() >> 4;
                 }
@@ -143,8 +144,8 @@ impl __lfsr {
         let mut rem_table = [0; 16];
         let mut i = 0;
         while i < rem_table.len() {
-            rem_table[i] = (__p2((((i as u8).reverse_bits() >> 4) as __u2) << __width)
-                .naive_rem(__p2(__inverse_polynomial))
+            rem_table[i] = (__p2((((i as u8).reverse_bits() >> 4) as __u2) << (8*size_of::<__u>()))
+                .naive_rem(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u)
                 .reverse_bits();
             i += 1;
@@ -156,7 +157,7 @@ impl __lfsr {
     #[cfg(__if(__barret || __table_barret || __small_table_barret || __barret_skip))]
     const BARRET_CONSTANT: __p = {
         __p(
-            __p2((__polynomial & __nonzeros) << ((8*size_of::<__u>()-__width) + 8*size_of::<__u>()))
+            __p2((__polynomial & __nonzeros) << (8*size_of::<__u>() + 8*size_of::<__u>()-__width))
                 .naive_div(__p2(__polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u
         )
@@ -164,7 +165,7 @@ impl __lfsr {
     #[cfg(__if(__barret || __table_barret || __small_table_barret))]
     const INVERSE_BARRET_CONSTANT: __p = {
         __p(
-            __p2((__inverse_polynomial & __nonzeros) << ((8*size_of::<__u>()-__width) + 8*size_of::<__u>()))
+            __p2((__inverse_polynomial & __nonzeros) << (8*size_of::<__u>() + 8*size_of::<__u>()-__width))
                 .naive_div(__p2(__inverse_polynomial << (8*size_of::<__u>()-__width)))
                 .0 as __u
         )
@@ -172,10 +173,18 @@ impl __lfsr {
 
     #[inline]
     pub const fn new(mut seed: __u) -> Self {
+        seed = seed & __nonzeros;
+
         // make sure seed does not equal zero! otherwise our rng would only
         // ever output zero!
         if seed == 0 {
             seed = 1;
+        }
+
+        cfg_if! {
+            if #[cfg(__if(__reflected))] {
+                seed = seed.reverse_bits() >> (8*size_of::<__u>()-__width);
+            }
         }
 
         Self(unsafe { __nzu::new_unchecked(seed) })
@@ -184,6 +193,7 @@ impl __lfsr {
     #[inline]
     pub fn next(&mut self, bits: __u) -> __u {
         debug_assert!(bits <= __width);
+        let bits = bits as usize;
         cfg_if! {
             if #[cfg(__if(__naive))] {
                 // naive lfsr using bitshifts and xors
@@ -198,74 +208,107 @@ impl __lfsr {
                         0
                     };
                 }
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q
             } else if #[cfg(__if(__table))] {
                 // lfsr with a per-byte division and remainder table
-                let mut x = __u::from(self.0);
+                let mut x = __u::from(self.0) << (8*size_of::<__u>()-__width);
                 let mut q = 0;
                 for i in (0..(bits+7)/8).rev() {
                     let n = min(8, bits-8*i);
-                    if n == __width {
-                        q = __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                        x = Self::REM_TABLE[usize::try_from(x >> (__width-n)).unwrap()];
+                    if n == 8*size_of::<__u>() {
+                        q = __u::from(Self::DIV_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()]);
+                        x = Self::REM_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()];
                     } else {
-                        q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                        x = (x << n) ^ Self::REM_TABLE[usize::try_from(x >> (__width-n)).unwrap()];
+                        q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()]);
+                        x = (x << n) ^ Self::REM_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()];
                     }
                 }
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q
             } else if #[cfg(__if(__small_table))] {
                 // lfsr with a per-nibble division and remainder table
-                let mut x = __u::from(self.0);
+                let mut x = __u::from(self.0) << (8*size_of::<__u>()-__width);
                 let mut q = 0;
                 for i in (0..(bits+3)/4).rev() {
                     let n = min(4, bits-4*i);
-                    q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                    x = (x << n) ^ Self::REM_TABLE[usize::try_from(x >> (__width-n)).unwrap()];
+                    q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(
+                        x >> (8*size_of::<__u>()-n)).unwrap()]);
+                    x = (x << n) ^ Self::REM_TABLE[usize::try_from(
+                        x >> (8*size_of::<__u>()-n)).unwrap()];
                 }
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q
             } else if #[cfg(__if(__barret))] {
                 // lfsr using naive division with Barret-reduction
-                let x = __p2::from(__u::from(self.0)) << bits;
-                let q = x / __p2(__polynomial);
+                let x = __p2::from(__u::from(self.0)) << (bits + (8*size_of::<__u>()-__width));
+                let q = x / __p2(__polynomial << (8*size_of::<__u>()-__width));
                 let lo = __p::from_lossy(x);
-                let hi = __p::try_from(x >> __width).unwrap();
-                let x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(__p(__polynomial as __u));
+                let hi = __p::try_from(x >> (8*size_of::<__u>())).unwrap();
+                let mut x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                    .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                // update state
                 self.0 = __nzu::try_from(__u::from(x)).unwrap();
-                __u::try_from(q.0).unwrap()
+                let q = __u::try_from(q.0).unwrap();
             } else if #[cfg(__if(__table_barret))] {
                 // lfsr using a per-byte division table with Barret-reduction
-                let mut x = __p::from(__u::from(self.0));
+                let mut x = __p::from(__u::from(self.0)) << (8*size_of::<__u>()-__width);
                 let mut q = 0;
                 for i in (0..(bits+7)/8).rev() {
                     let n = min(8, bits-8*i);
-                    if n == __width {
-                        q = __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                        x = ((x >> (__width-n)).widening_mul(Self::BARRET_CONSTANT).1 + (x >> (__width-n)))
-                            .wrapping_mul(__p(__polynomial as __u));
+                    if n == 8*size_of::<__u>() {
+                        q = __u::from(Self::DIV_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()]);
+                        let hi = x >> (8*size_of::<__u>()-n);
+                        x = (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                            .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                     } else {
-                        q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                        x = (x << n) + ((x >> (__width-n)).widening_mul(Self::BARRET_CONSTANT).1 + (x >> (__width-n)))
-                            .wrapping_mul(__p(__polynomial as __u));
+                        q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()]);
+                        let lo = x << n;
+                        let hi = x >> (8*size_of::<__u>()-n);
+                        x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                            .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                     }
                 }
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                // update state
                 self.0 = __nzu::try_from(__u::from(x)).unwrap();
-                q
             } else if #[cfg(__if(__small_table_barret))] {
                 // lfsr using a per-nibble division table with Barret-reduction
-                let mut x = __p::from(__u::from(self.0));
+                let mut x = __p::from(__u::from(self.0)) << (8*size_of::<__u>()-__width);
                 let mut q = 0;
                 for i in (0..(bits+3)/4).rev() {
                     let n = min(4, bits-4*i);
-                    q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                    x = (x << n) + ((x >> (__width-n)).widening_mul(Self::BARRET_CONSTANT).1 + (x >> (__width-n)))
-                        .wrapping_mul(__p(__polynomial as __u));
+                    q = (q << n) | __u::from(Self::DIV_TABLE[usize::try_from(
+                        x >> (8*size_of::<__u>()-n)).unwrap()]);
+                    let lo = x << n;
+                    let hi = x >> (8*size_of::<__u>()-n);
+                    x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                 }
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                // update state
                 self.0 = __nzu::try_from(__u::from(x)).unwrap();
+            }
+        }
+
+        cfg_if! {
+            if #[cfg(__if(__reflected))] {
+                q.reverse_bits() >> (8*size_of::<__u>()-__width)
+            } else {
                 q
             }
         }
@@ -274,6 +317,7 @@ impl __lfsr {
     #[inline]
     pub fn prev(&mut self, bits: __u) -> __u {
         debug_assert!(bits <= __width);
+        let bits = bits as usize;
         cfg_if! {
             if #[cfg(__if(__naive))] {
                 // naive lfsr using bitshifts and xors
@@ -288,26 +332,29 @@ impl __lfsr {
                         0
                     };
                 }
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q
             } else if #[cfg(__if(__table))] {
                 // lfsr with a per-byte division and remainder table
                 let mut x = __u::from(self.0);
                 let mut q = 0;
                 for i in (0..(bits+7)/8).rev() {
                     let n = min(8, bits-8*i);
-                    if n == __width {
-                        q = __u::from(Self::INVERSE_DIV_TABLE[usize::try_from(x).unwrap()]);
-                        x = Self::INVERSE_REM_TABLE[usize::try_from(x).unwrap()];
+                    if n == 8*size_of::<__u>() {
+                        q = __u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
+                            x).unwrap()]);
+                        x = Self::INVERSE_REM_TABLE[usize::try_from(
+                            x).unwrap()];
                     } else {
                         q = (q >> n) | (__u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
-                            (x << (8-n)) & 0xff).unwrap()]) << (__width-8));
+                            (x << (8-n)) & 0xff).unwrap()]) << (8*size_of::<__u>()-8));
                         x = (x >> n) ^ Self::INVERSE_REM_TABLE[usize::try_from(
                             (x << (8-n)) & 0xff).unwrap()];
                     }
                 }
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q >> (__width-bits)
+                let q = q >> (8*size_of::<__u>() - bits);
             } else if #[cfg(__if(__small_table))] {
                 // lfsr with a per-nibble division and remainder table
                 let mut x = __u::from(self.0);
@@ -315,41 +362,54 @@ impl __lfsr {
                 for i in (0..(bits+3)/4).rev() {
                     let n = min(4, bits-4*i);
                     q = (q >> n) | (__u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
-                        (x << (4-n)) & 0xf).unwrap()]) << (__width-4));
+                        (x << (4-n)) & 0xf).unwrap()]) << (8*size_of::<__u>()-4));
                     x = (x >> n) ^ Self::INVERSE_REM_TABLE[usize::try_from(
                         (x << (4-n)) & 0xf).unwrap()];
                 }
+                // update state
                 self.0 = __nzu::try_from(x).unwrap();
-                q >> (__width-bits)
+                let q = q >> (8*size_of::<__u>() - bits);
             } else if #[cfg(__if(__barret))] {
                 // lfsr using naive division with Barret-reduction
                 let x = __p2::from(__u::from(self.0).reverse_bits()) << bits;
-                let q = x / __p2(__inverse_polynomial);
+                let q = x / __p2(__inverse_polynomial << (8*size_of::<__u>()-__width));
                 let lo = __p::from_lossy(x);
-                let hi = __p::try_from(x >> __width).unwrap();
-                let x = lo + (hi.widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(__p(__inverse_polynomial as __u));
-                self.0 = __nzu::try_from(__u::from(x).reverse_bits()).unwrap();
-                __u::try_from(q.0).unwrap().reverse_bits() >> (__width-bits)
+                let hi = __p::try_from(x >> (8*size_of::<__u>())).unwrap();
+                let mut x = lo + (hi.widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(__p((__inverse_polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                x = x.reverse_bits() >> (8*size_of::<__u>()-__width);
+                // update state
+                self.0 = __nzu::try_from(__u::from(x)).unwrap();
+                let q = __u::try_from(q.0).unwrap().reverse_bits() >> (8*size_of::<__u>() - bits);
             } else if #[cfg(__if(__table_barret))] {
                 // lfsr using a per-byte division table with Barret-reduction
                 let mut x = __p::from(__u::from(self.0).reverse_bits());
                 let mut q = 0;
                 for i in (0..(bits+7)/8).rev() {
                     let n = min(8, bits-8*i);
-                    if n == __width {
-                        q = __u::from(Self::INVERSE_DIV_TABLE[usize::try_from(x >> (__width-n)).unwrap()]);
-                        x = ((x >> (__width-n)).widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + (x >> (__width-n)))
-                            .wrapping_mul(__p(__inverse_polynomial as __u));
+                    if n == 8*size_of::<__u>() {
+                        q = __u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
+                            x >> (8*size_of::<__u>()-n)).unwrap()]);
+                        let hi = x >> (8*size_of::<__u>()-n);
+                        x = (hi.widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + hi)
+                            .wrapping_mul(__p((__inverse_polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                     } else {
                         q = (q >> n) | (__u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
-                            x >> (__width-n)).unwrap()])) << (__width-8);
-                        x = (x << n) + ((x >> (__width-n)).widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + (x >> (__width-n)))
-                            .wrapping_mul(__p(__inverse_polynomial as __u));
+                            x >> (8*size_of::<__u>()-n)).unwrap()])) << (8*size_of::<__u>()-8);
+                        let lo = x << n;
+                        let hi = x >> (8*size_of::<__u>()-n);
+                        x = lo + (hi.widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + hi)
+                            .wrapping_mul(__p((__inverse_polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                     }
                 }
-                self.0 = __nzu::try_from(__u::from(x).reverse_bits()).unwrap();
-                q >> (__width-bits)
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                x = x.reverse_bits() >> (8*size_of::<__u>()-__width);
+                // update state
+                self.0 = __nzu::try_from(__u::from(x)).unwrap();
+                let q = q >> (8*size_of::<__u>() - bits);
             } else if #[cfg(__if(__small_table_barret))] {
                 // lfsr using a per-nibble division table with Barret-reduction
                 let mut x = __p::from(__u::from(self.0).reverse_bits());
@@ -357,12 +417,26 @@ impl __lfsr {
                 for i in (0..(bits+3)/4).rev() {
                     let n = min(4, bits-4*i);
                     q = (q >> n) | (__u::from(Self::INVERSE_DIV_TABLE[usize::try_from(
-                        x >> (__width-n)).unwrap()])) << (__width-4);
-                    x = (x << n) + ((x >> (__width-n)).widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + (x >> (__width-n)))
-                        .wrapping_mul(__p(__inverse_polynomial as __u));
+                        x >> (8*size_of::<__u>()-n)).unwrap()])) << (8*size_of::<__u>()-4);
+                    let lo = x << n;
+                    let hi = x >> (8*size_of::<__u>()-n);
+                    x = lo + (hi.widening_mul(Self::INVERSE_BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(__p((__inverse_polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
                 }
-                self.0 = __nzu::try_from(__u::from(x).reverse_bits()).unwrap();
-                q >> (__width-bits)
+                // adjust for alignment
+                x = x >> (8*size_of::<__u>()-__width);
+                x = x.reverse_bits() >> (8*size_of::<__u>()-__width);
+                // update state
+                self.0 = __nzu::try_from(__u::from(x)).unwrap();
+                let q = q >> (8*size_of::<__u>() - bits);
+            }
+        }
+
+        cfg_if! {
+            if #[cfg(__if(__reflected))] {
+                q.reverse_bits() >> (8*size_of::<__u>()-__width)
+            } else {
+                q
             }
         }
     }
@@ -383,36 +457,40 @@ impl __lfsr {
                     __p::try_from(x % __p2(__polynomial)).unwrap()
                 } else if #[cfg(__if(__table_skip))] {
                     // Galois-field multiplication with remainder table
-                    let (lo, hi) = a.widening_mul(b);
+                    let (lo, hi) = (a << (8*size_of::<__u>()-__width))
+                        .widening_mul(b);
                     let mut x = 0;
                     for b in hi.to_be_bytes() {
                         cfg_if! {
                             if #[cfg(__if(__width <= 8))] {
                                 x = Self::REM_TABLE[usize::from(
-                                    u8::try_from(x >> (__width-8)).unwrap() ^ b)];
+                                    u8::try_from(x).unwrap() ^ b)];
                             } else {
                                 x = (x << 8) ^ Self::REM_TABLE[usize::from(
-                                    u8::try_from(x >> (__width-8)).unwrap() ^ b)];
+                                    u8::try_from(x >> (8*size_of::<__u>()-8)).unwrap() ^ b)];
                             }
                         }
                     }
-                    __p(x) + lo
+                    (__p(x) + lo) >> (8*size_of::<__u>()-__width)
                 } else if #[cfg(__if(__small_table_skip))] {
                     // Galois-field multiplication with small remainder table
-                    let (lo, hi) = a.widening_mul(b);
+                    let (lo, hi) = (a << (8*size_of::<__u>()-__width))
+                        .widening_mul(b);
                     let mut x = 0;
                     for b in hi.to_be_bytes() {
                         x = (x << 4) ^ Self::REM_TABLE[usize::from(
-                            u8::try_from(x >> (__width-4)).unwrap() ^ (b >> 4)) & 0xf];
+                            u8::try_from(x >> (8*size_of::<__u>()-4)).unwrap() ^ (b >> 4)) & 0xf];
                         x = (x << 4) ^ Self::REM_TABLE[usize::from(
-                            u8::try_from(x >> (__width-4)).unwrap() ^ (b >> 0)) & 0xf];
+                            u8::try_from(x >> (8*size_of::<__u>()-4)).unwrap() ^ (b >> 0)) & 0xf];
                     }
-                    __p(x) + lo
+                    (__p(x) + lo) >> (8*size_of::<__u>()-__width)
                 } else if #[cfg(__if(__barret_skip))] {
                     // Galois-field multiplication with Barret-reduction
-                    let (lo, hi) = a.widening_mul(b);
-                    lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                        .wrapping_mul(__p(__polynomial as __u))
+                    let (lo, hi) = (a << (8*size_of::<__u>()-__width))
+                        .widening_mul(b);
+                    let x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
+                        .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
+                    x >> (8*size_of::<__u>()-__width)
                 }
             }
         };
