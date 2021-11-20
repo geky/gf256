@@ -391,9 +391,108 @@ mod test {
         assert_eq!(buf, &[0x000000001c6db6c7,0x0000000001514515,0x00000000001ab1ab,0x0000000000011011,0x0000000000001db7,0x0000000000000145,0x000000000000001b,0x0000000000000001]);
     }
 
+    // odd step sizes
+    #[test]
+    fn lfsr_odd_nexts() {
+        let mut lfsr8 = Lfsr8Naive::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16Naive::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32Naive::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+
+        let mut lfsr8 = Lfsr8Table::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16Table::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32Table::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+
+        let mut lfsr8 = Lfsr8SmallTable::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16SmallTable::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32SmallTable::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+
+        let mut lfsr8 = Lfsr8Barret::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16Barret::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32Barret::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+
+        let mut lfsr8 = Lfsr8TableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16TableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32TableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+
+        let mut lfsr8 = Lfsr8SmallTableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr8.next(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x0,0x1,0x1,0xc,0x4,0xb,0x8,0x1]);
+        let buf = iter::repeat_with(|| lfsr8.prev(4)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x1,0x8,0xb,0x4,0xc,0x1,0x1,0x0]);
+        let mut lfsr16 = Lfsr16SmallTableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr16.next(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000,0x100,0x2d0,0x451,0xbda,0xd13,0xd3b,0x877]);
+        let buf = iter::repeat_with(|| lfsr16.prev(12)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x877,0xd3b,0xd13,0xbda,0x451,0x2d0,0x100,0x000]);
+        let mut lfsr32 = Lfsr32SmallTableBarret::new(1);
+        let buf = iter::repeat_with(|| lfsr32.next(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x000000,0x004000,0x0015e0,0x000445,0x28014a,0x7c8c40,0x202237,0x7afa51]);
+        let buf = iter::repeat_with(|| lfsr32.prev(23)).take(8).collect::<Vec<_>>();
+        assert_eq!(buf, &[0x7afa51,0x202237,0x7c8c40,0x28014a,0x000445,0x0015e0,0x004000,0x000000]);
+    }
+
     // TODO test reflected
     // TODO test odd sizes (4, 12, 23)
-    // TODO test odd nexts!
 
     // all LFSR params
     #[lfsr(
