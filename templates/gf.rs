@@ -143,12 +143,6 @@ impl __gf {
         __gf(x)
     }
 
-    /// Create a finite-field element
-    #[inline]
-    pub const unsafe fn new_unchecked(x: __u) -> __gf {
-        __gf(x)
-    }
-
     /// Create a finite-field element, returning None if the argument
     /// could not be represented in the field
     #[cfg(__if(!__is_pw2ge8))]
@@ -159,6 +153,12 @@ impl __gf {
         } else {
             None
         }
+    }
+
+    /// Create a finite-field element
+    #[inline]
+    pub const unsafe fn new_unchecked(x: __u) -> __gf {
+        __gf(x)
     }
 
     /// Get the finite-field element as a primitive type
@@ -506,6 +506,7 @@ impl __gf {
     }
 
     /// Convert slice of unsigned-types to slice of gf-types
+    #[cfg(__if(__is_pw2ge8))]
     #[inline]
     pub fn slice_from_slice(slice: &[__u]) -> &[__gf] {
         unsafe {
@@ -517,8 +518,31 @@ impl __gf {
     }
 
     /// Convert mut slice of unsigned-types to slice of gf-types
+    #[cfg(__if(__is_pw2ge8))]
     #[inline]
     pub fn slice_from_slice_mut(slice: &mut [__u]) -> &mut [__gf] {
+        unsafe {
+            slice::from_raw_parts_mut(
+                slice.as_mut_ptr() as *mut __gf,
+                slice.len()
+            )
+        }
+    }
+
+    /// Convert slice of unsigned-types to slice of gf-types unsafely
+    #[inline]
+    pub unsafe fn slice_from_slice_unchecked(slice: &[__u]) -> &[__gf] {
+        unsafe {
+            slice::from_raw_parts(
+                slice.as_ptr() as *const __gf,
+                slice.len()
+            )
+        }
+    }
+
+    /// Convert mut slice of unsigned-types to slice of gf-types unsafely
+    #[inline]
+    pub unsafe fn slice_from_slice_mut_unchecked(slice: &mut [__u]) -> &mut [__gf] {
         unsafe {
             slice::from_raw_parts_mut(
                 slice.as_mut_ptr() as *mut __gf,
