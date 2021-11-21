@@ -307,7 +307,7 @@ impl __lfsr {
 
         cfg_if! {
             if #[cfg(__if(__reflected))] {
-                q.reverse_bits() >> (8*size_of::<__u>()-__width)
+                q.reverse_bits() >> (8*size_of::<__u>() - bits)
             } else {
                 q
             }
@@ -434,7 +434,7 @@ impl __lfsr {
 
         cfg_if! {
             if #[cfg(__if(__reflected))] {
-                q.reverse_bits() >> (8*size_of::<__u>()-__width)
+                q.reverse_bits() >> (8*size_of::<__u>() - bits)
             } else {
                 q
             }
@@ -526,192 +526,124 @@ impl __lfsr {
 }
 
 
-//// Rng implementation
-//
-//impl SeedableRng for __lfsr {
-//    type Seed = [u8; size_of::<__u>()];
-//
-//    #[inline]
-//    fn from_seed(seed: Self::Seed) -> Self {
-//        Self::new(__u::from_le_bytes(seed))
-//    }
-//
-//    #[inline]
-//    fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
-//        let mut seed = [0; size_of::<__u>()];
-//        while seed.iter().all(|&x| x == 0) {
-//            rng.try_fill_bytes(&mut seed)?;
-//        }
-//
-//        Ok(Self::from_seed(seed))
-//    }
-//}
-//
-//impl RngCore for __lfsr {
-//    #[inline]
-//    fn fill_bytes(&mut self, dest: &mut [u8]) {
-//        // fill words at a time
-//        let mut chunks = dest.chunks_exact_mut(size_of::<__u>());
-//        for chunk in &mut chunks {
-//            chunk.copy_from_slice(&self.next().to_le_bytes());
-//        }
-//
-//        let remainder = chunks.into_remainder();
-//        if remainder.len() > 0 {
-//            remainder.copy_from_slice(&self.next().to_le_bytes()[..remainder.len()]);
-//        }
-//    }
-//
-//    #[inline]
-//    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-//        Ok(self.fill_bytes(dest))
-//    }
-//
-//    #[inline]
-//    fn next_u32(&mut self) -> u32 {
-//        // this should get optimized out, it's a bit tricky to make this
-//        // a compile time check
-//        if size_of::<__u>() >= size_of::<u32>() {
-//            self.next() as u32
-//        } else {
-//            let mut buf = [0; 4];
-//            self.fill_bytes(&mut buf);
-//            u32::from_le_bytes(buf)
-//        }
-//    }
-//
-//    #[inline]
-//    fn next_u64(&mut self) -> u64 {
-//        // this should get optimized out, it's a bit tricky to make this
-//        // a compile time check
-//        if size_of::<__u>() >= size_of::<u64>() {
-//            self.next() as u64
-//        } else {
-//            let mut buf = [0; 8];
-//            self.fill_bytes(&mut buf);
-//            u64::from_le_bytes(buf)
-//        }
-//    }
-//}
-
-
-
-// Iterator implementation
-
-//impl Iterator for __lfsr {
-//    type Item = bool;
-//
-//    #[inline]
-//    fn next(&mut self) -> Option<bool> {
-//        Some(self.next(1) != 0)
-//    }
-//
-//    #[inline]
-//    fn size_hint(&self) -> (usize, Option<usize>) {
-//        // this is an infinite iterator
-//        (usize::MAX, None)
-//    }
-//
-//    // we have a shortcut for skipping
-//    #[inline]
-//    fn nth(&mut self, n: usize) -> Option<bool> {
-//        self.skip(__u::try_from(n % __nonzeros).unwrap());
-//        Some(self.next(1) != 0)
-//    }
-//    
-//}
-//
-//impl FusedIterator for __lfsr {}
-
-
 // Rng implementation
 
+impl SeedableRng for __lfsr {
+    type Seed = [u8; size_of::<__u>()];
 
-//// Iterator implementation
-//
-//impl Iterator for __lfsr {
-//    type Item = __u;
-//
-//    #[inline]
-//    fn next(&mut self) -> Option<__u> {
-//        Some(self.next())
-//    }
-//
-//    #[inline]
-//    fn size_hint(&self) -> (usize, Option<usize>) {
-//        // this is an infinite iterator
-//        (usize::MAX, None)
-//    }
-//}
-//
-//impl FusedIterator for __lfsr {}
-//
-//
-//// Rng implementation
-//
-//impl SeedableRng for __lfsr {
-//    type Seed = [u8; size_of::<__u>()];
-//
-//    #[inline]
-//    fn from_seed(seed: Self::Seed) -> Self {
-//        Self::new(__u::from_le_bytes(seed))
-//    }
-//
-//    #[inline]
-//    fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
-//        let mut seed = [0; size_of::<__u>()];
-//        while seed.iter().all(|&x| x == 0) {
-//            rng.try_fill_bytes(&mut seed)?;
-//        }
-//
-//        Ok(Self::from_seed(seed))
-//    }
-//}
-//
-//impl RngCore for __lfsr {
-//    #[inline]
-//    fn fill_bytes(&mut self, dest: &mut [u8]) {
-//        // fill words at a time
-//        let mut chunks = dest.chunks_exact_mut(size_of::<__u>());
-//        for chunk in &mut chunks {
-//            chunk.copy_from_slice(&self.next().to_le_bytes());
-//        }
-//
-//        let remainder = chunks.into_remainder();
-//        if remainder.len() > 0 {
-//            remainder.copy_from_slice(&self.next().to_le_bytes()[..remainder.len()]);
-//        }
-//    }
-//
-//    #[inline]
-//    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-//        Ok(self.fill_bytes(dest))
-//    }
-//
-//    #[inline]
-//    fn next_u32(&mut self) -> u32 {
-//        // this should get optimized out, it's a bit tricky to make this
-//        // a compile time check
-//        if size_of::<__u>() >= size_of::<u32>() {
-//            self.next() as u32
-//        } else {
-//            let mut buf = [0; 4];
-//            self.fill_bytes(&mut buf);
-//            u32::from_le_bytes(buf)
-//        }
-//    }
-//
-//    #[inline]
-//    fn next_u64(&mut self) -> u64 {
-//        // this should get optimized out, it's a bit tricky to make this
-//        // a compile time check
-//        if size_of::<__u>() >= size_of::<u64>() {
-//            self.next() as u64
-//        } else {
-//            let mut buf = [0; 8];
-//            self.fill_bytes(&mut buf);
-//            u64::from_le_bytes(buf)
-//        }
-//    }
-//}
-//
+    #[inline]
+    fn from_seed(seed: Self::Seed) -> Self {
+        Self::new(__u::from_le_bytes(seed))
+    }
+
+    #[inline]
+    fn from_rng<R: RngCore>(mut rng: R) -> Result<Self, rand::Error> {
+        // find the first non-zero seed
+        let mut seed = [0; size_of::<__u>()];
+        loop {
+            rng.try_fill_bytes(&mut seed)?;
+            if __u::from_le_bytes(seed) & __nonzeros != 0 {
+                break;
+            }
+        }
+
+        Ok(Self::from_seed(seed))
+    }
+}
+
+impl RngCore for __lfsr {
+    #[inline]
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        // special handling for <8 bit lfsrs since these can't even
+        // fill up a single byte in one go
+        cfg_if! {
+            if #[cfg(__if(__width < 8))] {
+                for byte in dest {
+                    let mut bits = 0;
+                    for i in (0..8).step_by(__width) {
+                        let n = min(__width, 8-i);
+                        cfg_if! {
+                            if #[cfg(__if(__reflected))] {
+                                bits = (bits >> n) | (self.next(n) << (8-n));
+                            } else {
+                                bits = (bits << n) | self.next(n);
+                            }
+                        }
+                    }
+                    *byte = bits;
+                }
+            } else {
+                // fill words at a time
+                let mut chunks = dest.chunks_exact_mut(__width/8);
+                for chunk in &mut chunks {
+                    chunk.copy_from_slice({
+                        cfg_if! {
+                            if #[cfg(__if(__reflected))] {
+                                &self.next(8*(__width/8)).to_le_bytes()[..__width/8]
+                            } else {
+                                &self.next(8*(__width/8)).to_be_bytes()[size_of::<__u>()-(__width/8)..]
+                            }
+                        }
+                    });
+                }
+
+                let remainder = chunks.into_remainder();
+                if remainder.len() > 0 {
+                    remainder.copy_from_slice({
+                        cfg_if! {
+                            if #[cfg(__if(__reflected))] {
+                                &self.next(8*remainder.len() as __u).to_le_bytes()[..remainder.len()]
+                            } else {
+                                &self.next(8*remainder.len() as __u).to_be_bytes()[size_of::<__u>()-remainder.len()..]
+                            }
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    #[inline]
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        Ok(self.fill_bytes(dest))
+    }
+
+    #[inline]
+    fn next_u32(&mut self) -> u32 {
+        cfg_if! {
+            if #[cfg(__if(__width >= 32))] {
+                cfg_if! {
+                    if #[cfg(__if(__reflected))] {
+                        self.next(32) as u32
+                    } else {
+                        (self.next(32) as u32).swap_bytes()
+                    }
+                }
+            } else {
+                let mut buf = [0; 4];
+                self.fill_bytes(&mut buf);
+                u32::from_le_bytes(buf)
+            }
+        }
+    }
+
+    #[inline]
+    fn next_u64(&mut self) -> u64 {
+        cfg_if! {
+            if #[cfg(__if(__width >= 64))] {
+                cfg_if! {
+                    if #[cfg(__if(__reflected))] {
+                        self.next(64) as u64
+                    } else {
+                        (self.next(64) as u64).swap_bytes()
+                    }
+                }
+            } else {
+                let mut buf = [0; 8];
+                self.fill_bytes(&mut buf);
+                u64::from_le_bytes(buf)
+            }
+        }
+    }
+}
+

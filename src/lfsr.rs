@@ -22,9 +22,12 @@ mod test {
     use crate::p::p128;
     use core::num::NonZeroU64;
     use core::num::NonZeroU128;
+    use core::iter::FromIterator;
+    use rand::Rng;
 
     extern crate alloc;
     use alloc::vec::Vec;
+    use alloc::collections::BTreeSet;
 
     extern crate std;
     use std::iter;
@@ -757,5 +760,79 @@ mod test {
         assert_eq!(buf, &[0x0000000000000001,0x000000000000001b,0x0000000000000145,0x0000000000001db7,0x0000000000011011,0x00000000001ab1ab,0x0000000001514515,0x000000001c6db6c7]);
         let buf = iter::repeat_with(|| lfsr64_all_params.prev(64)).take(8).collect::<Vec<_>>();
         assert_eq!(buf, &[0x000000001c6db6c7,0x0000000001514515,0x00000000001ab1ab,0x0000000000011011,0x0000000000001db7,0x0000000000000145,0x000000000000001b,0x0000000000000001]);
+    }
+
+    // other LFSR things
+
+    #[test]
+    fn lfsr_rng_consistency() {
+        // normal order
+        let mut lfsr = Lfsr8::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr8::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr16::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr16::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr32::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr32::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr64::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr64::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr4Table::new(1);
+        let next_bytes = iter::repeat_with(|| (lfsr.next(4) << 4) | lfsr.next(4)).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr4Table::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr12Table::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr12Table::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        let mut lfsr = Lfsr23Table::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr23Table::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+
+        // reflected order
+        let mut lfsr = Lfsr64TableReflected::new(1);
+        let next_bytes = iter::repeat_with(|| lfsr.next(8) as u8).take(100).collect::<Vec<_>>();
+        let mut rng_bytes = vec![0u8; 100];
+        let mut lfsr = Lfsr64TableReflected::new(1);
+        lfsr.fill(&mut rng_bytes[..]);
+        assert_eq!(&next_bytes, &rng_bytes);
+    }
+
+    #[test]
+    fn lfsr_uniqueness() {
+        let mut lfsr = Lfsr8::new(1);
+        let unique = BTreeSet::from_iter(iter::repeat_with(|| lfsr.next(8)).take(255));
+        assert_eq!(unique.len(), 255);
+
+        let mut lfsr = Lfsr64::new(1);
+        let unique = BTreeSet::from_iter(iter::repeat_with(|| lfsr.next(64)).take(255));
+        assert_eq!(unique.len(), 255);
     }
 }
