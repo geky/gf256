@@ -61,6 +61,11 @@
 use std::cmp::min;
 use std::cmp::max;
 use std::convert::TryFrom;
+use std::iter;
+use std::slice;
+use flate2::Compression;
+use flate2::write::DeflateEncoder;
+use std::io::Write;
 use ::gf256::*;
 use ::gf256::traits::FromLossy;
 
@@ -1165,13 +1170,14 @@ fn main() {
     const HEIGHT: usize = 64;
 
     println!("{} lfsr64 samples:", SAMPLES);
+    let mut lfsr = Lfsr64Table::new(1);
+
+    let samples = iter::repeat_with(|| lfsr.next(64)).take(SAMPLES).collect::<Vec<_>>();
     let mut buffer = [0u8; WIDTH*HEIGHT];
-    for _ in 0..SAMPLES {
-        let x = (lfsr64_barret.next((WIDTH/2).next_power_of_two() as u64) as usize % (WIDTH/2))
-            + (lfsr64_barret.next((WIDTH/2).next_power_of_two() as u64) as usize % (WIDTH/2));
-        let y = (lfsr64_barret.next((HEIGHT/2).next_power_of_two() as u64) as usize % (HEIGHT/2))
-            + (lfsr64_barret.next((HEIGHT/2).next_power_of_two() as u64) as usize % (HEIGHT/2));
-        buffer[x+y*WIDTH] += 1;
+    for i in (0..SAMPLES).step_by(4) {
+        let x = (samples[i+0] as usize % (WIDTH/2))  + (samples[i+1] as usize % (WIDTH/2));
+        let y = (samples[i+2] as usize % (HEIGHT/2)) + (samples[i+3] as usize % (HEIGHT/2));
+        buffer[x+y*WIDTH] = buffer[x+y*WIDTH].saturating_add(1);
     }
 
     let mut x_dist = [0u8; 4*WIDTH];
@@ -1208,5 +1214,20 @@ fn main() {
     for x_dist_line in grid(128, &x_dist) {
         println!("    {}", x_dist_line);
     }
+    println!();
+
+    // other stats
+    let ones: u32 = samples.iter().map(|x| x.count_ones()).sum();
+    let zeros: u32 = samples.iter().map(|x| x.count_zeros()).sum();
+    let mut comp = DeflateEncoder::new(Vec::new(), Compression::best());
+    let bytes = unsafe { slice::from_raw_parts(samples.as_ptr() as *const u8, 8*samples.len()) };
+    comp.write_all(&bytes).unwrap();
+    let comp = comp.finish().unwrap();
+    println!("{}/{} ones ({:.2}%), {:.2}% compressability",
+        ones,
+        zeros,
+        100.0 * (ones as f64 / (ones as f64 + zeros as f64)),
+        100.0 * ((bytes.len() as f64 - comp.len() as f64) / bytes.len() as f64),
+    );
     println!();
 }
