@@ -1,3 +1,5 @@
+#![doc=include_str!("../README.md")]
+
 
 // Enable stdsimd for pmull on aarch64
 #![cfg_attr(

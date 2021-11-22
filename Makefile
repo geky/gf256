@@ -20,6 +20,7 @@ test-configs:
 .PHONY: test
 test:
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --doc
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1 -q
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr

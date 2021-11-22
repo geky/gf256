@@ -181,7 +181,9 @@ fn poly_divrem(f: &mut [__gf], g: &[__gf]) {
 /// our generator polynomial. We can do this by appending the remainder
 /// of our message after division by G(x).
 ///
+/// ``` ignore
 /// M'(x) = M(x) + (M(x) % G(x))
+/// ```
 ///
 /// Note we expect the message to only take up the first message.len()-ECC_SIZE
 /// bytes, but this can be smaller than BLOCK_SIZE
@@ -248,7 +250,9 @@ fn find_forney_syndromes(
 
 /// Find the erasure locator polynomial
 ///
+/// ``` ignore
 /// Λ(x) = π (1 - xg^i)
+/// ```
 ///
 fn find_erasure_locator(erasures: &[usize]) -> Vec<__gf> {
     let mut el = vec![__gf::new(0); erasures.len()+1];
@@ -267,7 +271,9 @@ fn find_erasure_locator(erasures: &[usize]) -> Vec<__gf> {
 
 /// Find the erasure evaluator polynomial
 ///
+/// ``` ignore
 /// Ω(x) = S(x)*Λ(x)
+/// ```
 ///
 fn find_erasure_evaluator(syndromes: &[__gf], el: &[__gf]) -> Vec<__gf> {
     let mut ee = vec![__gf::new(0); syndromes.len()+el.len()+2];
@@ -352,14 +358,17 @@ fn find_errors(error_locator: &[__gf]) -> Vec<usize> {
 
 /// Find the error magnitude polynomial using Forney's algorithm
 ///
+/// ``` ignore
 ///          Ω(g^-i)
 /// e_i = - ---------
 ///          Λ'(g^-i)
+/// ```
 ///
 /// Where Λ'(x) is the formal derivative of of Λ(x), aka the "totally not
 /// derivative" derivative of Λ(x), because lim x->∞ doesn't make sense in
 /// a finite-field, because... it's finite.
 ///
+/// ``` ignore
 ///
 /// if   Λ(x)  = Σ (a_i*x^i)
 ///              i
@@ -367,6 +376,7 @@ fn find_errors(error_locator: &[__gf]) -> Vec<usize> {
 ///                 i
 /// then Λ'(x) = Σ (Σ (a_i*x^i-1))
 ///              i  j
+/// ```
 ///
 fn find_erasure_magnitude(
     erasures: &[usize],
