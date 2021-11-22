@@ -53,13 +53,6 @@ lfsr = ["gf256-macros/lfsr", "rand"]
 # Make CRC macros and functions available
 crc = ["gf256-macros/crc"]
 
-# Make Shamir secret-sharing macros and functions available
-#
-# Note this requires alloc and rand, as well as std if
-# ThreadRng (default) is used
-#
-shamir = ["gf256-macros/shamir", "rand"]
-
 # Make RAID-parity macros and structs available
 raid = ["gf256-macros/raid"]
 
@@ -68,6 +61,13 @@ raid = ["gf256-macros/raid"]
 # Note this requires alloc
 #
 rs = ["gf256-macros/rs"]
+
+# Make Shamir secret-sharing macros and functions available
+#
+# Note this requires alloc and rand, as well as std if
+# ThreadRng (default) is used
+#
+shamir = ["gf256-macros/shamir", "rand"]
 
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}

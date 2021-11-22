@@ -8,8 +8,8 @@ This project started as a learning project to learn more about these
 this crate may be more educational than practical. PRs welcome.
 
 ``` rust
-# use ::gf256::*;
-#
+use ::gf256::*;
+
 let a = gf256(0xfd);
 let b = gf256(0xfe);
 let c = gf256(0xff);
@@ -112,7 +112,7 @@ assert_ne!(a + a, gf256(2)*a);
 
 Unsurprisingly, finite-fields can be very useful for applying high-level math
 onto machine words, since machine words (u8, u16, u32, etc) are inherently
-finite, which we normally just try to ignore.
+finite, we just normally try to ignore this limitation.
 
 In Rust this has the fun feature that the Galois-field types can not overflow,
 so Galois-field types don't need the set of overflowing operations normally
@@ -121,8 +121,8 @@ found in other Rust types:
 ``` rust
 # use ::gf256::*;
 #
-let a = (u8::MAX).checked_add(1);
-let b = gf256(u8::MAX) + gf256(1);
+let a = (u8::MAX).checked_add(1);  // overflows
+let b = gf256(u8::MAX) + gf256(1); // does not overflow
 ```
 
 ## Galois-field construction
@@ -131,7 +131,7 @@ There are several methods for constructing finite-fields.
 
 On common method is to perform all operations modulo a prime number:
 
-``` ignore
+``` text
 a + b = (a + b) % p
 a * b = (a * b) % p
 ```
@@ -143,7 +143,7 @@ Instead, we use what's called a "binary-extension field".
 
 Consider a binary number:
 
-``` ignore
+``` text
 a = 0b11011011
 ```
 
@@ -152,14 +152,14 @@ Normally we would view this as the binary representation of the number 219.
 Instead, lets view it as a polynomial for some made-up variable "x", where
 each coefficient is a binary 1 or 0:
 
-``` ignore
+``` text
 a = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
 ```
 
 We can add polynomials together, as long as we mod each coefficient by 2 so
 they remain binary:
 
-``` ignore
+``` text
 a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
 b   = 0b1101 = 0*x^3 + 1*x^2 + 0*x^1 + 1*x^0
 
@@ -173,7 +173,7 @@ binary-extension fields is a generalization of xor.
 
 But there's more, we can also multiply polynomials together:
 
-``` ignore
+``` text
 a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
 b   = 0b1101 = 1*x^3 + 1*x^2 + 0*x^1 + 1*x^0
 
@@ -189,7 +189,7 @@ It's worth emphasizing that the "x" in these polynomials is a variable that we
 never actually evaluate. We just use it to create a view of the underlying
 binary numbers that we can do polynomial operations on.
 
-gf256 actually comes with a set of Polynomial types to perform these
+gf256 actually comes with a set of polynomial types to perform these
 operations directly:
 
 ``` rust
@@ -268,7 +268,7 @@ inverse:
 ``` rust
 # use ::gf256::*;
 #
-// a*(b+c) == a*b + a*c
+// (a+b)-b == a
 let a = p8(0b0001);
 let b = p8(0b0010);
 assert_eq!(a + b, p8(0b0011));
@@ -359,14 +359,14 @@ aka the identity of multiplication, aka 1.
 ``` rust
 # use ::gf256::*;
 #
-fn pow(a: p8, exp: usize) -> p8 {
-    let mut x = a;
-    for _ in 0..exp {
-        x = (x * a) % p8(0b10011);
-    }
-    x
-}
-
+# fn pow(a: p8, exp: usize) -> p8 {
+#     let mut x = a;
+#     for _ in 0..exp {
+#         x = (x * a) % p8(0b10011);
+#     }
+#     x
+# }
+# 
 // a^15-1 = 1
 assert_eq!(pow(p8(0b0001), 15-1), p8(0b0001));
 assert_eq!(pow(p8(0b0110), 15-1), p8(0b0001));
@@ -382,14 +382,14 @@ number. Isn't that neat!
 ``` rust
 # use ::gf256::*;
 #
-fn pow(a: p8, exp: usize) -> p8 {
-    let mut x = a;
-    for _ in 0..exp {
-        x = (x * a) % p8(0b10011);
-    }
-    x
-}
-
+# fn pow(a: p8, exp: usize) -> p8 {
+#     let mut x = a;
+#     for _ in 0..exp {
+#         x = (x * a) % p8(0b10011);
+#     }
+#     x
+# }
+# 
 // a^15-2 = a^-1
 assert_eq!(pow(p8(0b0001), 15-2), p8(0b0001));
 assert_eq!(pow(p8(0b0110), 15-2), p8(0b0111));
@@ -406,12 +406,12 @@ assert_eq!((p8(0b0010) * p8(0b1001)) % p8(0b10011), p8(0b0001));
 This means we can define division in terms of repeated multiplication, which
 gives us the last of our field operations!
 
-``` ignore
+``` text
 a + b = a + b
 a - b = a - b
 a * b = (a * b) % p
-    (2^n)-1-2
-a / b = Σ (a * b) % p
+         (2^n)-1-2
+a / b = b * (π a % p)
 
 where a and b are viewed as polynomials, p is an irreducible polynomial with
 n+1 bits, and n is the number of bits in our field.
@@ -467,19 +467,19 @@ assert_eq!(mul(a, add(b, c)), add(mul(a, b), mul(a, c)));
 ```
 
 And this is how our Galois-field types are defined! gf256 uses several
-different techniques to optimize these operations, but it uses the same
-underlying theory.
+different techniques to optimize these operations, but they are built on the
+same underlying theory.
 
-We generally name these fields GF(n), in honor of Évariste Galois the
-mathematician who created this branch of mathematics, where n is the number of
-elements in the field. So since this field is defined for 4-bits, we can call
-this field GF(16).
+We generally name these fields GF(n), where n is the number of elements in the
+field, in honor of Évariste Galois the mathematician who created this branch
+of mathematics. So since this field is defined for 4-bits, we can call this
+field GF(16).
 
-We can even create this exact field using gf256:
+We can create this exact field using gf256:
 
-``` rust
-# use ::gf256::*;
+``` rust ignore
 use ::gf256::macros::gf;
+
 ##[gf(polynomial=0b10011, generator=0b0010)]
 type gf16;
 
@@ -488,7 +488,140 @@ assert_eq!(gf16::new(0b1011) * gf16::new(0b1101), gf16::new(0b0110));
 
 ## Included in gf256
 
+gf256 contains a bit more than the Galois-field types. It also contains a
+number of other utilities that are based on the math around finite-fields:
+
+- **Polynomial types**
+
+  ``` rust
+  use ::gf256::*;
+  
+  let a = p32(0x1234);
+  let b = p32(0x5678);
+  assert_eq!(a*b, p32(0x05c58160));
+  ```
+
+- **Galois-field types**
+
+  ``` rust
+  use ::gf256::*;
+  
+  let a = gf256(0xfd);
+  let b = gf256(0xfe);
+  let c = gf256(0xff);
+  assert_eq!(a*(b+c), a*b + a*c);
+  ```
+
+- **CRC functions** (requires feature `crc`)
+
+  ``` rust
+  use ::gf256::crc::crc32c;
+
+  assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
+  ```
+
+- **LFSR structs** (requires feature `lfsr`)
+
+  ``` rust
+  # use std::iter;
+  use ::gf256::lfsr::Lfsr16;
+
+  let mut lfsr = Lfsr16::new(1);
+  assert_eq!(lfsr.next(16), 0x0001);
+  assert_eq!(lfsr.next(16), 0x002d);
+  assert_eq!(lfsr.next(16), 0x0451);
+  assert_eq!(lfsr.next(16), 0xbdad);
+  assert_eq!(lfsr.prev(16), 0xbdad);
+  assert_eq!(lfsr.prev(16), 0x0451);
+  assert_eq!(lfsr.prev(16), 0x002d);
+  assert_eq!(lfsr.prev(16), 0x0001);
+  ```
+
+- **RAID-parity functions** (requires feature `raid`)
+
+  ``` rust
+  use ::gf256::raid::raid6;
+
+  // format
+  let mut buf = b"Hello World!".to_vec();
+  let mut parity1 = vec![0u8; 4];
+  let mut parity2 = vec![0u8; 4];
+  let slices = buf.chunks(4).collect::<Vec<_>>();
+  raid6::format(&slices, &mut parity1, &mut parity2);
+
+  // corrupt
+  buf[0..8].fill(b'x');
+
+  // repair
+  let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
+  raid6::repair(&mut slices, &mut parity1, &mut parity2, &[0, 1]);
+  assert_eq!(&buf, b"Hello World!");
+  ```
+
+- **Reed-Solomon error-correction functions** (requires feature `rs`)
+
+  ``` rust
+  use ::gf256::rs::rs255w223;
+
+  // encode
+  let mut buf = b"Hello World!".to_vec();
+  buf.resize(buf.len()+32, 0u8);
+  rs255w223::encode(&mut buf);
+
+  // corrupt
+  buf[0..16].fill(b'x');
+
+  // correct
+  rs255w223::correct_errors(&mut buf)?;
+  assert_eq!(&buf[0..12], b"Hello World!");
+  # Ok::<(), rs255w223::Error>(())
+  ```
+
+- **Shamir secret-sharing functions** (requires features `shamir` and `thread-rng`)
+
+  ``` rust
+  use ::gf256::shamir::shamir;
+
+  // generate shares
+  let shares = shamir::generate(b"Hello World!", 5, 4);
+
+  // <4 can't reconstruct secret
+  assert_ne!(shamir::reconstruct(&shares[..1]), b"Hello World!");
+  assert_ne!(shamir::reconstruct(&shares[..2]), b"Hello World!");
+  assert_ne!(shamir::reconstruct(&shares[..3]), b"Hello World!");
+
+  // >=4 can reconstruct secret
+  assert_eq!(shamir::reconstruct(&shares[..4]), b"Hello World!");
+  assert_eq!(shamir::reconstruct(&shares[..5]), b"Hello World!");
+  ```
+
+Since this math depends on some rather arbitrary constants, each of these
+utilities is available as both a normal Rust API, defined using reasonable
+defaults, and as a highly configurable proc_macro:
+
+``` rust ignore
+use ::gf256::macros::gf;
+
+#[gf(polynomial=0x11b, generator=0x3)]
+type gf256_rijndael;
+
+let a = gf256_rijndael(0xfd);
+let b = gf256_rijndael(0xfe);
+let c = gf256_rijndael(0xff);
+assert_eq!(a*(b+c), a*b + a*c);
+```
+
 ## Hardware instructions
+
+## `const fns`
+
+## `no_std` support
+
+gf256 is just a pile of math, so it is mostly `no_std` compatible.
+
+The exception is the extra utilities `rs` and `shamir`, which require `alloc`.
+
+## Constant-time
 
 ## Features
 
