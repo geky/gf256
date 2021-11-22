@@ -136,22 +136,20 @@ impl __gf {
         )
     };
 
-    /// Create a finite-field element
-    #[cfg(__if(__is_pw2ge8))]
+    /// Create a finite-field element, panicking if the argument
+    /// could not be represented in the field
     #[inline]
     pub const fn new(x: __u) -> __gf {
-        __gf(x)
-    }
-
-    /// Create a finite-field element, returning None if the argument
-    /// could not be represented in the field
-    #[cfg(__if(!__is_pw2ge8))]
-    #[inline]
-    pub const fn new(x: __u) -> Option<__gf> {
-        if x < __nonzeros+1 {
-            Some(__gf(x))
-        } else {
-            None
+        cfg_if! {
+            if #[cfg(__if(__is_pw2ge8))] {
+                __gf(x)
+            } else {
+                if x < __nonzeros+1 {
+                    __gf(x)
+                } else {
+                    panic!(concat!("value unrepresentable in ", stringify!(__gf)))
+                }
+            }
         }
     }
 

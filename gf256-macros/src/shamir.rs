@@ -21,6 +21,8 @@ struct ShamirArgs {
     #[darling(default)]
     gf: Option<syn::Path>,
     #[darling(default)]
+    u: Option<syn::Path>,
+    #[darling(default)]
     rng: Option<ExprWrapper>,
 }
 
@@ -45,7 +47,8 @@ pub fn shamir(
     let vis = ty.vis;
     let shamir = ty.ident;
 
-    let __gf = Ident::new(&format!("__{}_gf", shamir.to_string()), Span::call_site());
+    let __gf  = Ident::new(&format!("__{}_gf",  shamir.to_string()), Span::call_site());
+    let __u   = Ident::new(&format!("__{}_u",   shamir.to_string()), Span::call_site());
     let __rng = Ident::new(&format!("__{}_rng", shamir.to_string()), Span::call_site());
 
     // overrides in parent's namespace
@@ -63,6 +66,25 @@ pub fn shamir(
                 #[#__crate::macros::gf(polynomial=0x11d, generator=0x02, barret)]
                 type #__gf;
             })
+        }
+    }
+    match args.u.as_ref() {
+        Some(u) => {
+            overrides.push(quote! {
+                use #u as #__u;
+            })
+        }
+        None => {
+            // default to u8, we can't do any better since we don't really have
+            // a way to infer the underlying u-type of __gf
+            //
+            // we could use an inherent associated type in __gf, except they are
+            // currently not supported
+            // https://github.com/rust-lang/rust/issues/8995
+            //
+            overrides.push(quote! {
+                use u8 as #__u;
+            });
         }
     }
     match args.rng.as_ref() {
@@ -89,6 +111,9 @@ pub fn shamir(
         ("__shamir".to_owned(), TokenTree::Ident(shamir.clone())),
         ("__gf".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__gf }
+        }))),
+        ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__u }
         }))),
         ("__rng".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__rng }

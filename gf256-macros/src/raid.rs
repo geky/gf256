@@ -21,6 +21,8 @@ struct RaidArgs {
     parity: u8,
     #[darling(default)]
     gf: Option<syn::Path>,
+    #[darling(default)]
+    u: Option<syn::Path>,
 }
 
 pub fn raid(
@@ -48,6 +50,7 @@ pub fn raid(
     let raid = ty.ident;
 
     let __gf = Ident::new(&format!("__{}_gf", raid.to_string()), Span::call_site());
+    let __u  = Ident::new(&format!("__{}_u",  raid.to_string()), Span::call_site());
 
     // overrides in parent's namespace
     let mut overrides = vec![];
@@ -63,6 +66,25 @@ pub fn raid(
             });
         }
     }
+    match args.u.as_ref() {
+        Some(u) => {
+            overrides.push(quote! {
+                use #u as #__u;
+            })
+        }
+        None => {
+            // default to u8, we can't do any better since we don't really have
+            // a way to infer the underlying u-type of __gf
+            //
+            // we could use an inherent associated type in __gf, except they are
+            // currently not supported
+            // https://github.com/rust-lang/rust/issues/8995
+            //
+            overrides.push(quote! {
+                use u8 as #__u;
+            });
+        }
+    }
 
     // keyword replacements
     let replacements = HashMap::from_iter([
@@ -72,6 +94,9 @@ pub fn raid(
         )),
         ("__gf".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__gf }
+        }))),
+        ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__u }
         }))),
         ("__crate".to_owned(), __crate.clone()),
     ]);

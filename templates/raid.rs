@@ -5,6 +5,7 @@
 
 use __crate::internal::cfg_if::cfg_if;
 use __crate::traits::TryFrom;
+use __crate::traits::FromLossy;
 use core::slice;
 use core::cmp::min;
 use core::cmp::max;
@@ -32,10 +33,10 @@ impl fmt::Display for Error {
 // TODO 
 // /// Format blocks with RAID4, aka single block of parity
 /// Format blocks with RAID6, aka two blocks of parity
-pub fn format<B: AsRef<[u8]>>(
+pub fn format<B: AsRef<[__u]>>(
     blocks: &[B],
-    #[cfg(__if(__parity >= 1))] p: &mut [u8],
-    #[cfg(__if(__parity >= 2))] q: &mut [u8],
+    #[cfg(__if(__parity >= 1))] p: &mut [__u],
+    #[cfg(__if(__parity >= 2))] q: &mut [__u],
 ) {
     cfg_if! {
         if #[cfg(__if(__parity == 0))] {
@@ -43,35 +44,35 @@ pub fn format<B: AsRef<[u8]>>(
         } else if #[cfg(__if(__parity == 1))] {
             let len = p.len();
             assert!(blocks.iter().all(|b| b.as_ref().len() == len));
-            let p = __gf::slice_from_slice_mut(p);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
 
             for i in 0..len {
-                p[i] = __gf(0);
+                p[i] = __gf::new(0);
             }
 
             for b in blocks {
                 for i in 0..len {
-                    p[i] += __gf(b.as_ref()[i]);
+                    p[i] += __gf::from_lossy(b.as_ref()[i]);
                 }
             }
         } else if #[cfg(__if(__parity == 2))] {
             let len = p.len();
             assert!(q.len() == len);
             assert!(blocks.iter().all(|b| b.as_ref().len() == len));
-            assert!(blocks.len() <= 255);
-            let p = __gf::slice_from_slice_mut(p);
-            let q = __gf::slice_from_slice_mut(q);
+            assert!(blocks.len() <= usize::try_from(__gf::NONZEROS).unwrap_or(usize::MAX));
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
+            let q = unsafe { __gf::slice_from_slice_mut_unchecked(q) };
 
             for i in 0..len {
-                p[i] = __gf(0);
-                q[i] = __gf(0);
+                p[i] = __gf::new(0);
+                q[i] = __gf::new(0);
             }
 
             for (j, b) in blocks.iter().enumerate() {
-                let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                 for i in 0..len {
-                    p[i] += __gf(b.as_ref()[i]);
-                    q[i] += __gf(b.as_ref()[i]) * g;
+                    p[i] += __gf::from_lossy(b.as_ref()[i]);
+                    q[i] += __gf::from_lossy(b.as_ref()[i]) * g;
                 }
             }
         }
@@ -81,10 +82,10 @@ pub fn format<B: AsRef<[u8]>>(
 // TODO
 // /// Repair up to one block of failure
 /// Repair up to two blocks of failure
-pub fn repair<B: AsMut<[u8]>>(
+pub fn repair<B: AsMut<[__u]>>(
     blocks: &mut [B],
-    #[cfg(__if(__parity >= 1))] p: &mut [u8],
-    #[cfg(__if(__parity >= 2))] q: &mut [u8],
+    #[cfg(__if(__parity >= 1))] p: &mut [__u],
+    #[cfg(__if(__parity >= 2))] q: &mut [__u],
     bad_blocks: &[usize]
 ) -> Result<(), Error> {
     cfg_if! {
@@ -98,7 +99,7 @@ pub fn repair<B: AsMut<[u8]>>(
             }
         } else if #[cfg(__if(__parity == 1))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
 
             if bad_blocks.len() == 0 {
                 // no repair needed
@@ -111,7 +112,7 @@ pub fn repair<B: AsMut<[u8]>>(
                     // repair using p
                     let (before, after) = blocks.split_at_mut(bad_block);
                     let (d, after) = after.split_first_mut().unwrap();
-                    let d = __gf::slice_from_slice_mut(d.as_mut());
+                    let d = unsafe { __gf::slice_from_slice_mut_unchecked(d.as_mut()) };
 
                     for i in 0..len {
                         d[i] = p[i];
@@ -119,19 +120,19 @@ pub fn repair<B: AsMut<[u8]>>(
 
                     for b in before.iter_mut().chain(after.iter_mut()) {
                         for i in 0..len {
-                            d[i] -= __gf(b.as_mut()[i]);
+                            d[i] -= __gf::from_lossy(b.as_mut()[i]);
                         }
                     }
                     Ok(())
                 } else if bad_block == blocks.len()+0 {
                     // regenerate p
                     for i in 0..len {
-                        p[i] = __gf(0);
+                        p[i] = __gf::new(0);
                     }
 
                     for b in blocks.iter_mut() {
                         for i in 0..len {
-                            p[i] += __gf(b.as_mut()[i]);
+                            p[i] += __gf::from_lossy(b.as_mut()[i]);
                         }
                     }
                     Ok(())
@@ -144,8 +145,8 @@ pub fn repair<B: AsMut<[u8]>>(
             }
         } else if #[cfg(__if(__parity == 2))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
-            let q = __gf::slice_from_slice_mut(q);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
+            let q = unsafe { __gf::slice_from_slice_mut_unchecked(q) };
 
             if bad_blocks.len() == 0 {
                 // no repair needed
@@ -158,7 +159,7 @@ pub fn repair<B: AsMut<[u8]>>(
                     // repair using p
                     let (before, after) = blocks.split_at_mut(bad_block);
                     let (d, after)  = after.split_first_mut().unwrap();
-                    let d = __gf::slice_from_slice_mut(d.as_mut());
+                    let d = unsafe { __gf::slice_from_slice_mut_unchecked(d.as_mut()) };
 
                     for i in 0..len {
                         d[i] = p[i];
@@ -166,32 +167,32 @@ pub fn repair<B: AsMut<[u8]>>(
 
                     for b in before.iter_mut().chain(after.iter_mut()) {
                         for i in 0..len {
-                            d[i] -= __gf(b.as_mut()[i]);
+                            d[i] -= __gf::from_lossy(b.as_mut()[i]);
                         }
                     }
                     Ok(())
                 } else if bad_block == blocks.len()+0 {
                     // regenerate p
                     for i in 0..len {
-                        p[i] = __gf(0);
+                        p[i] = __gf::new(0);
                     }
 
                     for b in blocks.iter_mut() {
                         for i in 0..len {
-                            p[i] += __gf(b.as_mut()[i]);
+                            p[i] += __gf::from_lossy(b.as_mut()[i]);
                         }
                     }
                     Ok(())
                 } else if bad_block == blocks.len()+1 {
                     // regenerate q
                     for i in 0..len {
-                        q[i] = __gf(0);
+                        q[i] = __gf::new(0);
                     }
 
                     for (j, b) in blocks.iter_mut().enumerate() {
-                        let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                        let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                         for i in 0..len {
-                            q[i] += __gf(b.as_mut()[i]) * g;
+                            q[i] += __gf::from_lossy(b.as_mut()[i]) * g;
                         }
                     }
                     Ok(())
@@ -210,8 +211,8 @@ pub fn repair<B: AsMut<[u8]>>(
                     let (d1, between) = between.split_first_mut().unwrap();
                     let (between, after) = between.split_at_mut(bad_block2-(bad_block1+1));
                     let (d2, after) = after.split_first_mut().unwrap();
-                    let d1 = __gf::slice_from_slice_mut(d1.as_mut());
-                    let d2 = __gf::slice_from_slice_mut(d2.as_mut());
+                    let d1 = unsafe { __gf::slice_from_slice_mut_unchecked(d1.as_mut()) };
+                    let d2 = unsafe { __gf::slice_from_slice_mut_unchecked(d2.as_mut()) };
 
                     // find intermediate values
                     //
@@ -227,10 +228,10 @@ pub fn repair<B: AsMut<[u8]>>(
                         .chain((bad_block1+1..).zip(between.iter_mut()))
                         .chain((bad_block2+1..).zip(after.iter_mut()))
                     {
-                        let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                        let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                         for i in 0..len {
-                            d1[i] -= __gf(b.as_mut()[i]);
-                            d2[i] -= __gf(b.as_mut()[i]) * g;
+                            d1[i] -= __gf::from_lossy(b.as_mut()[i]);
+                            d2[i] -= __gf::from_lossy(b.as_mut()[i]) * g;
                         }
                     }
 
@@ -243,8 +244,8 @@ pub fn repair<B: AsMut<[u8]>>(
                     // d_x = -----------------------------------
                     //                   g^x + g^y
                     //
-                    let g1 = __gf::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-                    let g2 = __gf::GENERATOR.pow(u8::try_from(bad_block2).unwrap());
+                    let g1 = __gf::GENERATOR.pow(__u::try_from(bad_block1).unwrap());
+                    let g2 = __gf::GENERATOR.pow(__u::try_from(bad_block2).unwrap());
                     for i in 0..len {
                         let p = d1[i];
                         let q = d2[i];
@@ -256,25 +257,25 @@ pub fn repair<B: AsMut<[u8]>>(
                     // repair d using q, and then regenerate p
                     let (before, after) = blocks.split_at_mut(bad_block1);
                     let (d, after) = after.split_first_mut().unwrap();
-                    let d = __gf::slice_from_slice_mut(d.as_mut());
+                    let d = unsafe { __gf::slice_from_slice_mut_unchecked(d.as_mut()) };
 
                     for i in 0..len {
                         d[i] = q[i];
-                        p[i] = __gf(0);
+                        p[i] = __gf::new(0);
                     }
 
                     for (j, b) in before.iter_mut().enumerate()
                         .chain((bad_block1+1..).zip(after.iter_mut()))
                     {
-                        let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                        let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                         for i in 0..len {
-                            d[i] -= __gf(b.as_mut()[i]) * g;
-                            p[i] += __gf(b.as_mut()[i]);
+                            d[i] -= __gf::from_lossy(b.as_mut()[i]) * g;
+                            p[i] += __gf::from_lossy(b.as_mut()[i]);
                         }
                     }
 
                     // update p and d based on final value of d
-                    let g = __gf::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+                    let g = __gf::GENERATOR.pow(__u::try_from(bad_block1).unwrap());
                     for i in 0..len {
                         d[i] /= g;
                         p[i] += d[i];
@@ -284,25 +285,25 @@ pub fn repair<B: AsMut<[u8]>>(
                     // repair d using p, and then regenerate q
                     let (before, after) = blocks.split_at_mut(bad_block1);
                     let (d, after) = after.split_first_mut().unwrap();
-                    let d = __gf::slice_from_slice_mut(d.as_mut());
+                    let d = unsafe { __gf::slice_from_slice_mut_unchecked(d.as_mut()) };
 
                     for i in 0..len {
                         d[i] = p[i];
-                        q[i] = __gf(0);
+                        q[i] = __gf::new(0);
                     }
 
                     for (j, b) in before.iter_mut().enumerate()
                         .chain((bad_block1+1..).zip(after.iter_mut()))
                     {
-                        let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                        let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                         for i in 0..len {
-                            d[i] -= __gf(b.as_mut()[i]);
-                            q[i] += __gf(b.as_mut()[i]) * g;
+                            d[i] -= __gf::from_lossy(b.as_mut()[i]);
+                            q[i] += __gf::from_lossy(b.as_mut()[i]) * g;
                         }
                     }
 
                     // update q based on final value of d
-                    let g = __gf::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
+                    let g = __gf::GENERATOR.pow(__u::try_from(bad_block1).unwrap());
                     for i in 0..len {
                         q[i] += d[i] * g;
                     }
@@ -310,15 +311,15 @@ pub fn repair<B: AsMut<[u8]>>(
                 } else if bad_block1 == blocks.len()+0 && bad_block2 == blocks.len()+1 {
                     // regenerate p and q
                     for i in 0..len {
-                        p[i] = __gf(0);
-                        q[i] = __gf(0);
+                        p[i] = __gf::new(0);
+                        q[i] = __gf::new(0);
                     }
 
                     for (j, b) in blocks.iter_mut().enumerate() {
-                        let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+                        let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
                         for i in 0..len {
-                            p[i] += __gf(b.as_mut()[i]);
-                            q[i] += __gf(b.as_mut()[i]) * g;
+                            p[i] += __gf::from_lossy(b.as_mut()[i]);
+                            q[i] += __gf::from_lossy(b.as_mut()[i]) * g;
                         }
                     }
                     Ok(())
@@ -340,31 +341,31 @@ pub fn repair<B: AsMut<[u8]>>(
 ///
 pub fn add(
     j: usize,
-    new: &[u8],
-    #[cfg(__if(__parity >= 1))] p: &mut [u8],
-    #[cfg(__if(__parity >= 2))] q: &mut [u8],
+    new: &[__u],
+    #[cfg(__if(__parity >= 1))] p: &mut [__u],
+    #[cfg(__if(__parity >= 2))] q: &mut [__u],
 ) {
     cfg_if! {
         if #[cfg(__if(__parity == 0))] {
             // do nothing
         } else if #[cfg(__if(__parity == 1))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
 
             for i in 0..len {
                 // calculate new parity
-                p[i] += __gf(new[i]);
+                p[i] += __gf::from_lossy(new[i]);
             }
         } else if #[cfg(__if(__parity == 2))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
-            let q = __gf::slice_from_slice_mut(q);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
+            let q = unsafe { __gf::slice_from_slice_mut_unchecked(q) };
 
-            let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+            let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
             for i in 0..len {
                 // calculate new parity
-                p[i] += __gf(new[i]);
-                q[i] += __gf(new[i]) * g;
+                p[i] += __gf::from_lossy(new[i]);
+                q[i] += __gf::from_lossy(new[i]) * g;
             }
         }
     }
@@ -377,31 +378,31 @@ pub fn add(
 ///
 pub fn remove(
     j: usize,
-    old: &[u8],
-    #[cfg(__if(__parity >= 1))] p: &mut [u8],
-    #[cfg(__if(__parity >= 2))] q: &mut [u8],
+    old: &[__u],
+    #[cfg(__if(__parity >= 1))] p: &mut [__u],
+    #[cfg(__if(__parity >= 2))] q: &mut [__u],
 ) {
     cfg_if! {
         if #[cfg(__if(__parity == 0))] {
             // do nothing
         } else if #[cfg(__if(__parity == 1))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
 
             for i in 0..len {
                 // calculate new parity
-                p[i] -= __gf(old[i]);
+                p[i] -= __gf::from_lossy(old[i]);
             }
         } else if #[cfg(__if(__parity == 2))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
-            let q = __gf::slice_from_slice_mut(q);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
+            let q = unsafe { __gf::slice_from_slice_mut_unchecked(q) };
 
-            let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+            let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
             for i in 0..len {
                 // calculate new parity
-                p[i] -= __gf(old[i]);
-                q[i] -= __gf(old[i]) * g;
+                p[i] -= __gf::from_lossy(old[i]);
+                q[i] -= __gf::from_lossy(old[i]) * g;
             }
         }
     }
@@ -413,32 +414,32 @@ pub fn remove(
 ///
 pub fn update(
     j: usize,
-    old: &[u8],
-    new: &[u8],
-    #[cfg(__if(__parity >= 1))] p: &mut [u8],
-    #[cfg(__if(__parity >= 2))] q: &mut [u8],
+    old: &[__u],
+    new: &[__u],
+    #[cfg(__if(__parity >= 1))] p: &mut [__u],
+    #[cfg(__if(__parity >= 2))] q: &mut [__u],
 ) {
     cfg_if! {
         if #[cfg(__if(__parity == 0))] {
             // do nothing
         } else if #[cfg(__if(__parity == 1))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
 
             for i in 0..len {
                 // calculate new parity
-                p[i] += __gf(new[i]) - __gf(old[i]);
+                p[i] += __gf::from_lossy(new[i]) - __gf::from_lossy(old[i]);
             }
         } else if #[cfg(__if(__parity == 2))] {
             let len = p.len();
-            let p = __gf::slice_from_slice_mut(p);
-            let q = __gf::slice_from_slice_mut(q);
+            let p = unsafe { __gf::slice_from_slice_mut_unchecked(p) };
+            let q = unsafe { __gf::slice_from_slice_mut_unchecked(q) };
 
-            let g = __gf::GENERATOR.pow(u8::try_from(j).unwrap());
+            let g = __gf::GENERATOR.pow(__u::try_from(j).unwrap());
             for i in 0..len {
                 // calculate new parity
-                p[i] += __gf(new[i]) - __gf(old[i]);
-                q[i] += (__gf(new[i]) - __gf(old[i])) * g;
+                p[i] += __gf::from_lossy(new[i]) - __gf::from_lossy(old[i]);
+                q[i] += (__gf::from_lossy(new[i]) - __gf::from_lossy(old[i])) * g;
             }
         }
     }

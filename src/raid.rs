@@ -16,6 +16,7 @@ pub mod raid6 {}
 mod test {
     use super::*;
     use crate::gf::*;
+    use crate::macros::*;
 
     extern crate alloc;
     use alloc::vec::Vec;
@@ -175,8 +176,155 @@ mod test {
         assert_eq!(&blocks[3], &(40..50).collect::<Vec<u8>>());
     }
 
+    // multi-byte RAID-parity
+    #[raid(gf=gf2p64, u=u64, parity=2)]
+    pub mod gf2p64_raid6 {}
+
+    #[test]
+    fn gf2p64_raid6() {
+        let mut blocks = [
+            (80..90).collect::<Vec<u64>>(),
+            (20..30).collect::<Vec<u64>>(),
+        ];
+        let mut p = (30..40).collect::<Vec<u64>>();
+        let mut q = (40..50).collect::<Vec<u64>>();
+
+        // format
+        gf2p64_raid6::format(&mut blocks, &mut p, &mut q);
+
+        // update
+        gf2p64_raid6::update(0, &mut blocks[0], &(10..20).collect::<Vec<u64>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u64>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u64>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u64>>());
+
+        for i in 0..blocks.len() {
+            // clobber
+            blocks[i].fill(0x7878787878787878);
+            // repair
+            gf2p64_raid6::repair(&mut blocks, &mut p, &mut q, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).collect::<Vec<u64>>());
+            assert_eq!(&blocks[1], &(20..30).collect::<Vec<u64>>());
+        }
+
+        for i in 0..blocks.len() {
+            for j in 0..blocks.len() {
+                if i == j {
+                    continue;
+                }
+
+                // clobber
+                blocks[i].fill(0x7878787878787878);
+                blocks[j].fill(0x7878787878787878);
+                // repair
+                gf2p64_raid6::repair(&mut blocks, &mut p, &mut q, &[i, j]).unwrap();
+                assert_eq!(&blocks[0], &(10..20).collect::<Vec<u64>>());
+                assert_eq!(&blocks[1], &(20..30).collect::<Vec<u64>>());
+            }
+        }
+    }
+
+    // RAID-parity with ver odd sizes
+    #[gf(polynomial=0x13, generator=0x2)]
+    type gf16;
+    #[raid(gf=gf16, u=u8, parity=2)]
+    pub mod gf16_raid6 {}
+
+    #[gf(polynomial=0x800021, generator=0x2)]
+    type gf2p23;
+    #[raid(gf=gf2p23, u=u32, parity=2)]
+    pub mod gf2p23_raid6 {}
+
+    #[test]
+    fn gf16_raid6() {
+        let mut blocks = [
+            (80..90).map(|x| x%16).collect::<Vec<u8>>(),
+            (20..30).map(|x| x%16).collect::<Vec<u8>>(),
+        ];
+        let mut p = (30..40).map(|x| x%16).collect::<Vec<u8>>();
+        let mut q = (40..50).map(|x| x%16).collect::<Vec<u8>>();
+
+        // format
+        gf16_raid6::format(&mut blocks, &mut p, &mut q);
+
+        // update
+        gf16_raid6::update(0, &mut blocks[0], &(10..20).collect::<Vec<u8>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).map(|x| x%16).collect::<Vec<u8>>());
+        assert_eq!(&blocks[0], &(10..20).map(|x| x%16).collect::<Vec<u8>>());
+        assert_eq!(&blocks[1], &(20..30).map(|x| x%16).collect::<Vec<u8>>());
+
+        for i in 0..blocks.len() {
+            // clobber
+            blocks[i].fill(0x7);
+            // repair
+            gf16_raid6::repair(&mut blocks, &mut p, &mut q, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).map(|x| x%16).collect::<Vec<u8>>());
+            assert_eq!(&blocks[1], &(20..30).map(|x| x%16).collect::<Vec<u8>>());
+        }
+
+        for i in 0..blocks.len() {
+            for j in 0..blocks.len() {
+                if i == j {
+                    continue;
+                }
+
+                // clobber
+                blocks[i].fill(0x7);
+                blocks[j].fill(0x7);
+                // repair
+                gf16_raid6::repair(&mut blocks, &mut p, &mut q, &[i, j]).unwrap();
+                assert_eq!(&blocks[0], &(10..20).map(|x| x%16).collect::<Vec<u8>>());
+                assert_eq!(&blocks[1], &(20..30).map(|x| x%16).collect::<Vec<u8>>());
+            }
+        }
+    }
+
+    #[test]
+    fn gf2p23_raid6() {
+        let mut blocks = [
+            (80..90).collect::<Vec<u32>>(),
+            (20..30).collect::<Vec<u32>>(),
+        ];
+        let mut p = (30..40).collect::<Vec<u32>>();
+        let mut q = (40..50).collect::<Vec<u32>>();
+
+        // format
+        gf2p23_raid6::format(&mut blocks, &mut p, &mut q);
+
+        // update
+        gf2p23_raid6::update(0, &mut blocks[0], &(10..20).collect::<Vec<u32>>(), &mut p, &mut q);
+        blocks[0].copy_from_slice(&(10..20).collect::<Vec<u32>>());
+        assert_eq!(&blocks[0], &(10..20).collect::<Vec<u32>>());
+        assert_eq!(&blocks[1], &(20..30).collect::<Vec<u32>>());
+
+        for i in 0..blocks.len() {
+            // clobber
+            blocks[i].fill(0x787878);
+            // repair
+            gf2p23_raid6::repair(&mut blocks, &mut p, &mut q, &[i]).unwrap();
+            assert_eq!(&blocks[0], &(10..20).collect::<Vec<u32>>());
+            assert_eq!(&blocks[1], &(20..30).collect::<Vec<u32>>());
+        }
+
+        for i in 0..blocks.len() {
+            for j in 0..blocks.len() {
+                if i == j {
+                    continue;
+                }
+
+                // clobber
+                blocks[i].fill(0x787878);
+                blocks[j].fill(0x787878);
+                // repair
+                gf2p23_raid6::repair(&mut blocks, &mut p, &mut q, &[i, j]).unwrap();
+                assert_eq!(&blocks[0], &(10..20).collect::<Vec<u32>>());
+                assert_eq!(&blocks[1], &(20..30).collect::<Vec<u32>>());
+            }
+        }
+    }
+
     // all RAID-parity params
-    #[raid(parity=2, gf=gf256)]
+    #[raid(gf=gf256, u=u8, parity=2)]
     pub mod raid6_all_params {}
 
     #[test]

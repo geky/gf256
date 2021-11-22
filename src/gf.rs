@@ -202,25 +202,25 @@ mod test {
     type gf2p23;
 
     macro_rules! test_axioms {
-        ($name:ident; $t:ty; $gf:expr; $nz:expr; $x:expr) => {
+        ($name:ident; $gf:ty; $nz:expr; $x:expr) => {
             #[test]
             fn $name() {
-                assert_eq!(<$t>::NONZEROS, $nz);
+                assert_eq!(<$gf>::NONZEROS, $nz);
 
                 let xs = [
-                    $gf(1*$x),
-                    $gf(2*$x),
-                    $gf(3*$x),
-                    $gf(4*$x),
+                    <$gf>::new(1*$x),
+                    <$gf>::new(2*$x),
+                    <$gf>::new(3*$x),
+                    <$gf>::new(4*$x),
                 ];
 
                 for x in xs {
                     for y in xs {
                         for z in xs {
                             // 0 is the identity of addition
-                            assert_eq!(x + $gf(0), x);
+                            assert_eq!(x + <$gf>::new(0), x);
                             // 1 is the identity of multiplication
-                            assert_eq!(x * $gf(1), x);
+                            assert_eq!(x * <$gf>::new(1), x);
                             // addition and subtraction are inverses
                             assert_eq!((x + y) - y, x);
                             // multiplication and division are inverses
@@ -236,13 +236,13 @@ mod test {
         }
     }
 
-    test_axioms! { gf16_axioms;    gf16;   |x| gf16::new(x).unwrap(); 15;  0x1 }
-    test_axioms! { gf256_axioms;   gf256;  gf256; 255; 0x11 }
-    test_axioms! { gf4096_axioms;  gf4096; |x| gf4096::new(x).unwrap(); 4095; 0x111 }
-    test_axioms! { gf2p16_axioms;  gf2p16; gf2p16; 65535; 0x1111 }
-    test_axioms! { gf2p23_axioms;  gf2p23; |x| gf2p23::new(x).unwrap(); 8388607; 0x111111 }
-    test_axioms! { gf2p32_axioms;  gf2p32; gf2p32; 4294967295; 0x11111111 }
-    test_axioms! { gf2p64_axioms;  gf2p64; gf2p64; 18446744073709551615; 0x1111111111111111 }
+    test_axioms! { gf16_axioms;    gf16;   15;  0x1 }
+    test_axioms! { gf256_axioms;   gf256;  255; 0x11 }
+    test_axioms! { gf4096_axioms;  gf4096; 4095; 0x111 }
+    test_axioms! { gf2p16_axioms;  gf2p16; 65535; 0x1111 }
+    test_axioms! { gf2p23_axioms;  gf2p23; 8388607; 0x111111 }
+    test_axioms! { gf2p32_axioms;  gf2p32; 4294967295; 0x11111111 }
+    test_axioms! { gf2p64_axioms;  gf2p64; 18446744073709551615; 0x1111111111111111 }
 
     // Test with explicit implementations
     //
@@ -253,8 +253,8 @@ mod test {
     #[gf(polynomial=0x13, generator=0x2, log_table)]
     type gf16_log_table;
 
-    test_axioms! { gf16_log_table_axioms;    gf16_log_table;   |x| gf16_log_table::new(x).unwrap(); 15;  0x1 }
-    test_axioms! { gf256_log_table_axioms;   gf256_log_table;  gf256_log_table; 255; 0x11 }
+    test_axioms! { gf16_log_table_axioms;    gf16_log_table; 15;  0x1 }
+    test_axioms! { gf256_log_table_axioms;   gf256_log_table; 255; 0x11 }
 
     #[gf(polynomial=0x13, generator=0x2, rem_table)]
     type gf16_rem_table;
@@ -269,13 +269,13 @@ mod test {
     #[gf(polynomial=0x1000000000000001b, generator=0x2, rem_table)]
     type gf2p64_rem_table;
 
-    test_axioms! { gf16_rem_table_axioms;    gf16_rem_table;   |x| gf16_rem_table::new(x).unwrap(); 15;  0x1 }
-    test_axioms! { gf256_rem_table_axioms;   gf256_rem_table;  gf256_rem_table; 255; 0x11 }
-    test_axioms! { gf4096_rem_table_axioms;  gf4096_rem_table; |x| gf4096_rem_table::new(x).unwrap(); 4095; 0x111 }
-    test_axioms! { gf2p16_rem_table_axioms;  gf2p16_rem_table; gf2p16_rem_table; 65535; 0x1111 }
-    test_axioms! { gf2p23_rem_table_axioms;  gf2p23_rem_table; |x| gf2p23_rem_table::new(x).unwrap(); 8388607; 0x111111 }
-    test_axioms! { gf2p32_rem_table_axioms;  gf2p32_rem_table; gf2p32_rem_table; 4294967295; 0x11111111 }
-    test_axioms! { gf2p64_rem_table_axioms;  gf2p64_rem_table; gf2p64_rem_table; 18446744073709551615; 0x1111111111111111 }
+    test_axioms! { gf16_rem_table_axioms;    gf16_rem_table;   15;  0x1 }
+    test_axioms! { gf256_rem_table_axioms;   gf256_rem_table;  255; 0x11 }
+    test_axioms! { gf4096_rem_table_axioms;  gf4096_rem_table; 4095; 0x111 }
+    test_axioms! { gf2p16_rem_table_axioms;  gf2p16_rem_table; 65535; 0x1111 }
+    test_axioms! { gf2p23_rem_table_axioms;  gf2p23_rem_table; 8388607; 0x111111 }
+    test_axioms! { gf2p32_rem_table_axioms;  gf2p32_rem_table; 4294967295; 0x11111111 }
+    test_axioms! { gf2p64_rem_table_axioms;  gf2p64_rem_table; 18446744073709551615; 0x1111111111111111 }
 
     #[gf(polynomial=0x13, generator=0x2, small_rem_table)]
     type gf16_small_rem_table;
@@ -290,13 +290,13 @@ mod test {
     #[gf(polynomial=0x1000000000000001b, generator=0x2, small_rem_table)]
     type gf2p64_small_rem_table;
 
-    test_axioms! { gf16_small_rem_table_axioms;    gf16_small_rem_table;   |x| gf16_small_rem_table::new(x).unwrap(); 15;  0x1 }
-    test_axioms! { gf256_small_rem_table_axioms;   gf256_small_rem_table;  gf256_small_rem_table; 255; 0x11 }
-    test_axioms! { gf4096_small_rem_table_axioms;  gf4096_small_rem_table; |x| gf4096_small_rem_table::new(x).unwrap(); 4095; 0x111 }
-    test_axioms! { gf2p16_small_rem_table_axioms;  gf2p16_small_rem_table; gf2p16_small_rem_table; 65535; 0x1111 }
-    test_axioms! { gf2p23_small_rem_table_axioms;  gf2p23_small_rem_table; |x| gf2p23_small_rem_table::new(x).unwrap(); 8388607; 0x111111 }
-    test_axioms! { gf2p32_small_rem_table_axioms;  gf2p32_small_rem_table; gf2p32_small_rem_table; 4294967295; 0x11111111 }
-    test_axioms! { gf2p64_small_rem_table_axioms;  gf2p64_small_rem_table; gf2p64_small_rem_table; 18446744073709551615; 0x1111111111111111 }
+    test_axioms! { gf16_small_rem_table_axioms;    gf16_small_rem_table;   15;  0x1 }
+    test_axioms! { gf256_small_rem_table_axioms;   gf256_small_rem_table;  255; 0x11 }
+    test_axioms! { gf4096_small_rem_table_axioms;  gf4096_small_rem_table; 4095; 0x111 }
+    test_axioms! { gf2p16_small_rem_table_axioms;  gf2p16_small_rem_table; 65535; 0x1111 }
+    test_axioms! { gf2p23_small_rem_table_axioms;  gf2p23_small_rem_table; 8388607; 0x111111 }
+    test_axioms! { gf2p32_small_rem_table_axioms;  gf2p32_small_rem_table; 4294967295; 0x11111111 }
+    test_axioms! { gf2p64_small_rem_table_axioms;  gf2p64_small_rem_table; 18446744073709551615; 0x1111111111111111 }
 
     #[gf(polynomial=0x13, generator=0x2, barret)]
     type gf16_barret;
@@ -311,13 +311,13 @@ mod test {
     #[gf(polynomial=0x1000000000000001b, generator=0x2, barret)]
     type gf2p64_barret;
 
-    test_axioms! { gf16_barret_axioms;    gf16_barret;   |x| gf16_barret::new(x).unwrap(); 15;  0x1 }
-    test_axioms! { gf256_barret_axioms;   gf256_barret;  gf256_barret; 255; 0x11 }
-    test_axioms! { gf4096_barret_axioms;  gf4096_barret; |x| gf4096_barret::new(x).unwrap(); 4095; 0x111 }
-    test_axioms! { gf2p16_barret_axioms;  gf2p16_barret; gf2p16_barret; 65535; 0x1111 }
-    test_axioms! { gf2p23_barret_axioms;  gf2p23_barret; |x| gf2p23_barret::new(x).unwrap(); 8388607; 0x111111 }
-    test_axioms! { gf2p32_barret_axioms;  gf2p32_barret; gf2p32_barret; 4294967295; 0x11111111 }
-    test_axioms! { gf2p64_barret_axioms;  gf2p64_barret; gf2p64_barret; 18446744073709551615; 0x1111111111111111 }
+    test_axioms! { gf16_barret_axioms;    gf16_barret;   15;  0x1 }
+    test_axioms! { gf256_barret_axioms;   gf256_barret;  255; 0x11 }
+    test_axioms! { gf4096_barret_axioms;  gf4096_barret; 4095; 0x111 }
+    test_axioms! { gf2p16_barret_axioms;  gf2p16_barret; 65535; 0x1111 }
+    test_axioms! { gf2p23_barret_axioms;  gf2p23_barret; 8388607; 0x111111 }
+    test_axioms! { gf2p32_barret_axioms;  gf2p32_barret; 4294967295; 0x11111111 }
+    test_axioms! { gf2p64_barret_axioms;  gf2p64_barret; 18446744073709551615; 0x1111111111111111 }
 
     // all Galois-field params
     #[gf(
@@ -331,5 +331,5 @@ mod test {
     )]
     type gf256_all_params;
 
-    test_axioms! { gf_all_params; gf256_all_params; gf256_all_params; 255; 0x11 }
+    test_axioms! { gf_all_params; gf256_all_params; 255; 0x11 }
 }

@@ -11,6 +11,7 @@ pub mod rs255w223 {}
 mod test {
     use super::*;
     use crate::gf::*;
+    use crate::macros::*;
 
     extern crate alloc;
     use alloc::vec::Vec;
@@ -172,8 +173,91 @@ mod test {
         }
     }
 
+    // multi-byte Reed-Solomon
+    #[rs(gf=gf2p64, u=u64, block=26, data=16)]
+    pub mod gf2p64_rs26w16 {}
+
+    #[test]
+    fn gf2p64_rs26w16() {
+        let mut data = (0..26).collect::<Vec<u64>>();
+        gf2p64_rs26w16::encode(&mut data);
+        assert!(gf2p64_rs26w16::is_correct(&data));
+
+        // correct up to k known erasures
+        for i in 0..(26-16) {
+            data[0..i].fill(0x7878787878787878);
+            let res = gf2p64_rs26w16::correct_erasures(&mut data, &(0..i).collect::<Vec<_>>());
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..16], &(0..16).collect::<Vec<u64>>());
+        }
+
+        // correct up to k/2 unknown errors
+        for i in 0..(26-16)/2 {
+            data[0..i].fill(0x7878787878787878);
+            let res = gf2p64_rs26w16::correct_errors(&mut data);
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..16], &(0..16).collect::<Vec<u64>>());
+        }
+    }
+
+    // Reed-Solomon with very odd sizes
+    #[gf(polynomial=0x13, generator=0x2)]
+    type gf16;
+    #[rs(gf=gf16, u=u8, block=15, data=8)]
+    pub mod gf16_rs15w8 {}
+    #[gf(polynomial=0x800021, generator=0x2)]
+    type gf2p23;
+    #[rs(gf=gf2p23, u=u32, block=26, data=16)]
+    pub mod gf2p23_rs26w16 {}
+
+    #[test]
+    fn gf2p16_rs15w8() {
+        let mut data = (0..15).collect::<Vec<u8>>();
+        gf16_rs15w8::encode(&mut data);
+        assert!(gf16_rs15w8::is_correct(&data));
+
+        // correct up to k known erasures
+        for i in 0..(15-8) {
+            data[0..i].fill(0x7);
+            let res = gf16_rs15w8::correct_erasures(&mut data, &(0..i).collect::<Vec<_>>());
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..8], &(0..8).collect::<Vec<u8>>());
+        }
+
+        // correct up to k/2 unknown errors
+        for i in 0..(15-8)/2 {
+            data[0..i].fill(0x7);
+            let res = gf16_rs15w8::correct_errors(&mut data);
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..8], &(0..8).collect::<Vec<u8>>());
+        }
+    }
+
+    #[test]
+    fn gf2p23_rs26w16() {
+        let mut data = (0..26).collect::<Vec<u32>>();
+        gf2p23_rs26w16::encode(&mut data);
+        assert!(gf2p23_rs26w16::is_correct(&data));
+
+        // correct up to k known erasures
+        for i in 0..(26-16) {
+            data[0..i].fill(0x787878);
+            let res = gf2p23_rs26w16::correct_erasures(&mut data, &(0..i).collect::<Vec<_>>());
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..16], &(0..16).collect::<Vec<u32>>());
+        }
+
+        // correct up to k/2 unknown errors
+        for i in 0..(26-16)/2 {
+            data[0..i].fill(0x787878);
+            let res = gf2p23_rs26w16::correct_errors(&mut data);
+            assert_eq!(res.ok(), Some(i));
+            assert_eq!(&data[0..16], &(0..16).collect::<Vec<u32>>());
+        }
+    }
+
     // all RS params
-    #[rs(block=26, data=16, gf=gf256)]
+    #[rs(gf=gf256, u=u8, block=26, data=16)]
     mod rs26w16_all_params {}
 
     #[test]

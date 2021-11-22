@@ -48,20 +48,20 @@ pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 // https://github.com/rust-lang/rust/issues/67217
 //
 pub const GENERATOR_POLY: [__gf; ECC_SIZE+1] = {
-    let mut g = [__gf(0); ECC_SIZE+1];
-    g[ECC_SIZE] = __gf(1);
+    let mut g = [__gf::new(0); ECC_SIZE+1];
+    g[ECC_SIZE] = __gf::new(1);
 
     // find G(x) = π (x - g^i)
     let mut i = 0usize;
     while i < ECC_SIZE {
         // H(x) = x - g^i
         let h = [
-            __gf(1),
-            __gf::GENERATOR.naive_pow(i as u8),
+            __gf::new(1),
+            __gf::GENERATOR.naive_pow(i as __u),
         ];
 
         // find G(x) = G(x)*H(x) = G(x)*(x - g^i)
-        let mut r = [__gf(0); ECC_SIZE+1];
+        let mut r = [__gf::new(0); ECC_SIZE+1];
         let mut j = 0usize;
         while j < i+1 {
             let mut k = 0usize;
@@ -107,7 +107,7 @@ impl fmt::Display for Error {
 /// Note polynomials here are ordered biggest-coefficient first
 ///
 fn poly_eval(f: &[__gf], x: __gf) -> __gf {
-    let mut y = __gf(0);
+    let mut y = __gf::new(0);
     for c in f {
         y = y*x + c;
     }
@@ -133,7 +133,7 @@ fn poly_add(f: &mut [__gf], g: &[__gf]) {
 
 /// Multiply two polynomials together
 fn poly_mul(f: &mut [__gf], g: &[__gf]) {
-    debug_assert!(f[..g.len()-1].iter().all(|x| *x == __gf(0)));
+    debug_assert!(f[..g.len()-1].iter().all(|x| *x == __gf::new(0)));
 
     // This is in-place, at the cost of being a bit confusing,
     // note that we only write to i+j, and i+j is always >= i
@@ -145,7 +145,7 @@ fn poly_mul(f: &mut [__gf], g: &[__gf]) {
     //
     for i in (0..f.len()-g.len()+1).rev() {
         let fi = f[f.len()-1-i];
-        f[f.len()-1-i] = __gf(0);
+        f[f.len()-1-i] = __gf::new(0);
 
         for j in 0..g.len() {
             f[f.len()-1-(i+j)] += fi * g[g.len()-1-j];
@@ -165,7 +165,7 @@ fn poly_divrem(f: &mut [__gf], g: &[__gf]) {
     let leading_coeff = g[0];
 
     for i in 0 .. (f.len() - g.len() + 1) {
-        if f[i] != __gf(0) {
+        if f[i] != __gf::new(0) {
             f[i] /= leading_coeff;
 
             for j in 1..g.len() {
@@ -186,7 +186,7 @@ fn poly_divrem(f: &mut [__gf], g: &[__gf]) {
 /// Note we expect the message to only take up the first message.len()-ECC_SIZE
 /// bytes, but this can be smaller than BLOCK_SIZE
 ///
-pub fn encode(message: &mut [u8]) {
+pub fn encode(message: &mut [__u]) {
     assert!(message.len() <= BLOCK_SIZE);
     assert!(message.len() >= ECC_SIZE);
     let data_len = message.len() - ECC_SIZE;
@@ -201,7 +201,7 @@ pub fn encode(message: &mut [u8]) {
 
     // divide by our generator polynomial
     poly_divrem(
-        __gf::slice_from_slice_mut(&mut rem),
+        unsafe { __gf::slice_from_slice_mut_unchecked(&mut rem) },
         &GENERATOR_POLY
     );
 
@@ -218,7 +218,7 @@ fn find_syndromes(f: &[__gf]) -> Vec<__gf> {
     let mut syndromes = vec![];
     for i in (0..ECC_SIZE).rev() {
         syndromes.push(
-            poly_eval(f, __gf::GENERATOR.pow(u8::try_from(i).unwrap()))
+            poly_eval(f, __gf::GENERATOR.pow(__u::try_from(i).unwrap()))
         );
     }
     syndromes
@@ -234,7 +234,7 @@ fn find_forney_syndromes(
     let mut fs = Vec::from(syndromes);
 
     for i in erasures {
-        let x = __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap());
+        let x = __gf::GENERATOR.pow(__u::try_from(BLOCK_SIZE-1-i).unwrap());
         for j in 0..fs.len()-1 {
             let fs_len = fs.len();
             fs[fs_len-1-j] = fs[fs_len-1-j]*x + fs[fs_len-1-(j+1)];
@@ -251,14 +251,14 @@ fn find_forney_syndromes(
 /// Λ(x) = π (1 - xg^i)
 ///
 fn find_erasure_locator(erasures: &[usize]) -> Vec<__gf> {
-    let mut el = vec![__gf(0); erasures.len()+1];
+    let mut el = vec![__gf::new(0); erasures.len()+1];
     let el_len = el.len();
-    el[el_len-1] = __gf(1);
+    el[el_len-1] = __gf::new(1);
 
     for i in erasures {
         poly_mul(&mut el, &[
-            __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap()),
-            __gf(1)
+            __gf::GENERATOR.pow(__u::try_from(BLOCK_SIZE-1-i).unwrap()),
+            __gf::new(1)
         ]);
     }
 
@@ -270,7 +270,7 @@ fn find_erasure_locator(erasures: &[usize]) -> Vec<__gf> {
 /// Ω(x) = S(x)*Λ(x)
 ///
 fn find_erasure_evaluator(syndromes: &[__gf], el: &[__gf]) -> Vec<__gf> {
-    let mut ee = vec![__gf(0); syndromes.len()+el.len()+2];
+    let mut ee = vec![__gf::new(0); syndromes.len()+el.len()+2];
     let ee_len = ee.len();
     ee[ee_len-syndromes.len()-1..ee_len-1].copy_from_slice(syndromes);
     poly_mul(&mut ee, el);
@@ -283,13 +283,13 @@ fn find_erasure_evaluator(syndromes: &[__gf], el: &[__gf]) -> Vec<__gf> {
 /// Berlekamp-Massey algorithm
 ///
 fn find_error_locator(syndromes: &[__gf]) -> Vec<__gf> {
-    let mut old_el = vec![__gf(0); syndromes.len()+1];
+    let mut old_el = vec![__gf::new(0); syndromes.len()+1];
     let old_el_len = old_el.len();
-    old_el[old_el_len-1] = __gf(1);
+    old_el[old_el_len-1] = __gf::new(1);
 
-    let mut new_el = vec![__gf(0); syndromes.len()+1];
+    let mut new_el = vec![__gf::new(0); syndromes.len()+1];
     let new_el_len = new_el.len();
-    new_el[new_el_len-1] = __gf(1);
+    new_el[new_el_len-1] = __gf::new(1);
 
     // l is the current estimate on number of errors
     let mut l = 0;
@@ -304,9 +304,9 @@ fn find_error_locator(syndromes: &[__gf]) -> Vec<__gf> {
         // shift polynomial
         old_el.copy_within(1.., 0);
         let old_el_len = old_el.len();
-        old_el[old_el_len-1] = __gf(0);
+        old_el[old_el_len-1] = __gf::new(0);
 
-        if delta != __gf(0) {
+        if delta != __gf::new(0) {
             poly_scale(&mut old_el, delta);
             if 2*l <= i {
                 new_el.swap_with_slice(&mut old_el);
@@ -318,7 +318,7 @@ fn find_error_locator(syndromes: &[__gf]) -> Vec<__gf> {
     }
 
     // trim leading zeros
-    let zeros = new_el.iter().take_while(|x| **x == __gf(0)).count();
+    let zeros = new_el.iter().take_while(|x| **x == __gf::new(0)).count();
     new_el.drain(0 .. zeros);
 
     new_el.reverse();
@@ -337,10 +337,10 @@ fn find_errors(error_locator: &[__gf]) -> Vec<usize> {
     for i in 0..BLOCK_SIZE {
         let y = poly_eval(
             error_locator,
-            __gf::GENERATOR.pow(u8::try_from(i).unwrap())
+            __gf::GENERATOR.pow(__u::try_from(i).unwrap())
         );
 
-        if y == __gf(0) {
+        if y == __gf::new(0) {
             // found a root!
             errors.push(BLOCK_SIZE-1-i);
         }
@@ -376,26 +376,26 @@ fn find_erasure_magnitude(
     let mut erasure_roots = Vec::with_capacity(erasures.len());
     for i in erasures {
         erasure_roots.push(
-            __gf::GENERATOR.pow(u8::try_from(BLOCK_SIZE-1-i).unwrap())
+            __gf::GENERATOR.pow(__u::try_from(BLOCK_SIZE-1-i).unwrap())
         );
     }
 
     // find erasure magnitudes using Forney's algorithm
-    let mut erasure_magnitude = vec![__gf(0); BLOCK_SIZE];
+    let mut erasure_magnitude = vec![__gf::new(0); BLOCK_SIZE];
     for i in 0..erasure_roots.len() {
         let root = erasure_roots[i];
         let root_inv = root.recip();
 
-        let mut derivative = __gf(1);
+        let mut derivative = __gf::new(1);
         for j in 0..erasure_roots.len() {
             if j != i {
-                derivative *= __gf(1) - root_inv*erasure_roots[j];
+                derivative *= __gf::new(1) - root_inv*erasure_roots[j];
             }
         }
 
         // derivative should never be zero, though this can happen if there
         // are redundant erasures
-        assert!(derivative != __gf(0));
+        assert!(derivative != __gf::new(0));
 
         // evaluate error evaluator
         let y = root * poly_eval(&erasure_evaluator, root_inv);
@@ -411,20 +411,20 @@ fn find_erasure_magnitude(
 ///
 /// Note this is quite a bit faster than correcting the errors
 ///
-pub fn is_correct(message: &[u8]) -> bool {
-    let message_poly = __gf::slice_from_slice(message);
+pub fn is_correct(message: &[__u]) -> bool {
+    let message_poly = unsafe { __gf::slice_from_slice_unchecked(message) };
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = find_syndromes(message_poly);
-    syndromes.iter().all(|s| *s == __gf(0))
+    syndromes.iter().all(|s| *s == __gf::new(0))
 }
 
 /// Correct up to ECC_SIZE erasures at known locations
 pub fn correct_erasures(
-    message: &mut [u8],
+    message: &mut [__u],
     erasures: &[usize]
 ) -> Result<usize, Error> {
-    let message_poly = __gf::slice_from_slice_mut(message);
+    let message_poly = unsafe { __gf::slice_from_slice_mut_unchecked(message) };
 
     // too many erasures?
     if erasures.len() > ECC_SIZE {
@@ -441,7 +441,7 @@ pub fn correct_erasures(
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == __gf(0)) {
+    if syndromes.iter().all(|s| *s == __gf::new(0)) {
         return Ok(0);
     }
 
@@ -466,12 +466,12 @@ pub fn correct_erasures(
 }
 
 /// Correct up to ECC_SIZE/2 errors at unknown locations
-pub fn correct_errors(message: &mut [u8]) -> Result<usize, Error> {
-    let message_poly = __gf::slice_from_slice_mut(message);
+pub fn correct_errors(message: &mut [__u]) -> Result<usize, Error> {
+    let message_poly = unsafe { __gf::slice_from_slice_mut_unchecked(message) };
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == __gf(0)) {
+    if syndromes.iter().all(|s| *s == __gf::new(0)) {
         return Ok(0);
     }
 
@@ -510,10 +510,10 @@ pub fn correct_errors(message: &mut [u8]) -> Result<usize, Error> {
 /// Correct a mixture of erasures at unknown locations and erasures
 /// as known locations, can correct up to 2*errors+erasures <= ECC_SIZE
 pub fn correct(
-    message: &mut [u8],
+    message: &mut [__u],
     erasures: &[usize]
 ) -> Result<usize, Error> {
-    let message_poly = __gf::slice_from_slice_mut(message);
+    let message_poly = unsafe { __gf::slice_from_slice_mut_unchecked(message) };
 
     // adjust erasures for implicitly prepended zeros?
     let mut erasures = Cow::Borrowed(erasures);
@@ -525,7 +525,7 @@ pub fn correct(
 
     // find syndromes, syndromes of all zero means there are no errors
     let syndromes = find_syndromes(message_poly);
-    if syndromes.iter().all(|s| *s == __gf(0)) {
+    if syndromes.iter().all(|s| *s == __gf::new(0)) {
         return Ok(0);
     }
 

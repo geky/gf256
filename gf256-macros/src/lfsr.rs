@@ -162,7 +162,6 @@ pub fn lfsr(
             })
         }
         None => {
-            // We can use NonZero here for more niches!
             let u = Ident::new(&format!("u{}", max(width.next_power_of_two(), 8)), Span::call_site());
             overrides.push(quote! {
                 use #u as #__u;
@@ -176,7 +175,6 @@ pub fn lfsr(
             })
         }
         None => {
-            // We can use NonZero here for more niches!
             let u2 = Ident::new(&format!("u{}", 2*max(width.next_power_of_two(), 8)), Span::call_site());
             overrides.push(quote! {
                 use #u2 as #__u2;
@@ -190,7 +188,6 @@ pub fn lfsr(
             })
         }
         None => {
-            // We can use NonZero here for more niches!
             let nzu = Ident::new(&format!("NonZeroU{}", max(width.next_power_of_two(), 8)), Span::call_site());
             overrides.push(quote! {
                 use core::num::#nzu as #__nzu;
@@ -204,7 +201,6 @@ pub fn lfsr(
             })
         }
         None => {
-            // We can use NonZero here for more niches!
             let nzu2 = Ident::new(&format!("NonZeroU{}", 2*max(width.next_power_of_two(), 8)), Span::call_site());
             overrides.push(quote! {
                 use core::num::#nzu2 as #__nzu2;

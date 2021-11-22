@@ -23,6 +23,8 @@ struct RsArgs {
 
     #[darling(default)]
     gf: Option<syn::Path>,
+    #[darling(default)]
+    u: Option<syn::Path>,
 }
 
 pub fn rs(
@@ -51,6 +53,7 @@ pub fn rs(
     let rs = ty.ident;
 
     let __gf = Ident::new(&format!("__{}_gf", rs.to_string()), Span::call_site());
+    let __u  = Ident::new(&format!("__{}_u",  rs.to_string()), Span::call_site());
 
     // overrides in parent's namespace
     let mut overrides = vec![];
@@ -64,6 +67,25 @@ pub fn rs(
             overrides.push(quote! {
                 use #__crate::gf::gf256 as #__gf;
             })
+        }
+    }
+    match args.u.as_ref() {
+        Some(u) => {
+            overrides.push(quote! {
+                use #u as #__u;
+            })
+        }
+        None => {
+            // default to u8, we can't do any better since we don't really have
+            // a way to infer the underlying u-type of __gf
+            //
+            // we could use an inherent associated type in __gf, except they are
+            // currently not supported
+            // https://github.com/rust-lang/rust/issues/8995
+            //
+            overrides.push(quote! {
+                use u8 as #__u;
+            });
         }
     }
 
@@ -81,6 +103,9 @@ pub fn rs(
         )),
         ("__gf".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
             quote! { super::#__gf }
+        }))),
+        ("__u".to_owned(), TokenTree::Group(Group::new(Delimiter::None, {
+            quote! { super::#__u }
         }))),
         ("__crate".to_owned(), __crate.clone()),
     ]);
