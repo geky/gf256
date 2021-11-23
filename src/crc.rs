@@ -1,3 +1,218 @@
+//! ## CRC functions and macros
+//!
+//! [Cyclic redundancy checks (CRCs)][crcs], are a common checksum algorithm that
+//! is simple to implement in circuitry and effective at detecting errors.
+//!
+//! Looking at CRCs mathematically is fascinating, because they are nothing more
+//! than polynomial division, allowing for efficient implementations that leverage
+//! our polynomial types and hardware-accelerated carry-less multiplication.
+//!
+//! TODO example
+//!
+//! Note this module requires feature `crc`.
+//!
+//! TODO link to example!
+//! TODO link to all examples in README?
+//!
+//! ## How do CRCs work?
+//! 
+//! As mentioned above, CRCs mathematically are fascinating. A CRC is nothing more
+//! than the binary remainder after polynomial division by some constant.
+//!
+//! Take some data for example:
+//!
+//! ``` text
+//! input = "hi"
+//!       = 0110100001101001
+//! ```
+//!
+//! Choose a size for our CRC, I will use 8-bits. Pad our data by that number of
+//! zeros, and divide by some polynomial constant with that number of bits + 1,
+//! in this case I'm using 0b100000111:
+//!
+//! ``` text
+//! input = "hi"
+//!       = 01101000 01101001
+//!
+//! pad with 8 zeros:
+//!
+//!       = 01101000 01101001 00000000
+//!
+//! divide by 0b100000111:
+//!
+//!       = 01101000 01101001 00000000
+//!       ^  1000001 11
+//!       = 00101001 10101001 00000000
+//!       ^   100000 111
+//!       = 00001001 01001001 00000000
+//!       ^     1000 00111
+//!       = 00000001 01110001 00000000
+//!       ^        1 00000111
+//!       = 00000000 01110110 00000000
+//!       ^           1000001 11
+//!       = 00000000 00110111 11000000
+//!       ^            100000 111
+//!       = 00000000 00010111 00100000
+//!       ^             10000 0111
+//!       = 00000000 00000111 01010000
+//!       ^               100 000111
+//!       = 00000000 00000011 01001100
+//!       ^                10 0000111
+//!       = 00000000 00000001 01000010
+//!       ^                 1 00000111
+//!       ---------------------------
+//!       = 00000000 00000000 01000101
+//!                              |
+//! remainder = 01000101 <-------'
+//! ```
+//!
+//! And this is our CRC!
+//!
+//! Note we are performing polynomial division! So instead of shifts and
+//! subtractions, we are doing shifts and xors. See the [p](../p) module's
+//! documentation for more info on viewing data as binary polynomials.
+//!
+//! There's some interesting things to note, for one, the original message bits
+//! will always end up as zero if our polynomial size matches the number of
+//! appended zeros + 1. And for two, the message bits seem to have a rather
+//! large impact on every bit in the resulting CRC, a property of a good checksum.
+//!
+//! TODO Hm do I really need a link here? consistency?
+//! We can of course compute this directly with our [polynomial types](../p):
+//!
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let data = p32(0b0110100001101001) << 8;
+//! let polynomial = p32(0b100000111);
+//! assert_eq!(data % polynomial, p32(0b01000101));
+//! ```
+//!
+//! One fun feature of CRCs, is that, since the CRC is the remainder after division,
+//! if we replace our padding zeros with the CRC (note this is the same as appending
+//! the CRC to our original message), computing the CRC again will give us a value of
+//! zero:
+//!
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let data_with_crc = p32(0b011010000110100101000101);
+//! let polynomial = p32(0b100000111);
+//! assert_eq!(data_with_crc % polynomial, p32(0));
+//! ```
+//!
+//! This trick can sometimes be useful for simplifying the validation CRCs.
+//!
+//! And we can create this exact CRC using gf256:
+//!
+//! ``` rust
+//! # pub use ::gf256::*;
+//! // TODO move crc macro to gf256::crc::crc;
+//! use ::gf256::macros;
+//!
+//! #[macros::crc(polynomial=0b100000111, reflected=false, init=0, xor=0)]
+//! fn crc8() {}
+//!
+//! # fn main() {
+//! assert_eq!(crc8(&[0b01101000, 0b01101001]), 0b01000101);
+//! # }
+//! ```
+//!
+//! The `reflected`, `init`, and `xor` options are extra tweaks to the CRC algorithm
+//! that are commonly found in standard CRCs. More info on these in the [crc macro](crccrccrc)
+//! documentation.
+//!
+//! TODO wait can we not CRC incrementally?
+//!
+//! ## Optimizations
+//!
+//! CRCs are simple and fast in circuitry, but not so much in software due to the
+//! bit-level operations. Fortunately there are several optimizations we can do
+//! to speed up CRC calculation in software.
+//!
+//! A straightforward implementation of polynomial remainder is available in `naive`
+//! mode, though it has been tweaked to work well with byte-level slices. Additional modes:
+//!
+//! - In `table`, CRCs use a precomputed remainder table to compute the remainder a byte
+//!   at a time.
+//!
+//!   The trick for computing the remainder table is to use the xor of the argument with
+//!   the current remainder as the index into the table. This allows you to compute the
+//!   remainder of any arbitrarily sized inputs using only a single byte index lookup
+//!   at a time.
+//!   
+//!   This is the most common implementation of CRCs you will find, due to its speed and
+//!   portability.
+//!
+//! - In `small_table` mode, the same strategy as `table` mode is used, but with a 16
+//!   element  remainder table computer the remainder a nibble at a time.
+//!
+//! - In `barret` mode, CRCs use [Barret-reduction][barret-reduction] to efficiently
+//!   compute the remainder using only multiplication by precomputed constants.
+//!
+//!   This mode is especially effective when hardware carry-less multiplication
+//!   instructions are available.
+//!
+//! If hardware carry-less multiplication is available, `barret` mode is the fastest
+//! option for CRCs, so CRC implementations will use `barret` by default.
+//!
+//! If hardware carry-less multiplication is not available, `table` mode will be
+//! used, unless the feature `small-tables` is enabled, in which case `small_table`
+//! mode will be used. If the feature `no-tables` is enabled, `barret` mode will be
+//! used as it outperforms a naive implementation even when hardware carry-less
+//! multiplication is not available.
+//!   
+//! Though note the default mode is susceptible to change.
+//!
+//! ## Choosing a polynomial
+//!
+//! Choosing a good CRC polynomial is rather complicated. It depends on the length
+//! of the data you are protecting and the type of errors you are protecting
+//! against.
+//!
+//! The best resource I've found for choosing good CRC polynomials is the research
+//! done by Philip Koopman and Tridib Chakravarty in ["Cyclic Redundancy Code (CRC)
+//! Polynomial Selection For Embedded Networks"][koopman-chakravarty-paper].
+//!
+//! Generally you want to choose a CRC that has the largest "Hamming distance" for
+//! your message length, or at least a good "Hamming distance" over your range of
+//! message lengths. Hamming distance is the number of bit-flips required to get
+//! to another message with a valid CRC, so a larger Hamming distance means more
+//! bit-flips before you fail to detect an error.
+//!
+//! Philip Koopman also has a list of good CRC polynomials and their effective
+//! Hamming distances at various message lengths [here][crc-polynomials].
+//!
+//! TODO
+//! https://users.ece.cmu.edu/~koopman/crc/
+//! http://users.ece.cmu.edu/~koopman/roses/dsn04/koopman04_crc_poly_embedded.pdf
+//!
+//! Note you may see several different formats for CRC polynomials! Where the
+//! mathematically correct polynomial may be 0x104c11db7, you may see a truncated
+//! 0x04c11db7 or 0x82608edb representation to fit into 32-bits, or a
+//! bit-reflected 0x1db710641, 0xedb88320, or 0x1db71064 representation. Make sure
+//! you understand the correct bit-width and endianness of a given polynomial
+//! before using it.
+//!
+//! ## A note on CRC32 vs CRC32C
+//!
+//! Did I mention choosing a good CRC polynomial is rather complicated? What if
+//! I told you that the most popular 32-bit CRC polynomial since 1975 was actually
+//! a rather sub-optimal polynomial for general-purpose CRCs?
+//!
+//! Well that is the situation the world finds itself in today. The most popular
+//! 32-bit CRC polynomial, called CRC32 (though sometimes referred to as CRC32B,
+//! perhaps only because it predates CRC32C?), performs poorly compared to later
+//! research around optimal CRC polynomials. The more recent CRC32C provides much
+//! better error detection for most message sizes by only choosing a different
+//! polynomial.
+//!
+//! But backwards compatability is painful to unroot. So this module provides
+//! both [`crc32`] and [`crc32c`], though it is suggested to use [`crc32c`] for
+//! new code.
+//!
+
+
 
 use crate::macros::crc;
 
@@ -18,16 +233,20 @@ pub fn crc16() {}
 // HD=4, up to 91607+32 bits
 // HD=5, up to 2974+32 bits
 // HD=6, up to 268+32 bits
+// HD=7, up to 171+32 bits
+// HD=8, up to 91+32 bits
 #[crc(polynomial=0x104c11db7)]
 pub fn crc32() {}
 
 // HD=3,4, up to 2147483615+32 bits
 // HD=5,6, up to 5243+32 bits
+// HD=7,8, up to 177+32 bits
 #[crc(polynomial=0x11edc6f41)]
 pub fn crc32c() {}
 
 // HD=3,4, up to 8589606850+64 bits
 // HD=5,6, up to 126701+64 bits
+// HD=7,7, up to ~33710+64 bits
 #[crc(polynomial=0x142f0e1eba9ea3693)]
 pub fn crc64() {}
 

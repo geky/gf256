@@ -617,33 +617,33 @@ impl From<u64> for __gf {
 }
 
 #[cfg(__if(__width > 8))]
-impl From<__crate::p8> for __gf {
+impl From<__crate::p::p8> for __gf {
     #[inline]
-    fn from(x: __crate::p8) -> __gf {
+    fn from(x: __crate::p::p8) -> __gf {
         __gf(__u::from(x.0))
     }
 }
 
 #[cfg(__if(__width > 16))]
-impl From<__crate::p16> for __gf {
+impl From<__crate::p::p16> for __gf {
     #[inline]
-    fn from(x: __crate::p16) -> __gf {
+    fn from(x: __crate::p::p16) -> __gf {
         __gf(__u::from(x.0))
     }
 }
 
 #[cfg(__if(__width > 32 && !__is_usize))]
-impl From<__crate::p32> for __gf {
+impl From<__crate::p::p32> for __gf {
     #[inline]
-    fn from(x: __crate::p32) -> __gf {
+    fn from(x: __crate::p::p32) -> __gf {
         __gf(__u::from(x.0))
     }
 }
 
 #[cfg(__if(__width > 64 && !__is_usize))]
-impl From<__crate::p64> for __gf {
+impl From<__crate::p::p64> for __gf {
     #[inline]
-    fn from(x: __crate::p64) -> __gf {
+    fn from(x: __crate::p::p64) -> __gf {
         __gf(__u::from(x.0))
     }
 }
@@ -769,10 +769,10 @@ impl TryFrom<usize> for __gf {
 }
 
 #[cfg(__if(__width < 8))]
-impl TryFrom<__crate::p8> for __gf {
+impl TryFrom<__crate::p::p8> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::p8) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::p8) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -789,10 +789,10 @@ impl TryFrom<__crate::p8> for __gf {
 }
 
 #[cfg(__if(__width < 16))]
-impl TryFrom<__crate::p16> for __gf {
+impl TryFrom<__crate::p::p16> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::p16) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::p16) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -809,10 +809,10 @@ impl TryFrom<__crate::p16> for __gf {
 }
 
 #[cfg(__if(__width < 32 || __is_usize))]
-impl TryFrom<__crate::p32> for __gf {
+impl TryFrom<__crate::p::p32> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::p32) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::p32) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -829,10 +829,10 @@ impl TryFrom<__crate::p32> for __gf {
 }
 
 #[cfg(__if(__width < 64 || __is_usize))]
-impl TryFrom<__crate::p64> for __gf {
+impl TryFrom<__crate::p::p64> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::p64) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::p64) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -849,10 +849,10 @@ impl TryFrom<__crate::p64> for __gf {
 }
 
 #[cfg(__if(__width < 128 || __is_usize))]
-impl TryFrom<__crate::p128> for __gf {
+impl TryFrom<__crate::p::p128> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::p128) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::p128) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -869,10 +869,10 @@ impl TryFrom<__crate::p128> for __gf {
 }
 
 #[cfg(__if(!__is_usize))]
-impl TryFrom<__crate::psize> for __gf {
+impl TryFrom<__crate::p::psize> for __gf {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __crate::psize) -> Result<__gf, Self::Error> {
+    fn try_from(x: __crate::p::psize) -> Result<__gf, Self::Error> {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 Ok(__gf(__u::try_from(x.0)?))
@@ -973,9 +973,9 @@ impl FromLossy<usize> for __gf {
 }
 
 #[cfg(__if(__width < 8))]
-impl FromLossy<__crate::p8> for __gf {
+impl FromLossy<__crate::p::p8> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::p8) -> __gf {
+    fn from_lossy(x: __crate::p::p8) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -987,9 +987,9 @@ impl FromLossy<__crate::p8> for __gf {
 }
 
 #[cfg(__if(__width < 16))]
-impl FromLossy<__crate::p16> for __gf {
+impl FromLossy<__crate::p::p16> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::p16) -> __gf {
+    fn from_lossy(x: __crate::p::p16) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -1001,9 +1001,9 @@ impl FromLossy<__crate::p16> for __gf {
 }
 
 #[cfg(__if(__width < 32 || __is_usize))]
-impl FromLossy<__crate::p32> for __gf {
+impl FromLossy<__crate::p::p32> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::p32) -> __gf {
+    fn from_lossy(x: __crate::p::p32) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -1015,9 +1015,9 @@ impl FromLossy<__crate::p32> for __gf {
 }
 
 #[cfg(__if(__width < 64 || __is_usize))]
-impl FromLossy<__crate::p64> for __gf {
+impl FromLossy<__crate::p::p64> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::p64) -> __gf {
+    fn from_lossy(x: __crate::p::p64) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -1029,9 +1029,9 @@ impl FromLossy<__crate::p64> for __gf {
 }
 
 #[cfg(__if(__width < 128 || __is_usize))]
-impl FromLossy<__crate::p128> for __gf {
+impl FromLossy<__crate::p::p128> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::p128) -> __gf {
+    fn from_lossy(x: __crate::p::p128) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -1043,9 +1043,9 @@ impl FromLossy<__crate::p128> for __gf {
 }
 
 #[cfg(__if(!__is_usize))]
-impl FromLossy<__crate::psize> for __gf {
+impl FromLossy<__crate::p::psize> for __gf {
     #[inline]
-    fn from_lossy(x: __crate::psize) -> __gf {
+    fn from_lossy(x: __crate::p::psize) -> __gf {
         cfg_if! {
             if #[cfg(__if(__is_pw2ge8))] {
                 __gf(x.0 as __u)
@@ -1401,135 +1401,135 @@ impl FromLossy<__gf> for usize {
 }
 
 #[cfg(__if(__width < 8))]
-impl From<__gf> for __crate::p8 {
+impl From<__gf> for __crate::p::p8 {
     #[inline]
-    fn from(x: __gf) -> __crate::p8 {
-        __crate::p8(u8::from(x.0))
+    fn from(x: __gf) -> __crate::p::p8 {
+        __crate::p::p8(u8::from(x.0))
     }
 }
 
 #[cfg(__if(__width < 16))]
-impl From<__gf> for __crate::p16 {
+impl From<__gf> for __crate::p::p16 {
     #[inline]
-    fn from(x: __gf) -> __crate::p16 {
-        __crate::p16(u16::from(x.0))
+    fn from(x: __gf) -> __crate::p::p16 {
+        __crate::p::p16(u16::from(x.0))
     }
 }
 
 #[cfg(__if(__width < 32 && !__is_usize))]
-impl From<__gf> for __crate::p32 {
+impl From<__gf> for __crate::p::p32 {
     #[inline]
-    fn from(x: __gf) -> __crate::p32 {
-        __crate::p32(u32::from(x.0))
+    fn from(x: __gf) -> __crate::p::p32 {
+        __crate::p::p32(u32::from(x.0))
     }
 }
 
 #[cfg(__if(__width < 64 && !__is_usize))]
-impl From<__gf> for __crate::p64 {
+impl From<__gf> for __crate::p::p64 {
     #[inline]
-    fn from(x: __gf) -> __crate::p64 {
-        __crate::p64(u64::from(x.0))
+    fn from(x: __gf) -> __crate::p::p64 {
+        __crate::p::p64(u64::from(x.0))
     }
 }
 
 #[cfg(__if(__width < 128 && !__is_usize))]
-impl From<__gf> for __crate::p128 {
+impl From<__gf> for __crate::p::p128 {
     #[inline]
-    fn from(x: __gf) -> __crate::p128 {
-        __crate::p128(u128::from(x.0))
+    fn from(x: __gf) -> __crate::p::p128 {
+        __crate::p::p128(u128::from(x.0))
     }
 }
 
 #[cfg(__if(__width <= 16 && !__is_usize))]
-impl From<__gf> for __crate::psize {
+impl From<__gf> for __crate::p::psize {
     #[inline]
-    fn from(x: __gf) -> __crate::psize {
-        __crate::psize(usize::from(x.0))
+    fn from(x: __gf) -> __crate::p::psize {
+        __crate::p::psize(usize::from(x.0))
     }
 }
 
 #[cfg(__if(__width > 8))]
-impl TryFrom<__gf> for __crate::p8 {
+impl TryFrom<__gf> for __crate::p::p8 {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __gf) -> Result<__crate::p8, Self::Error> {
-        Ok(__crate::p8(u8::try_from(x.0)?))
+    fn try_from(x: __gf) -> Result<__crate::p::p8, Self::Error> {
+        Ok(__crate::p::p8(u8::try_from(x.0)?))
     }
 }
 
 #[cfg(__if(__width > 16))]
-impl TryFrom<__gf> for __crate::p16 {
+impl TryFrom<__gf> for __crate::p::p16 {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __gf) -> Result<__crate::p16, Self::Error> {
-        Ok(__crate::p16(u16::try_from(x.0)?))
+    fn try_from(x: __gf) -> Result<__crate::p::p16, Self::Error> {
+        Ok(__crate::p::p16(u16::try_from(x.0)?))
     }
 }
 
 #[cfg(__if(__width > 32 || __is_usize))]
-impl TryFrom<__gf> for __crate::p32 {
+impl TryFrom<__gf> for __crate::p::p32 {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __gf) -> Result<__crate::p32, Self::Error> {
-        Ok(__crate::p32(u32::try_from(x.0)?))
+    fn try_from(x: __gf) -> Result<__crate::p::p32, Self::Error> {
+        Ok(__crate::p::p32(u32::try_from(x.0)?))
     }
 }
 
 #[cfg(__if(__width > 64 || __is_usize))]
-impl TryFrom<__gf> for __crate::p64 {
+impl TryFrom<__gf> for __crate::p::p64 {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __gf) -> Result<__crate::p64, Self::Error> {
-        Ok(__crate::p64(u64::try_from(x.0)?))
+    fn try_from(x: __gf) -> Result<__crate::p::p64, Self::Error> {
+        Ok(__crate::p::p64(u64::try_from(x.0)?))
     }
 }
 
 #[cfg(__if(__width > 16 && !__is_usize))]
-impl TryFrom<__gf> for __crate::psize {
+impl TryFrom<__gf> for __crate::p::psize {
     type Error = TryFromIntError;
     #[inline]
-    fn try_from(x: __gf) -> Result<__crate::psize, Self::Error> {
-        Ok(__crate::psize(usize::try_from(x.0)?))
+    fn try_from(x: __gf) -> Result<__crate::p::psize, Self::Error> {
+        Ok(__crate::p::psize(usize::try_from(x.0)?))
     }
 }
 
 #[cfg(__if(__width > 8))]
-impl FromLossy<__gf> for __crate::p8 {
+impl FromLossy<__gf> for __crate::p::p8 {
     #[inline]
-    fn from_lossy(x: __gf) -> __crate::p8 {
-        __crate::p8(x.0 as u8)
+    fn from_lossy(x: __gf) -> __crate::p::p8 {
+        __crate::p::p8(x.0 as u8)
     }
 }
 
 #[cfg(__if(__width > 16))]
-impl FromLossy<__gf> for __crate::p16 {
+impl FromLossy<__gf> for __crate::p::p16 {
     #[inline]
-    fn from_lossy(x: __gf) -> __crate::p16 {
-        __crate::p16(x.0 as u16)
+    fn from_lossy(x: __gf) -> __crate::p::p16 {
+        __crate::p::p16(x.0 as u16)
     }
 }
 
 #[cfg(__if(__width > 32 || __is_usize))]
-impl FromLossy<__gf> for __crate::p32 {
+impl FromLossy<__gf> for __crate::p::p32 {
     #[inline]
-    fn from_lossy(x: __gf) -> __crate::p32 {
-        __crate::p32(x.0 as u32)
+    fn from_lossy(x: __gf) -> __crate::p::p32 {
+        __crate::p::p32(x.0 as u32)
     }
 }
 
 #[cfg(__if(__width > 64 || __is_usize))]
-impl FromLossy<__gf> for __crate::p64 {
+impl FromLossy<__gf> for __crate::p::p64 {
     #[inline]
-    fn from_lossy(x: __gf) -> __crate::p64 {
-        __crate::p64(x.0 as u64)
+    fn from_lossy(x: __gf) -> __crate::p::p64 {
+        __crate::p::p64(x.0 as u64)
     }
 }
 
 #[cfg(__if(__width > 16 && !__is_usize))]
-impl FromLossy<__gf> for __crate::psize {
+impl FromLossy<__gf> for __crate::p::psize {
     #[inline]
-    fn from_lossy(x: __gf) -> __crate::psize {
-        __crate::psize(x.0 as usize)
+    fn from_lossy(x: __gf) -> __crate::p::psize {
+        __crate::p::psize(x.0 as usize)
     }
 }
 

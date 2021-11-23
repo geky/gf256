@@ -20,7 +20,6 @@ test-configs:
 .PHONY: test
 test:
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --doc
 	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1 -q
 	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
@@ -40,9 +39,10 @@ bench:
 	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench raid   -- --noplot
 	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench rs     -- --noplot
 
-.PHONY: doc
-doc:
+.PHONY: docs
+docs:
 	$(ENV) cargo +nightly doc --no-deps --features nightly,thread-rng,lfsr,crc,shamir,raid,rs
+	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --doc
 
 .PHONY: clean
 clean:

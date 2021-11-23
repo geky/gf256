@@ -18,7 +18,7 @@ assert_eq!(a*(b+c), a*b + a*c);
 
 ## What are Galois-fields?
 
-Galois-fields, also called Finite-fields, are a finite set of "numbers" (for
+Galois-fields, also called finite-fields, are a finite set of "numbers" (for
 some definition of number), that you can do "math" on (for some definition
 of math).
 
@@ -125,383 +125,26 @@ let a = (u8::MAX).checked_add(1);  // overflows
 let b = gf256(u8::MAX) + gf256(1); // does not overflow
 ```
 
-## Galois-field construction
-
-There are several methods for constructing finite-fields.
-
-On common method is to perform all operations modulo a prime number:
-
-``` text
-a + b = (a + b) % p
-a * b = (a * b) % p
-```
-
-This works, but only when the size of the finite-field is prime. And
-unfortunately for us, the size of our machine words are very not prime!
-
-Instead, we use what's called a "binary-extension field".
-
-Consider a binary number:
-
-``` text
-a = 0b11011011
-```
-
-Normally we would view this as the binary representation of the number 219.
-
-Instead, lets view it as a polynomial for some made-up variable "x", where
-each coefficient is a binary 1 or 0:
-
-``` text
-a = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
-```
-
-We can add polynomials together, as long as we mod each coefficient by 2 so
-they remain binary:
-
-``` text
-a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
-b   = 0b1101 = 0*x^3 + 1*x^2 + 0*x^1 + 1*x^0
-
-a+b = ((1+1)%2)*x^3 + ((0+1)%2)*x^2 + ((1+0)%2)*x^1 + ((1+1)%2)*x^0
-    = 0*x^3 + 1*x^2 + 1*x^1 + 0*x^0
-    = 0b0110
-```
-
-You may recognize that this is actually xor! One fun way of viewing
-binary-extension fields is a generalization of xor.
-
-But there's more, we can also multiply polynomials together:
-
-``` text
-a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
-b   = 0b1101 = 1*x^3 + 1*x^2 + 0*x^1 + 1*x^0
-
-a*b = 1*x^6 + 0*x^5 + 1*x^4 + 1*x^3
-            + 1*x^5 + 0*x^4 + 1*x^3 + 1*x^2
-                            + 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
-    = 1*x^6 + ((0+1)%2)*x^5 + ((1+0)%2)*x^4 + ((1+1+1)%2)*x^3 + ((1+0)%2)*x^2 + 1*x^1 + 1*x^0
-    = 1*x^6 + 1*x^5 + 1*x^4 + 1*x^3 + 1*x^2 + 1*x^1 + 1*x^0
-    = 0b1111111
-```
-
-It's worth emphasizing that the "x" in these polynomials is a variable that we
-never actually evaluate. We just use it to create a view of the underlying
-binary numbers that we can do polynomial operations on.
-
-gf256 actually comes with a set of polynomial types to perform these
-operations directly:
-
-``` rust
-# use ::gf256::*;
-#
-assert_eq!(p8(0b1011) + p8(0b1101), p8(0b0110));
-assert_eq!(p8(0b1011) * p8(0b1101), p8(0b1111111));
-```
-
-But you may notice we have a problem. Polynomial addition (xor!) does not
-change the size of our polynomial, but polynomial multiplication does. If we
-tried to create a finite-field using these operations as they are right now,
-multiplication would escape the field!
-
-So we need a trick to keep multiplication in our field, and the answer, like
-any good math problem, is more prime numbers!
-
-In order to keep multiplication in our field, we define multiplication as
-polynomial multiplication modulo a "prime number". Except we aren't dealing
-with normal numbers, we're dealing with polynomials, so we call it an
-"irreducible polynomial". An "irreducible polynomial" being a polynomial that
-can't be divided evenly by any other polynomial.
-
-I'm going to use the polynomial `0b10011` in this example, but it can be any
-polynomial as long as it's 1. irreducible and 2. has n+1 bits where n is the
-number of bits in our field.
-
-1. Why does the polynomial need to be irreducible?
- 
-   It's for the same reason we have to use a prime number for prime fields. If
-   we use a polynomial with factors, we actually end up with multiple smaller
-   fields that don't intersect. Numbers in field constructable by one factor
-   never end up in the field constructed by the other number and vice-versa.
- 
-1. Why does the polynomial need n+1 bits?
- 
-   This is so the resulting polynomial after finding the remainder has n-bits.
- 
-   Much like how the prime number that defines prime fields is outside that
-   field, the irreducible polynomial that defines a binary-extension field is
-   outside of the field.
-
-TODO show tool here
-
-Multiplication modulo our irreducible polynomial now always stays in our field:
-
-``` rust
-# use ::gf256::*;
-#
-assert_eq!((p8(0b1011) * p8(0b1101)) % p8(0b10011), p8(0b0110));
-assert_eq!((p8(0b1111) * p8(0b1111)) % p8(0b10011), p8(0b1010));
-assert_eq!((p8(0b1100) * p8(0b1001)) % p8(0b10011), p8(0b0110));
-```
-
-That's great! Now we have an addition and multiplication that stays in our field
-while following all of our field axioms:
-
-``` rust
-# use ::gf256::*;
-#
-// a*(b+c) == a*b + a*c
-let a = p8(0b0001);
-let b = p8(0b0010);
-let c = p8(0b0011);
-assert_eq!((a * (b+c)) % p8(0b10011), p8(0b0001));
-assert_eq!((a*b) % p8(0b10011) + (a*c) % p8(0b10011), p8(0b0001));
-```
-
-But we need the inverses: subtraction and division.
-
-Fortunately subtraction is easy to define, it's polynomial subtraction with
-each coefficient modulo 2 in order to remain binary, which is... the exact same
-as addition. But that's perfectly fine! Polynomial addition (xor!) is its own
-inverse:
-
-``` rust
-# use ::gf256::*;
-#
-// (a+b)-b == a
-let a = p8(0b0001);
-let b = p8(0b0010);
-assert_eq!(a + b, p8(0b0011));
-assert_eq!(p8(0b0011) - b, p8(0b0001));
-```
-
-Division is a bit more complicated. In this case we need to look at some of the
-more quirky properties of finite-fields.
-
-If we take any number in our finite-field and repeatedly multiply it to itself,
-aka exponentiation, we will eventually end up with our original number since
-there are only a finite set of numbers. This is called a "multiplicative cycle",
-and it turns out that the length of every multiplicative cycle is a factor of
-the number of non-zero number in our field.
-
-``` rust
-# use ::gf256::*;
-#
-fn multiplicative_cycle(a: p8) -> usize {
-    let mut x = a;
-    let mut i = 0;
-    loop {
-        x = (x * a) % p8(0b10011);
-        i += 1;
-
-        if x == a {
-            return i;
-        }
-    }
-}
-
-assert_eq!(multiplicative_cycle(p8(0b0001)), 1);
-assert_eq!(multiplicative_cycle(p8(0b0110)), 3);
-assert_eq!(multiplicative_cycle(p8(0b1000)), 5);
-```
-
-In fact, there are several numbers in every finite-field whose multiplicative
-cycle actually includes every non-zero number in the field. These are called
-"generators" or "primitive elements" and are very useful for several
-algorithms.
-
-``` rust
-# use ::gf256::*;
-#
-# fn multiplicative_cycle(a: p8) -> usize {
-#     let mut x = a;
-#     let mut i = 0;
-#     loop {
-#         x = (x * a) % p8(0b10011);
-#         i += 1;
-#
-#         if x == a {
-#             return i;
-#         }
-#     }
-# }
-#
-assert_eq!(multiplicative_cycle(p8(0b0010)), 15);
-```
-
-This has some very interesting implications.
-
-If we raise any non-zero number in our field to the power of 15 (the number of
-non-zero elements), we will end up with our original number:
-
-``` rust
-# use ::gf256::*;
-#
-fn pow(a: p8, exp: usize) -> p8 {
-    let mut x = a;
-    for _ in 0..exp {
-        x = (x * a) % p8(0b10011);
-    }
-    x
-}
-
-// a^15 = a
-assert_eq!(pow(p8(0b0001), 15), p8(0b0001));
-assert_eq!(pow(p8(0b0110), 15), p8(0b0110));
-assert_eq!(pow(p8(0b1000), 15), p8(0b1000));
-assert_eq!(pow(p8(0b0010), 15), p8(0b0010));
-```
-
-If we raise any non-zero number in our field to the power of 15-1 (the number
-of non-zero elements - 1), we will end up with the number divided by itself,
-aka the identity of multiplication, aka 1.
-
-``` rust
-# use ::gf256::*;
-#
-# fn pow(a: p8, exp: usize) -> p8 {
-#     let mut x = a;
-#     for _ in 0..exp {
-#         x = (x * a) % p8(0b10011);
-#     }
-#     x
-# }
-# 
-// a^15-1 = 1
-assert_eq!(pow(p8(0b0001), 15-1), p8(0b0001));
-assert_eq!(pow(p8(0b0110), 15-1), p8(0b0001));
-assert_eq!(pow(p8(0b1000), 15-1), p8(0b0001));
-assert_eq!(pow(p8(0b0010), 15-1), p8(0b0001));
-```
-
-And, fascinatingly, if we raise any non-zero number of our field to the power
-of 15-2 (the number of non-zero elements - 2), we will end up with the number
-divided by itself twice, which is the multiplicative inverse of the original
-number. Isn't that neat!
-
-``` rust
-# use ::gf256::*;
-#
-# fn pow(a: p8, exp: usize) -> p8 {
-#     let mut x = a;
-#     for _ in 0..exp {
-#         x = (x * a) % p8(0b10011);
-#     }
-#     x
-# }
-# 
-// a^15-2 = a^-1
-assert_eq!(pow(p8(0b0001), 15-2), p8(0b0001));
-assert_eq!(pow(p8(0b0110), 15-2), p8(0b0111));
-assert_eq!(pow(p8(0b1000), 15-2), p8(0b1111));
-assert_eq!(pow(p8(0b0010), 15-2), p8(0b1001));
-
-// a*a^-1 = 1
-assert_eq!((p8(0b0001) * p8(0b0001)) % p8(0b10011), p8(0b0001));
-assert_eq!((p8(0b0110) * p8(0b0111)) % p8(0b10011), p8(0b0001));
-assert_eq!((p8(0b1000) * p8(0b1111)) % p8(0b10011), p8(0b0001));
-assert_eq!((p8(0b0010) * p8(0b1001)) % p8(0b10011), p8(0b0001));
-```
-
-This means we can define division in terms of repeated multiplication, which
-gives us the last of our field operations!
-
-``` text
-a + b = a + b
-a - b = a - b
-a * b = (a * b) % p
-         (2^n)-1-2
-a / b = b * (π a % p)
-
-where a and b are viewed as polynomials, p is an irreducible polynomial with
-n+1 bits, and n is the number of bits in our field.
-```
-
-These operations follow our field axioms:
-
-``` rust
-# use ::gf256::*;
-#
-fn add(a: p8, b: p8) -> p8 {
-    a + b
-}
-
-fn sub(a: p8, b: p8) -> p8 {
-    a - b
-}
-
-fn mul(a: p8, b: p8) -> p8 {
-    (a * b) % p8(0b10011)
-}
-
-fn div(a: p8, b: p8) -> p8 {
-    let mut x = b;
-    for _ in 0..(15-2) {
-        x = mul(x, b);
-    }
-    mul(a, x)
-}
-
-# let a = p8(0b0001);
-# let b = p8(0b0010);
-# let c = p8(0b0011);
-#
-// inverse
-assert_eq!(sub(add(a, b), b), a);
-assert_eq!(div(mul(a, b), b), a);
-
-// identity
-assert_eq!(add(a, p8(0)), a);
-assert_eq!(mul(a, p8(1)), a);
-
-// associativity
-assert_eq!(add(a, add(b, c)), add(add(a, b), c));
-assert_eq!(mul(a, mul(b, c)), mul(mul(a, b), c));
-
-// commutativity
-assert_eq!(add(a, b), add(b, a));
-assert_eq!(mul(a, b), mul(b, a));
-
-// distribution
-assert_eq!(mul(a, add(b, c)), add(mul(a, b), mul(a, c)));
-```
-
-And this is how our Galois-field types are defined! gf256 uses several
-different techniques to optimize these operations, but they are built on the
-same underlying theory.
-
-We generally name these fields GF(n), where n is the number of elements in the
-field, in honor of Évariste Galois the mathematician who created this branch
-of mathematics. So since this field is defined for 4-bits, we can call this
-field GF(16).
-
-We can create this exact field using gf256:
-
-``` rust ignore
-use ::gf256::macros::gf;
-
-##[gf(polynomial=0b10011, generator=0b0010)]
-type gf16;
-
-assert_eq!(gf16::new(0b1011) * gf16::new(0b1101), gf16::new(0b0110));
-```
+For more information on Galois-fields and how we construct them, see the
+relevant documentation in [`gf`'s module-level documentation](gf).
 
 ## Included in gf256
 
 gf256 contains a bit more than the Galois-field types. It also contains a
 number of other utilities that are based on the math around finite-fields:
 
-- **Polynomial types**
+- [**Polynomial types**](p)
 
   ``` rust
   use ::gf256::*;
   
   let a = p32(0x1234);
   let b = p32(0x5678);
+  assert_eq!(a+b, p32(0x444c));
   assert_eq!(a*b, p32(0x05c58160));
   ```
 
-- **Galois-field types**
+- [**Galois-field types**](gf)
 
   ``` rust
   use ::gf256::*;
@@ -512,19 +155,19 @@ number of other utilities that are based on the math around finite-fields:
   assert_eq!(a*(b+c), a*b + a*c);
   ```
 
-- **CRC functions** (requires feature `crc`)
+- [**CRC functions**](crc) (requires feature `crc`)
 
   ``` rust
-  use ::gf256::crc::crc32c;
+  use gf256::crc::crc32c;
 
   assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
   ```
 
-- **LFSR structs** (requires feature `lfsr`)
+- [**LFSR structs**](lfsr) (requires feature `lfsr`)
 
   ``` rust
   # use std::iter;
-  use ::gf256::lfsr::Lfsr16;
+  use gf256::lfsr::Lfsr16;
 
   let mut lfsr = Lfsr16::new(1);
   assert_eq!(lfsr.next(16), 0x0001);
@@ -537,10 +180,28 @@ number of other utilities that are based on the math around finite-fields:
   assert_eq!(lfsr.prev(16), 0x0001);
   ```
 
-- **RAID-parity functions** (requires feature `raid`)
+- [**Shamir secret-sharing functions**](shamir) (requires features `shamir` and `thread-rng`)
 
   ``` rust
-  use ::gf256::raid::raid6;
+  use gf256::shamir::shamir;
+
+  // generate shares
+  let shares = shamir::generate(b"Hello World!", 5, 4);
+
+  // <4 can't reconstruct secret
+  assert_ne!(shamir::reconstruct(&shares[..1]), b"Hello World!");
+  assert_ne!(shamir::reconstruct(&shares[..2]), b"Hello World!");
+  assert_ne!(shamir::reconstruct(&shares[..3]), b"Hello World!");
+
+  // >=4 can reconstruct secret
+  assert_eq!(shamir::reconstruct(&shares[..4]), b"Hello World!");
+  assert_eq!(shamir::reconstruct(&shares[..5]), b"Hello World!");
+  ```
+
+- [**RAID-parity functions**](raid) (requires feature `raid`)
+
+  ``` rust
+  use gf256::raid::raid6;
 
   // format
   let mut buf = b"Hello World!".to_vec();
@@ -558,10 +219,10 @@ number of other utilities that are based on the math around finite-fields:
   assert_eq!(&buf, b"Hello World!");
   ```
 
-- **Reed-Solomon error-correction functions** (requires feature `rs`)
+- [**Reed-Solomon error-correction functions**](rs) (requires feature `rs`)
 
   ``` rust
-  use ::gf256::rs::rs255w223;
+  use gf256::rs::rs255w223;
 
   // encode
   let mut buf = b"Hello World!".to_vec();
@@ -577,63 +238,238 @@ number of other utilities that are based on the math around finite-fields:
   # Ok::<(), rs255w223::Error>(())
   ```
 
-- **Shamir secret-sharing functions** (requires features `shamir` and `thread-rng`)
-
-  ``` rust
-  use ::gf256::shamir::shamir;
-
-  // generate shares
-  let shares = shamir::generate(b"Hello World!", 5, 4);
-
-  // <4 can't reconstruct secret
-  assert_ne!(shamir::reconstruct(&shares[..1]), b"Hello World!");
-  assert_ne!(shamir::reconstruct(&shares[..2]), b"Hello World!");
-  assert_ne!(shamir::reconstruct(&shares[..3]), b"Hello World!");
-
-  // >=4 can reconstruct secret
-  assert_eq!(shamir::reconstruct(&shares[..4]), b"Hello World!");
-  assert_eq!(shamir::reconstruct(&shares[..5]), b"Hello World!");
-  ```
-
 Since this math depends on some rather arbitrary constants, each of these
 utilities is available as both a normal Rust API, defined using reasonable
 defaults, and as a highly configurable proc_macro:
 
-``` rust ignore
-use ::gf256::macros::gf;
+``` rust
+# pub use ::gf256::*;
+use gf256::macros::gf;
 
 #[gf(polynomial=0x11b, generator=0x3)]
 type gf256_rijndael;
 
+# fn main() {
 let a = gf256_rijndael(0xfd);
 let b = gf256_rijndael(0xfe);
 let c = gf256_rijndael(0xff);
 assert_eq!(a*(b+c), a*b + a*c);
+# }
 ```
 
-## Hardware instructions
+## Hardware support
 
-## `const fns`
+The initial motivation for this crate was the discovery that most modern
+64-bit hardware contains instructions for accelerating this sort of
+math. This usually comes in the form of a [carry-less multiplication][clmul]
+instruction.
+
+Carry-less multiplication, also called polynomial multiplication or xor
+multiplication, is the multiplication analog for xor. Where traditional
+multiplication can be implemented as a series of shifts and adds, carry-less
+multiplication can be implemented as a series of shifts and xors:
+
+``` text
+Multiplication:
+
+1011 * 1101 =  1011
+            +   1011
+            +     1011
+            ----------
+            = 10001111
+
+Carry-less multiplication:
+
+1011 * 1101 =  1011
+            ^   1011
+            ^     1011
+            ----------
+            = 01111111
+```
+
+64-bit carry-less multiplication is available on x86_64 with the
+[`pclmulqdq`][pclmulqdq], and on aarch64 with the slightly less wordy
+[`pmul`][pmul] instruction.
+
+gf256 takes advantage of these instructions when possible, however at the time
+of writing, `pmul` support in Rust is only available on [nightly][nightly].
+To take advantage of `pmul` on aarch64 you will need to use a nightly compiler
+and enable gf256's `nightly` feature ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
+
+``` rust
+# use ::gf256::*;
+#
+// uses carry-less multiplication instructions if available
+let a = p32(0b1011);
+let b = p32(0b1101);
+assert_eq!(a * b, p32(0b01111111));
+```
+
+gf256 also exposes the flag [`HAS_XMUL`], which can be used to choose
+algorithms based on whether or not hardware accelerated carry-less
+multiplication is available:
+
+``` rust
+# use gf256::p::p32;
+#
+let a = p32(0b1011);
+let b = if gf256::HAS_XMUL {
+    a * p32(0b11)
+} else {
+    (a << 1) ^ a
+};
+```
+
+## `const fn` support
+
+Due to the use of traits and intrinsics, it's not possible to use the
+polynomial/Galois-field operators in [`const fns`][const-fns].
+
+As an alternative, gf256 provides a set of "naive" functions, which
+provide less efficient, well, naive, implementations that can be used
+in const fns.
+
+These are very useful for calculating complex constants at compile-time,
+which is common in these sort of algorithms:
+
+``` rust
+# use ::gf256::*;
+#
+const POLYNOMIAL: p64 = p64(0x104c11db7);
+const CRC_TABLE: [u32; 256] = {
+    let mut table = [0; 256];
+    let mut i = 0;
+    while i < table.len() {
+        let x = (i as u32).reverse_bits();
+        let x = p64((x as u64) << 8).naive_rem(POLYNOMIAL).0 as u32;
+        table[i] = x.reverse_bits();
+        i += 1;
+    }
+    table
+};
+```
 
 ## `no_std` support
 
 gf256 is just a pile of math, so it is mostly `no_std` compatible.
 
-The exception is the extra utilities `rs` and `shamir`, which require `alloc`.
+The exceptions are the extra utilities `rs` and `shamir`, which
+require `alloc`.
 
 ## Constant-time
 
+gf256 provides "best-effort" constant-time implementations for certain
+useful operations. Though it should be emphasized this was primarily a
+learning project, so the constant-time properties should be externally
+evaluated before use, and you use this library at your own risk.
+
+- Polynomial multiplication
+
+  Polynomial multiplication in gf256 should always be constant-time.
+
+  The assumption is that any hardware accelerated carry-less multiplication
+  instructions complete in a fixed number of cycles, which is generally true.
+
+  If carry-less multiplication instructions are not available, a branch-less
+  loop implementation of carry-less multiplication is used.
+
+- Galois-field operations
+
+  Galois-field types in `barret` mode rely only on carry-less multiplication
+  and xors, and should always execut in constant time.
+
+  The other Galois-field implementations are NOT constant-time due to the use
+  of lookup tables, which may be susceptible to cache-timing attacks. Note that
+  the default Galois-field types likely use a table-based implementation.
+
+  You will need to declare a custom Galois-field type using `barret` mode if you
+  want constant-time finite-field operations:
+
+  ``` rust
+  # pub use ::gf256::*;
+  use gf256::macros::gf;
+
+  #[gf(polynomial=0x11b, generator=0x3, barret)]
+  type gf256_rijndael;
+  #
+  # fn main() {}
+  ```
+
+- Shamir secret-sharing
+
+  The Shamir secret-sharing implementation in gf256 by default uses a custom
+  Galois-field type in `barret` mode and should be constant-time.
+
 ## Features
+
+- `nightly` - Enable features only found on a nightly compiler
+
+  This is required to leverage `pmull` on aarch64 ([tracking issue](https://github.com/rust-lang/rust/issues/48556))
+
+- `no-xmul` - Disables carry-less multiplication instructions, forcing the use
+  of naive bitwise implementations
+
+  This is mostly available for testing/benchmarking purposes.
+
+- `no-tables` - Disables lookup tables, relying only on hardware instructions
+  or naive implementations
+
+  This may be useful on memory constrained devices
+
+- `small-tables` - Limits lookup tables to "small tables", tables with <16
+  elements
+
+  This provides a compromise between full 256-byte tables and no-tables,
+  which may be useful on memory constrained devices
+
+- `thread-rng` - Enables features that depend on ThreadRng
+
+  Note this requires `std`
+
+  This is used to provide a default Rng implementation for Shamir's
+  secret-sharing implementations
+
+- `lfsr` - Makes LFSR macros and structs available
+
+- `crc` - Makes CRC macros and functions available
+
+- `shamir` - Makes Shamir secret-sharing macros and functions available
+
+  Note this requires `alloc` and `rand`
+
+  You may also want to enable the `thread-rng` feature, which is required for
+  a default rng
+
+- `raid` - Makes RAID-parity macros and functions available
+
+- `rs` - Makes Reed-Solomon macros and functions available
+
+  Note this requires `alloc`
 
 ## Testing
 
+gf256 comes with a number of tests implemented in Rust's test runner, these
+can be run with make:
+
+``` bash
+make test
+```
+
 ## Benchmarking
 
-## License
+gf256 also has a number of benchmarks implemented in [Criterion][criterion].
+These were used to determine the best default implementations, and can be ran
+with make:
+
+``` bash
+make bench
+```
+
+A full summary of the benchmark results can be found in
+[BENCHMARKS.md](BENCHMARKS.md).
 
 
-
-
-https://en.wikipedia.org/wiki/Field_(mathematics)
-https://en.wikipedia.org/wiki/Finite_field
-https://en.wikipedia.org/wiki/Finite_field_arithmetic
+<!-- https://en.wikipedia.org/wiki/Field_(mathematics) >
+<!-- https://en.wikipedia.org/wiki/Finite_field >
+<!-- https://en.wikipedia.org/wiki/Finite_field_arithmetic >
+[clmul]: https://en.wikipedia.org/wiki/Carry-less_product

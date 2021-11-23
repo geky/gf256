@@ -1,3 +1,152 @@
+//! ## Polynomial types
+//!
+//! Types representing a binary polynomial.
+//!
+//! These types act as a building block for most of the math in gf256.
+//!
+//! They are primarily useful for giving access to polynomial
+//! multiplication (sometimes called carry-less multiplication or xor
+//! multiplication).
+//! 
+//! ``` rust
+//! use ::gf256::*;
+//!
+//! let a = p32(0x1234);
+//! let b = p32(0x5678);
+//! assert_eq!(a+b, p32(0x444c));
+//! assert_eq!(a*b, p32(0x05c58160));
+//! ```
+//!
+//! ## What are binary polynomials?
+//!
+//! Consider a binary number:
+//!
+//! ``` text
+//! a = 0b1011
+//! ```
+//!
+//! Normally we would view this as the binary representation of the decimal
+//! number 11.
+//!
+//! Instead, lets view it as a polynomial for some made-up variable "x", where
+//! each coefficient is a binary 1 or 0:
+//!
+//! ``` text
+//! a = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
+//! ```
+//!
+//! We can add polynomials together, as long as we mod each coefficient by 2 so
+//! they remain binary:
+//!
+//! ``` text
+//! a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
+//! b   = 0b1101 = 0*x^3 + 1*x^2 + 0*x^1 + 1*x^0
+//!
+//! a+b = ((1+1)%2)*x^3 + ((0+1)%2)*x^2 + ((1+0)%2)*x^1 + ((1+1)%2)*x^0
+//!     = 0*x^3 + 1*x^2 + 1*x^1 + 0*x^0
+//!     = 0b0110
+//! ```
+//!
+//! You may recognize that this is actually xor!
+//!
+//! But there's more, we can also multiply polynomials together:
+//!
+//! ``` text
+//! a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
+//! b   = 0b1101 = 1*x^3 + 1*x^2 + 0*x^1 + 1*x^0
+//!
+//! a*b = 1*x^6 + 0*x^5 + 1*x^4 + 1*x^3
+//!             + 1*x^5 + 0*x^4 + 1*x^3 + 1*x^2
+//!                             + 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
+//!     = 1*x^6 + ((0+1)%2)*x^5 + ((1+0)%2)*x^4 + ((1+1+1)%2)*x^3 + ((1+0)%2)*x^2 + 1*x^1 + 1*x^0
+//!     = 1*x^6 + 1*x^5 + 1*x^4 + 1*x^3 + 1*x^2 + 1*x^1 + 1*x^0
+//!     = 0b1111111
+//! ```
+//!
+//! It's worth emphasizing that the "x" in these polynomials is a variable that we
+//! never actually evaluate. We just use it to create a view of the underlying
+//! binary numbers that we can do polynomial operations on.
+//!
+//! These operations, on bits viewed as binary polynomials, are available on these
+//! polynomial types:
+//!
+//! ``` rust
+//! use ::gf256::*;
+//!
+//! assert_eq!(p8(0b1011) + p8(0b1101), p8(0b0110));
+//! assert_eq!(p8(0b1011) * p8(0b1101), p8(0b1111111));
+//! ```
+//! 
+//! ## Hardware support
+//!
+//! The polynomial types leverage carry-less multiplication instructions when
+//! available, otherwise falling back to a more expensive, branch-less naive
+//! implementation.
+//!
+//! Note that at the time of writing, aarch64 `pmul` support is only available
+//! on a [nightly][nightly] compiler, and requires gf256's `nightly` feature
+//! to be enabled ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
+//!
+//! gf256 also exposes the flag [`HAS_XMUL`], which can be used to choose
+//! algorithms based on whether or not hardware accelerated carry-less
+//! multiplication is available:
+//!
+//! ``` rust
+//! # use gf256::p::p32;
+//! #
+//! let a = p32(0b1011);
+//! let b = if gf256::HAS_XMUL {
+//!     a * p32(0b11)
+//! } else {
+//!     (a << 1) ^ a
+//! };
+//! ```
+//!
+//! Note! There is no hardware support for polynomial division and remainder. These
+//! are expensive, branching, loop-based implementations and should generally
+//! be avoided in performance-sensitive code.
+//!
+//! ## `const fn` support
+//!
+//! Due to the use of traits and intrinsics, it's not possible to use the
+//! polynomial operators in [`const fns`][const-fns].
+//!
+//! As an alternative, the polynomial types preovide a set of "naive"
+//! functions, which provide less efficient, well, naive, implementations,
+//! that can be used in const fns.
+//!
+//! These are very useful for calculating complex constants at compile-time:
+//!
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! const POLYNOMIAL: p64 = p64(0x104c11db7);
+//! const CRC_TABLE: [u32; 256] = {
+//!     let mut table = [0; 256];
+//!     let mut i = 0;
+//!     while i < table.len() {
+//!         let x = (i as u32).reverse_bits();
+//!         let x = p64((x as u64) << 8).naive_rem(POLYNOMIAL).0 as u32;
+//!         table[i] = x.reverse_bits();
+//!         i += 1;
+//!     }
+//!     table
+//! };
+//! ```
+//!
+//! ## Constant-time
+//!
+//! gf256 provides "best-effort" constant-time implementations for certain
+//! useful operations.
+//!
+//! For polynomial types, addition (xor), subtraction (xor), and multiplication
+//! should always be constant-time.
+//!
+//! Note that division and remainder are NOT constant-time. These are expensive,
+//! branching, loop-based implementations, which should generally be avoided for
+//! performance reasons anyway (outside of constant generation).
+//!
+
 
 use crate::macros::p;
 

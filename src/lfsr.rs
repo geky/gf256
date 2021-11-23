@@ -1,3 +1,351 @@
+//! ## LFSR structs and macros
+//!
+//! [Linear-feedback shift registers (LFSRs)][lfsrs], are a simple way of
+//! creating a pseudo-random stream of bits using only a small circuit of shifts
+//! and xors.
+//!
+//! LFSRs can be modelled mathematically as multiplication in a Galois-field,
+//! allowing efficient bit generation, both forward and backwards, and efficient
+//! seeking to any state of the LFSR.
+//!
+//! //``` text
+//! //output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
+//! //         '-----------------------'-----'-----'------------'
+//! //```
+//!
+//! //Interestingly in the context of gf256, LFSRs can be modelled mathematically
+//! //as multiplication in a Galois-field, allowing efficient bit generation, both
+//! //forward and backwards, and efficient seeking to any position in the LFSR
+//! //state.
+//!
+//! ``` rust
+//! # use std::iter;
+//! use gf256::lfsr::Lfsr16;
+//! 
+//! let mut lfsr = Lfsr16::new(1);
+//! assert_eq!(lfsr.next(16), 0x0001);
+//! assert_eq!(lfsr.next(16), 0x002d);
+//! assert_eq!(lfsr.next(16), 0x0451);
+//! assert_eq!(lfsr.next(16), 0xbdad);
+//! assert_eq!(lfsr.prev(16), 0xbdad);
+//! assert_eq!(lfsr.prev(16), 0x0451);
+//! assert_eq!(lfsr.prev(16), 0x002d);
+//! assert_eq!(lfsr.prev(16), 0x0001);
+//! ```
+//!
+//! Note this module requires feature `lfsr`.
+//!
+//! TODO link to example!
+//!
+//! ## How do LFSRs work?
+//!
+//! Consider the following LFSR, where each bit represents a single-bit register,
+//! and each "x" represents an xor gate, sometimes called the "taps" of an LFSR.
+//!
+//! We can step through some states by hand to see what the output would be:
+//!
+//! ``` text                                                   
+//! output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
+//!          '-----------------------'-----'-----'------------'
+//! output      internal state
+//!      1      1     0     0     0     0     1     0     1
+//!      1      0     0     0     1     0     1     1     1
+//!      0      0     0     1     0     1     1     1     0
+//!      0      0     1     0     1     1     1     0     0
+//!      0      1     0     1     1     1     0     0     0
+//!      1      0     1     1     0     1     1     0     1
+//!      0      1     1     0     1     1     0     1     0
+//!      1      1     0     1     0     1     0     0     1
+//!      ...
+//! ```
+//!
+//! I guess it looks pseudo-random enough to me.
+//!
+//! Consider what this might look like in code. We can model the bit of feedback
+//! as a branch on whether or not to xor our internal state with an integer
+//! containing a 1 for each LFSR tap:
+//!
+//! ``` rust
+//! let mut state: u32 = 0b11001100;
+//! let mut step = || {
+//!     state = state << 1;
+//!     let output = (state & 0x100) >> 8;
+//!     if output != 0 {
+//!         state ^= 0x1d
+//!     }
+//!     state = 0xff & state;
+//!     output
+//! };
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! ```
+//!
+//! Normally, we think of the high bit just "falling off" when we shift the LFSR
+//! state. But we could instead model it as an xor with itself, making the high
+//! bit a part of our taps and removing the bit mask:
+//!
+//! ``` rust
+//! let mut state: u32 = 0b11001100;
+//! let mut step = || {
+//!     state = state << 1;
+//!     let output = (state & 0x100) >> 8;
+//!     if output != 0 {
+//!         state ^= 0x11d
+//!     }
+//!     output
+//! };
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! ```
+//!
+//! If you're overly observant, you may notice this is actually polynomial
+//! division of a 9-bit number! Remember that polynomial division is repeated
+//! shifts and xors until the dividend is smaller than our divisor. In this
+//! case, we only need a single step.
+//!
+//! And if you remember your computer-science tricks, shifting by one is
+//! equivalent to multiplying by 2 (this is still true with polynomials because
+//! there's no carry).
+//!
+//! So instead of using bit-shifts and xors, we could use multiplication and
+//! division with our polynomial types:
+//!
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let mut state: p32 = p32(0b11001100);
+//! let mut step = || {
+//!     state = state * p32(2);
+//!     let output = state / p32(0x11d);
+//!     state = state % p32(0x11d);
+//!     u32::from(output)
+//! };
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! ```
+//!
+//! And a polynomial multiplication followed by a remainder with a constant...
+//! Isn't that equivalent to our [Galois-field multiplication](../gf)?
+//!
+//! Why yes it is!
+//!
+//! TODO get these working...
+//!
+//! ``` rust
+//! # pub use ::gf256::*;
+//! use ::gf256::macros::gf;
+//!
+//! #[gf(polynomial=0x11d, generator=2)]
+//! type gf256_lfsr;
+//!
+//! # fn main() {
+//! let mut state: gf256_lfsr = gf256_lfsr(0b11001100);
+//! let mut step = || {
+//!     let output = (state & 0x80) >> 7;
+//!     state = state * gf256_lfsr(2);
+//!     u32::from(output)
+//! };
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! assert_eq!(step(), 0);
+//! assert_eq!(step(), 1);
+//! # }
+//! ```
+//!
+//! Up until this point we were just using a seemingly arbitrary sequence of taps
+//! to define our LFSR. But since LFSRs are equivalent to Galois-fields, we can
+//! use our knowledge of Galois-fields to come up with a good sequence of taps, aka
+//! the polynomial that defines our field.
+//!
+//! From exploring [Galois-fields](../gf), we know that a good polynomial must be
+//! "irreducible", that is it must not have any other factors or else we end up
+//! with multiple smaller non-intersecting fields.
+//!
+//! We also know that every finite-field contains "primitive elements", which are
+//! numbers in the field whose multiplicative cycle contains every element of the
+//! field. 
+//!
+//! So what we want, is an irreducible polynomial, where 2 is a primitive element
+//! of the finite-field defined by said polynomial. If these conditions are met,
+//! than repeated multiplications by 2 (shifting our LFSR) will actually iterate
+//! through every non-zero element of our field before looping, giving us the
+//! maximum cycle-length for any n-bit LFSR (or any pseudo-random number generator
+//! with n-bits of state).
+//!
+//! These polynomials are sometimes called "primitive polynomials", but there's
+//! nothing really magical about them. In order to find primitive polynomials, we
+//! just brute force search all polynomials until we find one that works.
+//!
+//! TODO show tool
+//!
+//! Knowing that LFSRs are equivalent to polynomial multiplication and division,
+//! we can also step through multiple bits at a time by multiplying by a
+//! power-of-two:
+//!
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let mut state: p32 = p32(0b11001100);
+//! let mut step = |n: u32| {
+//!     state = state * p32(2).pow(n);
+//!     let output = state / p32(0x11d);
+//!     state = state % p32(0x11d);
+//!     u32::from(output)
+//! };
+//! assert_eq!(step(8), 0b11000101);
+//! ```
+//!
+//! And we can create this exact LFSR using gf256:
+//!
+//! TODO test these!
+//! ``` rust
+//! # pub use ::gf256::*;
+//! use ::gf256::macros::lfsr;
+//!
+//! #[lfsr(polynomial=0x11d)]
+//! struct Lfsr {}
+//!
+//! # fn main() {
+//! let mut lfsr = Lfsr::new(0b11001100);
+//! assert_eq!(lfsr.next(8), 0b11000101);
+//! # }
+//! ```
+//!
+//! ## Stepping backwards
+//!
+//! Fascinating to me was learning that you can actually run an LFSR _backwards_.
+//! All you need to do is invert the taps and shift in the other direction:
+//!
+//! ``` text                                                   
+//! output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
+//!          '-----------------------'-----'-----'------------'
+//! output      internal state
+//!      1      1     0     0     0     0     1     0     1
+//!      1      0     0     0     1     0     1     1     1
+//!      0      0     0     1     0     1     1     1     0
+//!      0      0     1     0     1     1     1     0     0
+//!      0      1     0     1     1     1     0     0     0
+//!      1      0     1     1     0     1     1     0     1
+//!      0      1     1     0     1     1     0     1     0
+//!      1      1     0     1     0     1     0     0     1
+//!      ...
+//! ```
+//!
+//! This works perfectly fine with powers-of-two, allowing multiple bits to be
+//! stepped through at a time:
+//!
+//! TODO
+//!
+//! And is supported by the LFSR structs:
+//!
+//! TODO
+//!
+//! However, as far as I can tell, this doesn't generalize to non-power-of-two
+//! multiplicands, which is a real shame since it would provide a much more
+//! efficient division implementation for general Galois-fields.
+//! 
+//! ## Seeking
+//!
+//! Perhaps the most useful feature of modeling LFSRs as Galois-fields, is that we
+//! can step through multiple bits at a time. In fact, if we don't care about the
+//! output, we can skip to any position in the LFSR state by multiplying by a
+//! power-of-two, which we can find by exponentiation.
+//!
+//! ``` text
+//! state' = state * 2^n
+//!
+//! where n is the amount we want to skip, and all operation are performed in
+//! our finite-field
+//! ```
+//!
+//! This means we can seek to any position in the LFSR state with only O(log log n)
+//! operations.
+//!
+//! TODO example
+//!
+//! ## Optimizations
+//!
+//! Since LFSRs are equivalent to Galois-fields, they share a lot of the same
+//! optimizations. With the exception that LFSRs need to worry about capturing
+//! the quotient portion of division, since this forms the actual output bits.
+//!
+//! This naive implementation of LFSRs is available with the `naive` mode. Note this
+//! uses the shift-and-xor implementation, since this is much faster than full
+//! polynomial division/remainder without other optimizations. Additional modes:
+//!
+//! - In `table` mode, LFSRs use a precomputed division and remainder table to
+//!   compute both the quotient and remainder a byte at a time.
+//!
+//!   This uses the same technique as the precomputed remainder tables in CRC
+//!   calculation, since a CRC is just a polynomial remainder. The [crc](../crc)
+//!   module-level documentation has more info on this.
+//!
+//! - In `small_table` mode, the same strategy as `table` mode is used, but
+//!   with 16 element tables computing the quotient and remainder a nibble at a time.
+//!
+//! - In `barret` mode, LFSRs use [Barret-reduction][barret-reduction] to efficiently
+//!   compute the remainder using only multiplication by precomputed constants.
+//!
+//!   However we still need to compute the quotient using naive polynomial division,
+//!   making this mode less effective than in other types/utilities.
+//!
+//! - In `table_barret` mode, LFSRs use [Barret-reduction][barret-reduction] to find
+//!   the remainder, and a precomputed division table to compute the quotient.
+//!
+//!   This seems to have the worst of both worlds, and does not seem to perform
+//!   that well.
+//!
+//! - In `small_table_barret` mode, the same strategy as `table_barret` mode is used,
+//!   but with a 16 element table for the quotient, making this mode even less
+//!   performant.
+//!
+//! By default `barret` mode is used for LFSR structs, as it outperforms all other
+//! options, even when hardware carry-less multiplication is not available.
+//!
+//! Though note the default mode is susceptible to change.
+//!
+//! See also [BENCHMARKS][BENCHMARKS.md]
+//!
+//! ## The `Rng` trait 
+//!
+//! TODO link these
+//!
+//! In addition to the above APIs, the LFSR structs in this module satisfy the
+//! [`RngCore`] and [`SeedableRng`] traits found in the [`rand`] crate. This
+//! allows custom LFSRs to act as drop-in replacements for other pseudo-random
+//! number generators with the additional ability to seek and rewind, allowing
+//! perfect replayability.
+//!
+//! Note! If you're just looking for a pseudo-random number generator, the
+//! randomness generated by these LFSRs is equivalent to the same-sized, naive
+//! Xorshift generators, with the same limitations and cycle-length. However,
+//! Xorshift generators are much more efficient, using only a handful of shifts
+//! and xors.
+//!
+//! TODO link to xorshift rng?
+//!
 
 use crate::macros::lfsr;
 

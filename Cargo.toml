@@ -10,8 +10,7 @@ license = "MIT"
 [features]
 # Enables features only found on a nightly compiler
 #
-# Most notably this is required to leverage pmull on aarch64, see this
-# tracking issue:
+# This is required to leverage pmull on aarch64, tracking issue:
 # https://github.com/rust-lang/rust/issues/48556
 #
 nightly = []
@@ -19,31 +18,30 @@ nightly = []
 # Disable carry-less multiplication instructions, forcing the use
 # of naive bitwise implementations
 #
-# This is mostly available for testing, and in the case that hardware
-# xmul is bugged (or more likely this crate is bugged).
+# This is mostly available for testing/benchmarking purposes
 #
 no-xmul = ["gf256-macros/no-xmul"]
 
-# Disable lookup tables, relying only on hardware or naive
-# implementations
+# Disable lookup tables, relying only on hardware instructions or
+# naive implementations
 #
 # This may be useful on memory constrained devices
 #
 no-tables = ["gf256-macros/no-tables"]
 
-# Limit lookup tables to "small tables", tables with <16 elements
+# Limits lookup tables to "small tables", tables with <16 elements
 #
 # This provides a compromise between full 256-byte tables and no-tables,
 # which may be useful on memory constrained devices
-#
-# Currently only affects CRC-function generation
 #
 small-tables = ["gf256-macros/small-tables"]
 
 # Enable features that depend on ThreadRng
 #
-# This is primarily used to provide a default Rng implementation for
-# Shamir's secret-sharing implementations
+# This is used to provide a default Rng implementation for Shamir's
+# secret-sharing implementations
+#
+# Note this requires std
 #
 thread-rng = ["rand/std", "rand/std_rng"]
 
@@ -53,21 +51,23 @@ lfsr = ["gf256-macros/lfsr", "rand"]
 # Make CRC macros and functions available
 crc = ["gf256-macros/crc"]
 
-# Make RAID-parity macros and structs available
-raid = ["gf256-macros/raid"]
-
-# Make Reed-Solomon macros and functions available
-#
-# Note this requires alloc
-#
-rs = ["gf256-macros/rs"]
-
 # Make Shamir secret-sharing macros and functions available
 #
-# Note this requires alloc and rand, as well as std if
-# ThreadRng (default) is used
+# Note this requires alloc and rand
+#
+# You may also want to enable the thread-rng feature, which is required for
+# a default rng
 #
 shamir = ["gf256-macros/shamir", "rand"]
+
+# Make RAID-parity macros and functions available
+raid = ["gf256-macros/raid"]
+
+# Note this requires alloc
+#
+# Make Reed-Solomon macros and functions available
+#
+rs = ["gf256-macros/rs"]
 
 [dev-dependencies]
 criterion = {version="0.3", features=["html_reports"]}
@@ -112,3 +112,6 @@ harness = false
 [[bench]]
 name = "rs"
 harness = false
+
+[package.metadata.docs.rs]
+features = ["thread-rng", "lfsr", "crc", "raid", "rs", "shamir"]

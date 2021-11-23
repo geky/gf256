@@ -15,6 +15,15 @@ jobs:
       run: |
         make test
 
+  test-docs:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: dtolnay/rust-toolchain@nightly
+    - name: test
+      run: |
+        make docs
+
   test-configs:
     runs-on: ubuntu-18.04
     steps:

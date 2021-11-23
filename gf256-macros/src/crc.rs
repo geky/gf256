@@ -94,6 +94,8 @@ pub fn crc(
         (false, false, false, false) => {
             // if xmul is available, Barret reduction is the fastest option for
             // CRCs, otherwise a table-based approach wins
+            // TODO fix this so it actaully chooses Barret over small tables if
+            // hardware xmul is available
             let input = TokenStream::from(input);
             let xmul = xmul_predicate();
             let output = quote! {
