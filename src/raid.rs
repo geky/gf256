@@ -1,4 +1,177 @@
 
+
+// TODO document this
+// TODO and implement triple parity?
+//
+// Single parity:
+//
+// p = d0 + d1 + d2 + ... = Σ di
+//                          i
+//
+// For a missing block dx:
+//
+// dx = p - Σ di
+//         i!=x
+//
+//
+// Double parity:
+//
+// p = d0 + d1 + d2 + ... = Σ di
+//                          i
+//
+// q = d0*g^0 + d1*g^1 + d2*g^2 = Σ di*g^i
+//                                i
+//
+// For two missing blocks dx and dy:
+//
+// dx + dy = p - Σ di
+//             i!=x,y
+//
+// dx*g^x + dy*g^y = q - Σ di*g^i
+//                     i!=x,y
+//
+// Solve:
+//
+// dy = p - Σ di - dx
+//        i!=x,y
+//
+// Subst dy:
+//
+// dx*g^x + (p - Σ di - dx)*g^y = q - Σ di*g^i
+//             i!=x,y               i!=x,y
+//
+// dx*g^x + (p - Σ di)*g^y - dx*g^y = q - Σ di*g^i
+//             i!=x,y                  i!=x,y
+//
+// dx*(g^x - g^y) + (p - Σ di)*g^y = q - Σ di*g^i
+//                     i!=x,y          i!=x,y
+//
+// dx*(g^x - g^y) = (q - Σ di*g^i) - (p - Σ di)*g^y
+//                     i!=x,y           i!=x,y
+//
+//      (q - Σ di*g^i) - (p - Σ di)*g^y
+//         i!=x,y           i!=x,y
+// dx = -------------------------------
+//                g^x - g^y
+//
+//
+// Triple parity:
+//
+// p = d0 + d1 + d2 + ... = Σ di
+//                          i
+//
+// q = d0*g^0 + d1*g^1 + d2*g^2 = Σ di*g^i
+//                                i
+//
+// r = d0*h^0 + d1*h^1 + d2*h^2 = Σ di*h^i
+//                                i
+//
+// For three missing blocks dx, dy, and dz:
+//
+// dx + dy + dz = p - Σ di
+//                 i!=x,y,z
+//
+// dx*g^x + dy*g^y + dz*g^z = q - Σ di*g^i
+//                             i!=x,y,z
+//
+// dx*h^x + dy*h^y + dz*h^z = r - Σ di*h^i
+//                             i!=x,y,z
+//
+// Solve:
+//
+// dz = p - Σ di - dx - dy
+//       i!=x,y,z
+//
+// Subst dz:
+//
+// dx*g^x + dy*g^y + (p - Σ di - dx - dy)*g^z = q - Σ di*g^i
+//                     i!=x,y,z                  i!=x,y,z
+//
+// dx*g^x + dy*g^y + (p - Σ di)*g^z - dx*g^z - dy*g^z = q - Σ di*g^i
+//                     i!=x,y,z                          i!=x,y,z
+//
+// dx*(g^x - g^z) + dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z
+//                                     i!=x,y,z         i!=x,y,z
+//
+// dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
+//                    i!=x,y,z         i!=x,y,z
+//
+//      (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
+//        i!=x,y,z         i!=x,y,z
+// dy = ------------------------------------------------
+//                         g^y - g^z
+//
+// Subst dz:
+//
+// dx*h^x + dy*h^y + (p - Σ di - dx - dy)*h^z = r - Σ di*h^i
+//                     i!=x,y,z                  i!=x,y,z
+//
+// dx*h^x + dy*h^y + (p - Σ di)*h^z - dx*h^z - dy*h^z = r - Σ di*h^i
+//                     i!=x,y,z                          i!=x,y,z
+//
+// dx*(h^x - h^z) + dy*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
+//                                     i!=x,y,z        i!=x,y,z
+//
+// Subst dy:
+//
+//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z) )
+//                  (   i!=x,y,z         i!=x,y,z                      )
+// dx*(h^x - h^z) + ( ------------------------------------------------ )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
+//                  (                    g^y - g^z                     )                 i!=x,y,z        i!=x,y,z
+//
+//
+//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z )
+//                  (   i!=x,y,z         i!=x,y,z     )               ( dx*(g^x - g^z) )
+// dx*(h^x - h^z) + ( ------------------------------- )*(h^y - h^z) - ( -------------- )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
+//                  (             g^y - g^z           )               (   g^y - g^z    )                 i!=x,y,z        i!=x,y,z
+//
+//                                                                                     ( (q - Σ di*g^i) - (p - Σ di)*g^z )
+//                  ( dx*(g^x - g^z) )                                                 (   i!=x,y,z         i!=x,y,z     )
+// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = (r - Σ di*h^i) - (p - Σ di)*h^z - ( ------------------------------- )*(h^y - h^z)
+//                  (   g^y - g^z    )                 i!=x,y,z         i!=x,y,z       (             g^y - g^z           )
+//
+//                                                   (r - Σ di*h^i)*(g^y - g^z) - (p - Σ di)*h^z*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) + (p - Σ di)*g^z*(h^y - h^z)
+//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = -----------------------------------------------------------------------------------------------------------------
+//                  (   g^y - g^z    )                                                              g^y - g^z
+//
+//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(h^z*(g^y - g^z) - g^z*(h^y - h^z))
+//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = --------------------------------------------------------------------------------------------------------
+//                  (   g^y - g^z    )                                                              g^y - g^z
+//
+//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^z - g^z*h^y + g^z*h^z)
+//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ------------------------------------------------------------------------------------------------------------
+//                  (   g^y - g^z    )                                                              g^y - g^z
+//
+//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ----------------------------------------------------------------------------------------
+//                  (   g^y - g^z    )                                                         g^y - g^z
+//
+//                                                           (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z)     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// ------------------------------------------------------- = ----------------------------------------------------------------------------------------
+//                        g^y - g^z                                                                    g^y - g^z
+//
+// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+//                                                             i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+//
+// dx*((h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+//                                                            i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+//
+//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+//        i!=x,y,z                     i!=x,y,z                     i!=x,y,z
+// dx = ----------------------------------------------------------------------------------------
+//                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
+//
+//
+
+
+
+
+
 use crate::macros::raid;
 
 
