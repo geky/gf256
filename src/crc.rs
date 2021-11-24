@@ -176,9 +176,9 @@
 //!
 //! Generally you want to choose a CRC that has the largest "Hamming distance" for
 //! your message length, or at least a good "Hamming distance" over your range of
-//! message lengths. Hamming distance is the number of bit-flips required to get
-//! to another message with a valid CRC, so a larger Hamming distance means more
-//! bit-flips before you fail to detect an error.
+//! message lengths. Hamming distance (HD) is the number of bit-flips required to
+//! get to another message with a valid CRC, so a larger Hamming distance means
+//! more bit errors before you fail to detect that something is wrong.
 //!
 //! Philip Koopman also has a list of good CRC polynomials and their effective
 //! Hamming distances at various message lengths [here][crc-polynomials].
@@ -198,18 +198,19 @@
 //!
 //! Did I mention choosing a good CRC polynomial is rather complicated? What if
 //! I told you that the most popular 32-bit CRC polynomial since 1975 was actually
-//! a rather sub-optimal polynomial for general-purpose CRCs?
+//! a sub-optimal polynomial for general-purpose 32-bits CRCs?
 //!
 //! Well that is the situation the world finds itself in today. The most popular
-//! 32-bit CRC polynomial, called CRC32 (though sometimes referred to as CRC32B,
-//! perhaps only because it predates CRC32C?), performs poorly compared to later
-//! research around optimal CRC polynomials. The more recent CRC32C provides much
-//! better error detection for most message sizes by only choosing a different
-//! polynomial.
+//! 32-bit CRC polynomial 0x104c11db7, called just CRC32 (though sometimes referred
+//! to as CRC32B, perhaps only because it predates CRC32C?), performs poorly the
+//! moment there is more than 2 bit errors.
 //!
-//! But backwards compatability is painful to unroot. So this module provides
-//! both [`crc32`] and [`crc32c`], though it is suggested to use [`crc32c`] for
-//! new code.
+//! The more recent polynomial 0x11edc6f41, called CRC32C, provides much better
+//! error detection for a wider range of bit errors without any change to the
+//! underlying algorithm.
+//!
+//! But CRC32 is still in heavy use today, so gf256 provides both [`crc32`] and
+//! [`crc32c`]. Though it's suggested to use [`crc32c`] for new applications.
 //!
 
 

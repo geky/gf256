@@ -14,8 +14,7 @@ use alloc::vec::Vec;
 
 
 /// Generate a random polynomial of a given degree, fixing f(0) = secret
-fn poly_random(secret: __gf, degree: usize) -> Vec<__gf> {
-    let mut rng = __rng();
+fn poly_random<R: Rng>(rng: &mut R, secret: __gf, degree: usize) -> Vec<__gf> {
     let mut f = vec![secret];
     for _ in 0..degree {
         f.push(__gf::from_lossy(rng.gen_range(1..=__gf::NONZEROS)));
@@ -41,7 +40,7 @@ fn poly_interpolate(xs: &[__gf], ys: &[__gf]) -> __gf {
         let mut li = __gf::new(1);
         for (j, (x1, _y1)) in xs.iter().zip(ys).enumerate() {
             if i != j {
-                li *= x1 / (x0+x1);
+                li *= x1 / (x1-x0);
             }
         }
 
@@ -60,6 +59,7 @@ pub fn generate(secret: &[__u], n: usize, k: usize) -> Vec<Vec<__u>> {
         __gf::NONZEROS
     );
     let mut shares = vec![vec![]; n];
+    let mut rng = __rng();
 
     // we need to store the x coord somewhere, so just prepend the share with it
     for i in 0..n {
@@ -68,7 +68,7 @@ pub fn generate(secret: &[__u], n: usize, k: usize) -> Vec<Vec<__u>> {
 
     for x in secret {
         // generate a random polynomial for each byte
-        let f = poly_random(__gf::from_lossy(*x), k-1);
+        let f = poly_random(&mut rng, __gf::from_lossy(*x), k-1);
 
         // assign each share with a point at f(i)
         for i in 0..n {

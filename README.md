@@ -186,16 +186,16 @@ number of other utilities that are based on the math around finite-fields:
   use gf256::shamir::shamir;
 
   // generate shares
-  let shares = shamir::generate(b"Hello World!", 5, 4);
+  let shares = shamir::generate(b"secret secret secret!", 5, 4);
 
   // <4 can't reconstruct secret
-  assert_ne!(shamir::reconstruct(&shares[..1]), b"Hello World!");
-  assert_ne!(shamir::reconstruct(&shares[..2]), b"Hello World!");
-  assert_ne!(shamir::reconstruct(&shares[..3]), b"Hello World!");
+  assert_ne!(shamir::reconstruct(&shares[..1]), b"secret secret secret!");
+  assert_ne!(shamir::reconstruct(&shares[..2]), b"secret secret secret!");
+  assert_ne!(shamir::reconstruct(&shares[..3]), b"secret secret secret!");
 
   // >=4 can reconstruct secret
-  assert_eq!(shamir::reconstruct(&shares[..4]), b"Hello World!");
-  assert_eq!(shamir::reconstruct(&shares[..5]), b"Hello World!");
+  assert_eq!(shamir::reconstruct(&shares[..4]), b"secret secret secret!");
+  assert_eq!(shamir::reconstruct(&shares[..5]), b"secret secret secret!");
   ```
 
 - [**RAID-parity functions**](raid) (requires feature `raid`)
@@ -359,8 +359,8 @@ require `alloc`.
 ## Constant-time
 
 gf256 provides "best-effort" constant-time implementations for certain
-useful operations. Though it should be emphasized this was primarily a
-learning project, so the constant-time properties should be externally
+useful operations. Though it should be emphasized this was primarily an
+educational project, so the constant-time properties should be externally
 evaluated before use, and you use this library at your own risk.
 
 - Polynomial multiplication
@@ -397,7 +397,7 @@ evaluated before use, and you use this library at your own risk.
 
 - Shamir secret-sharing
 
-  The Shamir secret-sharing implementation in gf256 by default uses a custom
+  The default Shamir secret-sharing implementation internally uses a custom
   Galois-field type in `barret` mode and should be constant-time.
 
 ## Features
