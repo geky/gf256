@@ -429,20 +429,20 @@ evaluated before use, and you use this library at your own risk.
   This is used to provide a default Rng implementation for Shamir's
   secret-sharing implementations
 
-- `lfsr` - Makes LFSR macros and structs available
+- `lfsr` - Makes LFSR structs and macros available
 
-- `crc` - Makes CRC macros and functions available
+- `crc` - Makes CRC functions and macros available
 
-- `shamir` - Makes Shamir secret-sharing macros and functions available
+- `shamir` - Makes Shamir secret-sharing functions and macros available
 
   Note this requires `alloc` and `rand`
 
   You may also want to enable the `thread-rng` feature, which is required for
   a default rng
 
-- `raid` - Makes RAID-parity macros and functions available
+- `raid` - Makes RAID-parity functions and macros available
 
-- `rs` - Makes Reed-Solomon macros and functions available
+- `rs` - Makes Reed-Solomon functions and macros available
 
   Note this requires `alloc`
 

@@ -1,3 +1,9 @@
+//! ## RAID-parity functions and macros
+//!
+//!
+
+
+
 
 
 // TODO document this
@@ -167,6 +173,55 @@
 //                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
 //
 //
+
+
+// Also (for p + 2d corruption): 
+//
+// dx*g^x + dy*g^y = q - Σ di*g^i
+//                         i!=x,y
+//
+// dx*h^x + dy*h^y = r - Σ di*h^i
+//                         i!=x,y
+//
+// Subst:
+//
+// 
+// dy*g^y = q - Σ di*g^i - dx^g^x
+// 
+//      q - Σ di*g^i - dx^g^x
+// dy = ---------------------
+//               g^y
+// 
+// Subst:
+// 
+//          ( q - Σ di*g^i - dx^g^x )
+// dx*h^x + ( --------------------- )*h^y = r - Σ di*h^i
+//          (          g^y          )
+// 
+//          ( q - Σ di*g^i )          ( g^x*h^y )
+// dx*h^x + ( ------------ )*h^y - dx*( ------- ) = r - Σ di*h^i
+//          (      g^y     )          (   g^y   )
+// 
+//             ( g^x*h^y )                   ( q - Σ di*g^i )    
+// dx*h^x - dx*( ------- )  = r - Σ di*h^i - ( ------------ )*h^y
+//             (   g^y   )                   (      g^y     )
+// 
+//             ( g^x*h^y )    (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
+// dx*h^x - dx*( ------- )  = ---------------------------------------
+//             (   g^y   )                      g^y  
+// 
+//    ( h^x*g^y - g^x*h^y )    (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
+// dx*( ----------------- )  = ---------------------------------------
+//    (        g^y        )                      g^y  
+// 
+// dx*(h^x*g^y - g^x*h^y) = (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
+// 
+//      (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
+// dx = ---------------------------------------
+//                 g^y*h^x - g^x*h^y
+
+
+
 
 
 

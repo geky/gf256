@@ -1,15 +1,15 @@
-//! RAID 4 and RAID 6, aka single and dual parity blocks
+//! RAID 5 and RAID 6, aka single and dual parity blocks
 //!
-//! RAID 4 and RAID 6, short for Redundant Arrays of Independent Disks,
+//! RAID 5 and RAID 6, short for Redundant Arrays of Independent Disks,
 //! are schemes for uses redundant disks to store parity information
-//! capable of reconstructing any one (for RAID 4) or two (for RAID 6)
+//! capable of reconstructing any one (for RAID 5) or two (for RAID 6)
 //! failed disks.
 //!
 //! These schemes be applied to anything organized by blocks, and "disk
 //! failure" can be determined by attaching a CRC or other checksum to each
 //! block.
 //!
-//! RAID 4 uses a simple parity calculated by xoring all data blocks
+//! RAID 5 uses a simple parity calculated by xoring all data blocks
 //! together, which is technically addition over gf256:
 //!
 //!     p = d0 + d1 + d2 + ...
@@ -48,6 +48,8 @@
 //!
 //! Which ends up covering all cases for 2 block failures.
 //!
+//! TODO document triple parity?
+//!
 
 use std::convert::TryFrom;
 use std::cmp::min;
@@ -75,10 +77,10 @@ impl fmt::Display for RaidError {
 }
 
 
-//// RAID4 ////
+//// RAID5 ////
 
-/// Format blocks with RAID4, aka single block of parity
-pub fn raid4_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8]) {
+/// Format blocks with RAID5, aka single block of parity
+pub fn raid5_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8]) {
     let len = p.len();
     assert!(blocks.iter().all(|b| b.as_ref().len() == len));
 
@@ -95,7 +97,7 @@ pub fn raid4_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8]) {
 }
 
 /// Repair up to one block of failure
-pub fn raid4_repair<B: AsMut<[u8]>>(
+pub fn raid5_repair<B: AsMut<[u8]>>(
     blocks: &mut [B],
     p: &mut [u8],
     bad_blocks: &[usize]
@@ -146,12 +148,12 @@ pub fn raid4_repair<B: AsMut<[u8]>>(
     }
 }
 
-/// Add a block to a RAID4 array
+/// Add a block to a RAID5 array
 ///
 /// Note the block index must be unique in the array! This does not
 /// update other block indices.
 ///
-pub fn raid4_add(_j: usize, new: &[u8], p: &mut [u8]) {
+pub fn raid5_add(_j: usize, new: &[u8], p: &mut [u8]) {
     let len = p.len();
 
     for i in 0..len {
@@ -160,12 +162,12 @@ pub fn raid4_add(_j: usize, new: &[u8], p: &mut [u8]) {
     }
 }
 
-/// Add a block from a RAID4 array
+/// Add a block from a RAID5 array
 ///
 /// Note the block index must already exit in the array, otherwise the
 /// array will become corrupted. This does not update other block indices.
 ///
-pub fn raid4_remove(_j: usize, old: &[u8], p: &mut [u8]) {
+pub fn raid5_remove(_j: usize, old: &[u8], p: &mut [u8]) {
     let len = p.len();
 
     for i in 0..len {
@@ -174,11 +176,11 @@ pub fn raid4_remove(_j: usize, old: &[u8], p: &mut [u8]) {
     }
 }
 
-/// Update a block in a RAID4 array
+/// Update a block in a RAID5 array
 ///
 /// This is functionally equivalent to remove(i)+add(i), but more efficient.
 ///
-pub fn raid4_update(_j: usize, old: &[u8], new: &[u8], p: &mut [u8]) {
+pub fn raid5_update(_j: usize, old: &[u8], new: &[u8], p: &mut [u8]) {
     let len = p.len();
 
     for i in 0..len {
@@ -462,6 +464,472 @@ pub fn raid6_update(j: usize, old: &[u8], new: &[u8], p: &mut [u8], q: &mut [u8]
 }
 
 
+//// RAID7 ////
+
+/// Format blocks with RAID7, aka three blocks of parity
+pub fn raid7_format<B: AsRef<[u8]>>(blocks: &[B], p: &mut [u8], q: &mut [u8], r: &mut [u8]) {
+    let len = p.len();
+    assert!(q.len() == len);
+    assert!(r.len() == len);
+    assert!(blocks.iter().all(|b| b.as_ref().len() == len));
+    assert!(blocks.len() <= 255);
+    let p = gf256::slice_from_slice_mut(p);
+    let q = gf256::slice_from_slice_mut(q);
+    let r = gf256::slice_from_slice_mut(r);
+
+    for i in 0..len {
+        p[i] = gf256(0);
+        q[i] = gf256(0);
+        r[i] = gf256(0);
+    }
+
+    for (j, b) in blocks.iter().enumerate() {
+        let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+        let h = g*g;
+        for i in 0..len {
+            p[i] += gf256(b.as_ref()[i]);
+            q[i] += gf256(b.as_ref()[i]) * g;
+            r[i] += gf256(b.as_ref()[i]) * h;
+        }
+    }
+}
+
+/// Repair up to three blocks of failure
+pub fn raid7_repair<B: AsMut<[u8]>>(
+    blocks: &mut [B],
+    p: &mut [u8],
+    q: &mut [u8],
+    r: &mut [u8],
+    bad_blocks: &[usize]
+) -> Result<(), RaidError> {
+    let len = p.len();
+    let p = gf256::slice_from_slice_mut(p);
+    let q = gf256::slice_from_slice_mut(q);
+    let r = gf256::slice_from_slice_mut(r);
+
+    if bad_blocks.len() > 3 {
+        // can't repair
+        return Err(RaidError::TooManyBadBlocks);
+    }
+
+    // sort the data blocks without alloc, this is only so we can split
+    // the mut blocks array safely
+    let mut bad_blocks_array = [
+        bad_blocks.get(0).copied().unwrap_or(0),
+        bad_blocks.get(1).copied().unwrap_or(0),
+        bad_blocks.get(2).copied().unwrap_or(0),
+    ];
+    let bad_blocks = &mut bad_blocks_array[..bad_blocks.len()];
+    bad_blocks.sort_unstable();
+
+    if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 1
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+0)
+    {
+        // repair using p
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = gf256::slice_from_slice_mut(d.as_mut());
+
+        for i in 0..len {
+            d[i] = p[i];
+        }
+
+        for b in before.iter_mut().chain(after.iter_mut()) {
+            for i in 0..len {
+                d[i] -= gf256(b.as_mut()[i]);
+            }
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 1
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+1)
+    {
+        // repair using q
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = gf256::slice_from_slice_mut(d.as_mut());
+
+        for i in 0..len {
+            d[i] = q[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                d[i] -= gf256(b.as_mut()[i]) * g;
+            }
+        }
+
+        let g = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        for i in 0..len {
+            d[i] /= g;
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 1
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+2)
+    {
+        // repair using r
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = gf256::slice_from_slice_mut(d.as_mut());
+
+        for i in 0..len {
+            d[i] = r[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            let h = g*g;
+            for i in 0..len {
+                d[i] -= gf256(b.as_mut()[i]) * h;
+            }
+        }
+
+        let g = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let h = g*g;
+        for i in 0..len {
+            d[i] /= h;
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+0 || *b == blocks.len()+1)
+    {
+        // repair dx and dy using p and q
+        let (before, between) = blocks.split_at_mut(bad_blocks[0]);
+        let (dx, between) = between.split_first_mut().unwrap();
+        let (between, after) = between.split_at_mut(bad_blocks[1]-(bad_blocks[0]+1));
+        let (dy, after) = after.split_first_mut().unwrap();
+        let dx = gf256::slice_from_slice_mut(dx.as_mut());
+        let dy = gf256::slice_from_slice_mut(dy.as_mut());
+
+        // find intermediate values
+        //
+        // p - Σ di
+        // q - Σ di*g^i
+        //
+        for i in 0..len {
+            dx[i] = p[i];
+            dy[i] = q[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(between.iter_mut()))
+            .chain((bad_blocks[1]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                dx[i] -= gf256(b.as_mut()[i]);
+                dy[i] -= gf256(b.as_mut()[i]) * g;
+            }
+        }
+
+        // find final dx/dy
+        //
+        // dx     + dy     = p - Σ di
+        // dx*g^x + dy*g^y = q - Σ di*g^i
+        //
+        //      (q - Σ di*g^i) - (p - Σ di)*g^y
+        // dx = -------------------------------
+        //               g^x - g^y
+        //
+        // dy = p - Σ di - dx
+        //
+        let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
+        for i in 0..len {
+            let p = dx[i];
+            let q = dy[i];
+            dx[i] = (q - p*gy) / (gx - gy);
+            dy[i] = p - dx[i];
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+1 || *b == blocks.len()+2)
+    {
+        // repair dx and dy using q and r
+        let (before, between) = blocks.split_at_mut(bad_blocks[0]);
+        let (dx, between) = between.split_first_mut().unwrap();
+        let (between, after) = between.split_at_mut(bad_blocks[1]-(bad_blocks[0]+1));
+        let (dy, after) = after.split_first_mut().unwrap();
+        let dx = gf256::slice_from_slice_mut(dx.as_mut());
+        let dy = gf256::slice_from_slice_mut(dy.as_mut());
+
+        // find intermediate values
+        //
+        // q - Σ di*g^i
+        // r - Σ di*h^i
+        //
+        for i in 0..len {
+            dx[i] = q[i];
+            dy[i] = r[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(between.iter_mut()))
+            .chain((bad_blocks[1]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            let h = g*g;
+            for i in 0..len {
+                dx[i] -= gf256(b.as_mut()[i]) * g;
+                dy[i] -= gf256(b.as_mut()[i]) * h;
+            }
+        }
+
+        // find final dx/dy
+        //
+        // dx*g^x + dy*g^y = q - Σ di*g^i
+        // dx*h^x + dy*h^y = r - Σ di*h^i
+        //
+        //      (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
+        // dx = ---------------------------------------
+        //                 g^y*h^x - g^x*h^y
+        //
+        //      q - Σ di*g^i - dx*g^x
+        // dy = ---------------------
+        //               g^y
+        //
+        let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let hx = gx*gx;
+        let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
+        let hy = gy*gy;
+        for i in 0..len {
+            let q = dx[i];
+            let r = dy[i];
+            dx[i] = (r*gy - q*hy) / (gy*hx - gx*hy);
+            dy[i] = (q - dx[i]*gx) / gy;
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+0 || *b == blocks.len()+2)
+    {
+        // repair dx and dy using p and r
+        let (before, between) = blocks.split_at_mut(bad_blocks[0]);
+        let (dx, between) = between.split_first_mut().unwrap();
+        let (between, after) = between.split_at_mut(bad_blocks[1]-(bad_blocks[0]+1));
+        let (dy, after) = after.split_first_mut().unwrap();
+        let dx = gf256::slice_from_slice_mut(dx.as_mut());
+        let dy = gf256::slice_from_slice_mut(dy.as_mut());
+
+        // find intermediate values
+        //
+        // p - Σ di
+        // r - Σ di*h^i
+        //
+        for i in 0..len {
+            dx[i] = p[i];
+            dy[i] = r[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(between.iter_mut()))
+            .chain((bad_blocks[1]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            let h = g*g;
+            for i in 0..len {
+                dx[i] -= gf256(b.as_mut()[i]);
+                dy[i] -= gf256(b.as_mut()[i]) * h;
+            }
+        }
+
+        // find final dx/dy
+        //
+        // dx     + dy     = p - Σ di
+        // dx*h^x + dy*h^y = r - Σ di*h^i
+        //
+        //      (r - Σ di*h^i) - (p - Σ di)*h^y
+        // dx = -------------------------------
+        //               h^x - h^y
+        //
+        // dy = p - Σ di - dx
+        //
+        let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let hx = gx*gx;
+        let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
+        let hy = gy*gy;
+        for i in 0..len {
+            let p = dx[i];
+            let r = dy[i];
+            dx[i] = (r - p*hy) / (hx - hy);
+            dy[i] = p - dx[i];
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 3 {
+        // repair dx, dy and dz using p, q and r
+        let (before, between) = blocks.split_at_mut(bad_blocks[0]);
+        let (dx, between) = between.split_first_mut().unwrap();
+        let (between, between2) = between.split_at_mut(bad_blocks[1]-(bad_blocks[0]+1));
+        let (dy, between2) = between2.split_first_mut().unwrap();
+        let (between2, after) = between2.split_at_mut(bad_blocks[2]-(bad_blocks[1]+1));
+        let (dz, after) = after.split_first_mut().unwrap(); 
+        let dx = gf256::slice_from_slice_mut(dx.as_mut());
+        let dy = gf256::slice_from_slice_mut(dy.as_mut());
+        let dz = gf256::slice_from_slice_mut(dz.as_mut());
+
+        // find intermediate values
+        //
+        // p - Σ di
+        // q - Σ di*g^i
+        // r - Σ di*h^i
+        //
+        for i in 0..len {
+            dx[i] = p[i];
+            dy[i] = q[i];
+            dz[i] = r[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(between.iter_mut()))
+            .chain((bad_blocks[1]+1..).zip(between2.iter_mut()))
+            .chain((bad_blocks[2]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            let h = g*g;
+            for i in 0..len {
+                dx[i] -= gf256(b.as_mut()[i]);
+                dy[i] -= gf256(b.as_mut()[i]) * g;
+                dz[i] -= gf256(b.as_mut()[i]) * h;
+            }
+        }
+
+        // find final dx/dy/dz
+        //
+        // dx     + dy     + dz     = p - Σ di
+        // dx*g^x + dy*g^y + dz*g^z = q - Σ di*g^i
+        // dx*h^x + dy*h^y + dz*h^z = r - Σ di*h^i
+        //
+        //      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
+        // dx = ----------------------------------------------------------------------------------------
+        //                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
+        //
+        //      (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
+        // dy = ------------------------------------------------
+        //                         g^y - g^z
+        //
+        // dz = p - Σ di - dx - dy
+        //
+        let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let hx = gx*gx;
+        let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
+        let hy = gy*gy;
+        let gz = gf256::GENERATOR.pow(u8::try_from(bad_blocks[2]).unwrap());
+        let hz = gz*gz;
+        for i in 0..len {
+            let p = dx[i];
+            let q = dy[i];
+            let r = dz[i];
+            dx[i] = (r*(gy-gz) - q*(hy-hz) - p*(gy*hz-gz*hy)) / ((hx-hz)*(gy-gz) - (hy-hz)*(gx-gz));
+            dy[i] = (q - p*gz - dx[i]*(gx-gz)) / (gy - gz);
+            dz[i] = p - dx[i] - dy[i];
+        }
+    }
+
+    if bad_blocks.iter().any(|x| *x == blocks.len()) {
+        // regenerate p
+        for i in 0..len {
+            p[i] = gf256(0);
+        }
+
+        for b in blocks.iter_mut() {
+            for i in 0..len {
+                p[i] += gf256(b.as_mut()[i]);
+            }
+        }
+    }
+
+    if bad_blocks.iter().any(|x| *x == blocks.len()+1) {
+        // regenerate q
+        for i in 0..len {
+            q[i] = gf256(0);
+        }
+
+        for (j, b) in blocks.iter_mut().enumerate() {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                q[i] += gf256(b.as_mut()[i]) * g;
+            }
+        }
+    }
+
+    if bad_blocks.iter().any(|x| *x == blocks.len()+2) {
+        // regenerate r
+        for i in 0..len {
+            r[i] = gf256(0);
+        }
+
+        for (j, b) in blocks.iter_mut().enumerate() {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            let h = g.pow(2);
+            for i in 0..len {
+                r[i] += gf256(b.as_mut()[i]) * h;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Add a block to a RAID7 array
+///
+/// Note the block index must be unique in the array! This does not
+/// update other block indices.
+///
+pub fn raid7_add(j: usize, new: &[u8], p: &mut [u8], q: &mut [u8], r: &mut [u8]) {
+    let len = p.len();
+    let p = gf256::slice_from_slice_mut(p);
+    let q = gf256::slice_from_slice_mut(q);
+    let r = gf256::slice_from_slice_mut(r);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    let h = g*g;
+    for i in 0..len {
+        // calculate new parity
+        p[i] += gf256(new[i]);
+        q[i] += gf256(new[i]) * g;
+        r[i] += gf256(new[i]) * h;
+    }
+}
+
+/// Add a block from a RAID7 array
+///
+/// Note the block index must already exit in the array, otherwise the
+/// array will become corrupted. This does not update other block indices.
+///
+pub fn raid7_remove(j: usize, old: &[u8], p: &mut [u8], q: &mut [u8], r: &mut [u8]) {
+    let len = p.len();
+    let p = gf256::slice_from_slice_mut(p);
+    let q = gf256::slice_from_slice_mut(q);
+    let r = gf256::slice_from_slice_mut(r);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    let h = g*g;
+    for i in 0..len {
+        // calculate new parity
+        p[i] -= gf256(old[i]);
+        q[i] -= gf256(old[i]) * g;
+        r[i] -= gf256(old[i]) * h;
+    }
+}
+
+/// Update a block in a RAID7 array
+///
+/// This is functionally equivalent to remove(i)+add(i), but more efficient.
+///
+pub fn raid7_update(j: usize, old: &[u8], new: &[u8], p: &mut [u8], q: &mut [u8], r: &mut [u8]) {
+    let len = p.len();
+    let p = gf256::slice_from_slice_mut(p);
+    let q = gf256::slice_from_slice_mut(q);
+    let r = gf256::slice_from_slice_mut(r);
+
+    let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+    let h = g*g;
+    for i in 0..len {
+        // calculate new parity
+        p[i] += gf256(new[i]) - gf256(old[i]);
+        q[i] += (gf256(new[i]) - gf256(old[i])) * g;
+        r[i] += (gf256(new[i]) - gf256(old[i])) * h;
+    }
+}
+
+
 pub fn main() {
     fn hex(xs: &[u8]) -> String {
         xs.iter()
@@ -482,7 +950,7 @@ pub fn main() {
     }
 
 
-    // testing RAID4
+    // testing RAID5
 
     let mut blocks = [
         Vec::from(b"Hell".as_ref()),
@@ -492,13 +960,13 @@ pub fn main() {
     let mut parity = Vec::from(b"    ".as_ref());
 
     println!();
-    println!("testing raid4({:?})",
+    println!("testing raid5({:?})",
         blocks.iter()
             .map(|b| ascii(b))
             .collect::<String>()
     );
 
-    raid4_format(&blocks, &mut parity);
+    raid5_format(&blocks, &mut parity);
     println!("{:<7} => {}  {}",
         "format",
         blocks.iter()
@@ -513,7 +981,7 @@ pub fn main() {
 
     let old = blocks[2][3];
     blocks[2][3] = b'!';
-    raid4_update(2, &[old], &[b'!'], &mut parity[3..4]);
+    raid5_update(2, &[old], &[b'!'], &mut parity[3..4]);
     println!("{:<7} => {}  {}",
         "update",
         blocks.iter()
@@ -549,7 +1017,7 @@ pub fn main() {
             .collect::<String>()
     );
 
-    raid4_repair(&mut blocks, &mut parity, &bad_blocks).unwrap();
+    raid5_repair(&mut blocks, &mut parity, &bad_blocks).unwrap();
     println!("{:<7} => {}  {}",
         "repair",
         blocks.iter()
@@ -692,6 +1160,191 @@ pub fn main() {
             .collect::<String>(),
         blocks.iter()
             .chain([&parity1, &parity2])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+    assert_eq!(
+        blocks.iter()
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        "Hello World!"
+    );
+
+
+    // testing RAID7
+
+    let mut blocks = [
+        Vec::from(b"Hell".as_ref()),
+        Vec::from(b"o Wo".as_ref()),
+        Vec::from(b"rld?".as_ref()),
+    ];
+    let mut parity1 = Vec::from(b"    ".as_ref());
+    let mut parity2 = Vec::from(b"    ".as_ref());
+    let mut parity3 = Vec::from(b"    ".as_ref());
+
+    println!();
+    println!("testing raid7({:?})",
+        blocks.iter()
+            .map(|b| ascii(b))
+            .collect::<String>()
+    );
+
+    raid7_format(&blocks, &mut parity1, &mut parity2, &mut parity3);
+    println!("{:<7} => {}  {}",
+        "format",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+
+    let old = blocks[2][3];
+    blocks[2][3] = b'!';
+    raid7_update(2, &[old], &[b'!'], &mut parity1[3..4], &mut parity2[3..4], &mut parity3[3..4]);
+    println!("{:<7} => {}  {}",
+        "update",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+
+    let mut rng = rand::thread_rng();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+3, 1).into_vec();
+    for bad_block in bad_blocks.iter() {
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity1.fill(b'x');
+        } else if *bad_block == blocks.len()+1 {
+            parity2.fill(b'x');
+        } else if *bad_block == blocks.len()+2 {
+            parity3.fill(b'x');
+        } else {
+            unreachable!();
+        }
+    }
+    println!("{:<7} => {}  {}",
+        "corrupt",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+
+    raid7_repair(&mut blocks, &mut parity1, &mut parity2, &mut parity3, &bad_blocks).unwrap();
+    println!("{:<7} => {}  {}",
+        "repair",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+    assert_eq!(
+        blocks.iter()
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        "Hello World!"
+    );
+
+    let mut rng = rand::thread_rng();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+3, 2).into_vec();
+    for bad_block in bad_blocks.iter() {
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity1.fill(b'x');
+        } else if *bad_block == blocks.len()+1 {
+            parity2.fill(b'x');
+        } else if *bad_block == blocks.len()+2 {
+            parity3.fill(b'x');
+        } else {
+            unreachable!();
+        }
+    }
+    println!("{:<7} => {}  {}",
+        "corrupt",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+
+    raid7_repair(&mut blocks, &mut parity1, &mut parity2, &mut parity3, &bad_blocks).unwrap();
+    println!("{:<7} => {}  {}",
+        "repair",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+    assert_eq!(
+        blocks.iter()
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        "Hello World!"
+    );
+
+    let mut rng = rand::thread_rng();
+    let bad_blocks = rand::seq::index::sample(&mut rng, blocks.len()+3, 3).into_vec();
+    for bad_block in bad_blocks.iter() {
+        if *bad_block < blocks.len() {
+            blocks[*bad_block].fill(b'x');
+        } else if *bad_block == blocks.len()+0 {
+            parity1.fill(b'x');
+        } else if *bad_block == blocks.len()+1 {
+            parity2.fill(b'x');
+        } else if *bad_block == blocks.len()+2 {
+            parity3.fill(b'x');
+        } else {
+            unreachable!();
+        }
+    }
+    println!("{:<7} => {}  {}",
+        "corrupt",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| hex(b))
+            .collect::<String>()
+    );
+
+    raid7_repair(&mut blocks, &mut parity1, &mut parity2, &mut parity3, &bad_blocks).unwrap();
+    println!("{:<7} => {}  {}",
+        "repair",
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
+            .map(|b| ascii(b))
+            .collect::<String>(),
+        blocks.iter()
+            .chain([&parity1, &parity2, &parity3])
             .map(|b| hex(b))
             .collect::<String>()
     );
