@@ -41,7 +41,7 @@ pub fn raid(
     };
 
     // only up to 2 parity blocks are currently supported
-    assert!(args.parity <= 2);
+    assert!(args.parity <= 3);
 
     // parse type
     let ty = parse_macro_input!(input as syn::ItemMod);

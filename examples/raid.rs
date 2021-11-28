@@ -52,8 +52,6 @@
 //!
 
 use std::convert::TryFrom;
-use std::cmp::min;
-use std::cmp::max;
 use std::fmt;
 use rand;
 use ::gf256::*;
@@ -104,48 +102,40 @@ pub fn raid5_repair<B: AsMut<[u8]>>(
 ) -> Result<(), RaidError> {
     let len = p.len();
 
-    if bad_blocks.len() == 0 {
-        // no repair needed
-        Ok(())
-    } else if bad_blocks.len() == 1 {
-        let bad_block = bad_blocks[0];
-        assert!(bad_block < blocks.len()+1);
-
-        if bad_block < blocks.len() {
-            // repair using p
-            let (before, after) = blocks.split_at_mut(bad_block);
-            let (d, after) = after.split_first_mut().unwrap();
-            let d = d.as_mut();
-
-            for i in 0..len {
-                d[i] = p[i];
-            }
-
-            for b in before.iter_mut().chain(after.iter_mut()) {
-                for i in 0..len {
-                    d[i] ^= b.as_mut()[i];
-                }
-            }
-            Ok(())
-        } else if bad_block == blocks.len()+0 {
-            // regenerate p
-            for i in 0..len {
-                p[i] = 0;
-            }
-
-            for b in blocks.iter_mut() {
-                for i in 0..len {
-                    p[i] ^= b.as_mut()[i];
-                }
-            }
-            Ok(())
-        } else {
-            unreachable!()
-        }
-    } else {
+    if bad_blocks.len() > 1 {
         // can't repair
-        Err(RaidError::TooManyBadBlocks)
+        return Err(RaidError::TooManyBadBlocks);
     }
+
+    if bad_blocks[0] < blocks.len() {
+        // repair using p
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = d.as_mut();
+
+        for i in 0..len {
+            d[i] = p[i];
+        }
+
+        for b in before.iter_mut().chain(after.iter_mut()) {
+            for i in 0..len {
+                d[i] ^= b.as_mut()[i];
+            }
+        }
+    } else if bad_blocks[0] == blocks.len() {
+        // regenerate p
+        for i in 0..len {
+            p[i] = 0;
+        }
+
+        for b in blocks.iter_mut() {
+            for i in 0..len {
+                p[i] ^= b.as_mut()[i];
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Add a block to a RAID5 array
@@ -226,188 +216,143 @@ pub fn raid6_repair<B: AsMut<[u8]>>(
     let p = gf256::slice_from_slice_mut(p);
     let q = gf256::slice_from_slice_mut(q);
 
-    if bad_blocks.len() == 0 {
-        // no repair needed
-        Ok(())
-    } else if bad_blocks.len() == 1 {
-        let bad_block = bad_blocks[0];
-        assert!(bad_block < blocks.len()+2);
-
-        if bad_block < blocks.len() {
-            // repair using p
-            let (before, after) = blocks.split_at_mut(bad_block);
-            let (d, after)  = after.split_first_mut().unwrap();
-            let d = gf256::slice_from_slice_mut(d.as_mut());
-
-            for i in 0..len {
-                d[i] = p[i];
-            }
-
-            for b in before.iter_mut().chain(after.iter_mut()) {
-                for i in 0..len {
-                    d[i] -= gf256(b.as_mut()[i]);
-                }
-            }
-            Ok(())
-        } else if bad_block == blocks.len()+0 {
-            // regenerate p
-            for i in 0..len {
-                p[i] = gf256(0);
-            }
-
-            for b in blocks.iter_mut() {
-                for i in 0..len {
-                    p[i] += gf256(b.as_mut()[i]);
-                }
-            }
-            Ok(())
-        } else if bad_block == blocks.len()+1 {
-            // regenerate q
-            for i in 0..len {
-                q[i] = gf256(0);
-            }
-
-            for (j, b) in blocks.iter_mut().enumerate() {
-                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
-                for i in 0..len {
-                    q[i] += gf256(b.as_mut()[i]) * g;
-                }
-            }
-            Ok(())
-        } else {
-            unreachable!()
-        }
-    } else if bad_blocks.len() == 2 {
-        let bad_block1 = min(bad_blocks[0], bad_blocks[1]);
-        let bad_block2 = max(bad_blocks[0], bad_blocks[1]);
-        assert!(bad_block1 < blocks.len()+2);
-        assert!(bad_block2 < blocks.len()+2);
-
-        if bad_block1 < blocks.len() && bad_block2 < blocks.len() {
-            // repair d1 and d2 using p and q
-            let (before, between) = blocks.split_at_mut(bad_block1);
-            let (d1, between) = between.split_first_mut().unwrap();
-            let (between, after) = between.split_at_mut(bad_block2-(bad_block1+1));
-            let (d2, after) = after.split_first_mut().unwrap();
-            let d1 = gf256::slice_from_slice_mut(d1.as_mut());
-            let d2 = gf256::slice_from_slice_mut(d2.as_mut());
-
-            // find intermediate values
-            //
-            // p-sum(d_i)
-            // q-sum(d_i*g^i)
-            //
-            for i in 0..len {
-                d1[i] = p[i];
-                d2[i] = q[i];
-            }
-
-            for (j, b) in before.iter_mut().enumerate()
-                .chain((bad_block1+1..).zip(between.iter_mut()))
-                .chain((bad_block2+1..).zip(after.iter_mut()))
-            {
-                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
-                for i in 0..len {
-                    d1[i] -= gf256(b.as_mut()[i]);
-                    d2[i] -= gf256(b.as_mut()[i]) * g;
-                }
-            }
-
-            // find final d1/d2
-            //
-            // d_x +     d_y     = p-sum(d_i)
-            // d_x*g^x + d_y*g^y = q-sum(d_i*g^i)
-            //
-            //       (p-sum(d_i))*g^y + (q-sum(d_i*g^i))
-            // d_x = -----------------------------------
-            //                   g^x + g^y
-            //
-            let g1 = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-            let g2 = gf256::GENERATOR.pow(u8::try_from(bad_block2).unwrap());
-            for i in 0..len {
-                let p = d1[i];
-                let q = d2[i];
-                d1[i] = (p*g2 + q) / (g1+g2);
-                d2[i] = p - d1[i];
-            }
-            Ok(())
-        } else if bad_block1 < blocks.len() && bad_block2 == blocks.len()+0 {
-            // repair d using q, and then regenerate p
-            let (before, after) = blocks.split_at_mut(bad_block1);
-            let (d, after) = after.split_first_mut().unwrap();
-            let d = gf256::slice_from_slice_mut(d.as_mut());
-
-            for i in 0..len {
-                d[i] = q[i];
-                p[i] = gf256(0);
-            }
-
-            for (j, b) in before.iter_mut().enumerate()
-                .chain((bad_block1+1..).zip(after.iter_mut()))
-            {
-                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
-                for i in 0..len {
-                    d[i] -= gf256(b.as_mut()[i]) * g;
-                    p[i] += gf256(b.as_mut()[i]);
-                }
-            }
-
-            // update p and d based on final value of d
-            let g = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-            for i in 0..len {
-                d[i] /= g;
-                p[i] += d[i];
-            }
-            Ok(())
-        } else if bad_block1 < blocks.len() && bad_block2 == blocks.len()+1 {
-            // repair d using p, and then regenerate q
-            let (before, after) = blocks.split_at_mut(bad_block1);
-            let (d, after) = after.split_first_mut().unwrap();
-            let d = gf256::slice_from_slice_mut(d.as_mut());
-
-            for i in 0..len {
-                d[i] = p[i];
-                q[i] = gf256(0);
-            }
-
-            for (j, b) in before.iter_mut().enumerate()
-                .chain((bad_block1+1..).zip(after.iter_mut()))
-            {
-                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
-                for i in 0..len {
-                    d[i] -= gf256(b.as_mut()[i]);
-                    q[i] += gf256(b.as_mut()[i]) * g;
-                }
-            }
-
-            // update q based on final value of d
-            let g = gf256::GENERATOR.pow(u8::try_from(bad_block1).unwrap());
-            for i in 0..len {
-                q[i] += d[i] * g;
-            }
-            Ok(())
-        } else if bad_block1 == blocks.len()+0 && bad_block2 == blocks.len()+1 {
-            // regenerate p and q
-            for i in 0..len {
-                p[i] = gf256(0);
-                q[i] = gf256(0);
-            }
-
-            for (j, b) in blocks.iter_mut().enumerate() {
-                let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
-                for i in 0..len {
-                    p[i] += gf256(b.as_mut()[i]);
-                    q[i] += gf256(b.as_mut()[i]) * g;
-                }
-            }
-            Ok(())
-        } else {
-            unreachable!()
-        }
-    } else {
+    if bad_blocks.len() > 2 {
         // can't repair
-        Err(RaidError::TooManyBadBlocks)
+        return Err(RaidError::TooManyBadBlocks);
     }
+
+    // sort the data blocks without alloc, this is only so we can split
+    // the mut blocks array safely
+    let mut bad_blocks_array = [
+        bad_blocks.get(0).copied().unwrap_or(0),
+        bad_blocks.get(1).copied().unwrap_or(0),
+    ];
+    let bad_blocks = &mut bad_blocks_array[..bad_blocks.len()];
+    bad_blocks.sort_unstable();
+
+    if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 1
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+0)
+    {
+        // repair using p
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = gf256::slice_from_slice_mut(d.as_mut());
+
+        for i in 0..len {
+            d[i] = p[i];
+        }
+
+        for b in before.iter_mut().chain(after.iter_mut()) {
+            for i in 0..len {
+                d[i] -= gf256(b.as_mut()[i]);
+            }
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 1
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+1)
+    {
+        // repair using q
+        let (before, after) = blocks.split_at_mut(bad_blocks[0]);
+        let (d, after) = after.split_first_mut().unwrap();
+        let d = gf256::slice_from_slice_mut(d.as_mut());
+
+        for i in 0..len {
+            d[i] = q[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                d[i] -= gf256(b.as_mut()[i]) * g;
+            }
+        }
+
+        let g = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        for i in 0..len {
+            d[i] /= g;
+        }
+    } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
+        && !bad_blocks.iter().any(|b| *b == blocks.len()+0 || *b == blocks.len()+1)
+    {
+        // repair dx and dy using p and q
+        let (before, between) = blocks.split_at_mut(bad_blocks[0]);
+        let (dx, between) = between.split_first_mut().unwrap();
+        let (between, after) = between.split_at_mut(bad_blocks[1]-(bad_blocks[0]+1));
+        let (dy, after) = after.split_first_mut().unwrap();
+        let dx = gf256::slice_from_slice_mut(dx.as_mut());
+        let dy = gf256::slice_from_slice_mut(dy.as_mut());
+
+        // find intermediate values
+        //
+        // p - Σ di
+        // q - Σ di*g^i
+        //
+        for i in 0..len {
+            dx[i] = p[i];
+            dy[i] = q[i];
+        }
+
+        for (j, b) in before.iter_mut().enumerate()
+            .chain((bad_blocks[0]+1..).zip(between.iter_mut()))
+            .chain((bad_blocks[1]+1..).zip(after.iter_mut()))
+        {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                dx[i] -= gf256(b.as_mut()[i]);
+                dy[i] -= gf256(b.as_mut()[i]) * g;
+            }
+        }
+
+        // find final dx/dy
+        //
+        // dx     + dy     = p - Σ di
+        // dx*g^x + dy*g^y = q - Σ di*g^i
+        //
+        //      (q - Σ di*g^i) - (p - Σ di)*g^y
+        // dx = -------------------------------
+        //               g^x - g^y
+        //
+        // dy = p - Σ di - dx
+        //
+        let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
+        let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
+        for i in 0..len {
+            let p = dx[i];
+            let q = dy[i];
+            dx[i] = (q - p*gy) / (gx - gy);
+            dy[i] = p - dx[i];
+        }
+    }
+
+    if bad_blocks.iter().any(|x| *x == blocks.len()) {
+        // regenerate p
+        for i in 0..len {
+            p[i] = gf256(0);
+        }
+
+        for b in blocks.iter_mut() {
+            for i in 0..len {
+                p[i] += gf256(b.as_mut()[i]);
+            }
+        }
+    }
+
+    if bad_blocks.iter().any(|x| *x == blocks.len()+1) {
+        // regenerate q
+        for i in 0..len {
+            q[i] = gf256(0);
+        }
+
+        for (j, b) in blocks.iter_mut().enumerate() {
+            let g = gf256::GENERATOR.pow(u8::try_from(j).unwrap());
+            for i in 0..len {
+                q[i] += gf256(b.as_mut()[i]) * g;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Add a block to a RAID6 array

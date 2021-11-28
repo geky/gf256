@@ -6,7 +6,7 @@ override ENV += RUSTFLAGS="$(RUSTFLAGS)"
 
 .PHONY: all build
 all build:
-	$(ENV) cargo +nightly build --features nightly
+	$(ENV) cargo +nightly build --features nightly,thread-rng,lfsr,crc,shamir,raid,rs
 
 .PHONY: test-configs
 test-configs:
