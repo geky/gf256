@@ -1,6 +1,6 @@
 //! ## LFSR structs and macros
 //!
-//! [Linear-feedback shift registers (LFSRs)][lfsrs], are a simple way of
+//! A [linear-feedback shift registers (LFSR)][lfsr] is a simple method of
 //! creating a pseudo-random stream of bits using only a small circuit of shifts
 //! and xors.
 //!

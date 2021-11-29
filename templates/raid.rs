@@ -353,7 +353,6 @@ pub fn repair<B: AsMut<[__u]>>(
 
             bad_blocks = &mut bad_blocks[2..];
         } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 3 {
-            println!("HMMMM");
             // repair dx, dy and dz using p, q and r
             let (before, between) = blocks.split_at_mut(bad_blocks[0]);
             let (dx, between) = between.split_first_mut().unwrap();
@@ -417,7 +416,9 @@ pub fn repair<B: AsMut<[__u]>>(
                 let p = dx[i];
                 let q = dy[i];
                 let r = dz[i];
-                dx[i] = (r*(gy-gz) - q*(hy-hz) - p*(gy*hz-gz*hy)) / ((hx-hz)*(gy-gz) - (hy-hz)*(gx-gz));
+                //dx[i] = (r*(gy-gz) - q*(hy-hz) - p*(gy*hz-gz*hy)) / ((hx-hz)*(gy-gz) - (hy-hz)*(gx-gz));
+                //dx[i] = (r*(gy-gz) - q*(hy-hz) - p*(gy*hz-gz*hy)) / ((gx-gy)*(gx-gz)*(gy-gz));
+                dx[i] = (r - q*(gy-gz) - p*gy*gz) / ((gx-gy)*(gx-gz));
                 dy[i] = (q - p*gz - dx[i]*(gx-gz)) / (gy - gz);
                 dz[i] = p - dx[i] - dy[i];
             }

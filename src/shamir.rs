@@ -207,7 +207,7 @@
 //! there are only a finite number of elements to choose from when choosing our
 //! the arbitrary x-coordinates for our shares.
 //!
-//! Because of this, Shamir's secret sharing scheme is limited to the number of non-zeroS
+//! Because of this, Shamir's secret sharing scheme is limited to the number of non-zero
 //! elements in our field. In the case of GF(256), this limits us to 255 shares.
 //!
 //! ## Constant-time

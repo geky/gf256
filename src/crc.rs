@@ -1,11 +1,12 @@
 //! ## CRC functions and macros
 //!
-//! [Cyclic redundancy checks (CRCs)][crcs], are a common checksum algorithm that
-//! is simple to implement in circuitry and effective at detecting errors.
+//! A [Cyclic redundancy check (CRC)][crc], is a common checksum algorithm that
+//! is simple to implement in circuitry, and effective at detecting bit-level
+//! errors.
 //!
-//! Looking at CRCs mathematically is fascinating, because they are nothing more
-//! than polynomial division, allowing for efficient implementations that leverage
-//! our polynomial types and hardware-accelerated carry-less multiplication.
+//! Looking at CRCs mathematically, they are nothing more than polynomial division,
+//! allowing for efficient implementations that leverage our polynomial types and
+//! hardware-accelerated carry-less multiplication.
 //!
 //! TODO example
 //!
