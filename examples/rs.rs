@@ -205,7 +205,7 @@ fn rs_poly_divrem(f: &mut [gf256], g: &[gf256]) {
 /// our generator polynomial. We can do this by appending the remainder
 /// of our message after division by G(x).
 ///
-/// M'(x) = M(x) + (M(x) % G(x))
+/// M'(x) = M(x) - (M(x) % G(x))
 ///
 /// Note we expect the message to only take up the first message.len()-ECC_SIZE
 /// bytes, but this can be smaller than BLOCK_SIZE
@@ -333,6 +333,7 @@ fn rs_find_error_locator(syndromes: &[gf256]) -> Vec<gf256> {
         if delta != gf256(0) {
             rs_poly_scale(&mut old_el, delta);
             if 2*l <= i {
+                // TODO don't use swap_with_slice here??
                 new_el.swap_with_slice(&mut old_el);
                 l = i+1-l;
             }

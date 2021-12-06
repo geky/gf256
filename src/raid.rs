@@ -16,6 +16,8 @@
 //! to any array of blocks as long as there is some mechanism to detect failures,
 //! such as CRCs or other checksums.
 //!
+//! Note this module requires feature `raid`.
+//!
 //! ## How does RAID-parity work?
 //!
 //! The simplest parity-scheme to understand is RAID 5, aka single-parity. In this

@@ -4,9 +4,12 @@
 //! is simple to implement in circuitry, and effective at detecting bit-level
 //! errors.
 //!
-//! Looking at CRCs mathematically, they are nothing more than polynomial division,
-//! allowing for efficient implementations that leverage our polynomial types and
-//! hardware-accelerated carry-less multiplication.
+//! Looking at CRCs mathematically, they are nothing more than the remainder
+//! after polynomial division by a constant, allowing for efficient implementations
+//! that leverage our polynomial types and hardware-accelerated carry-less
+//! multiplication.
+//!
+//! TODO rewrite this?
 //!
 //! TODO example
 //!
@@ -127,8 +130,8 @@
 //!
 //! ## Optimizations
 //!
-//! CRCs are simple and fast in circuitry, but not so much in software due to the
-//! bit-level operations. Fortunately there are several optimizations we can do
+//! CRCs are simple and fast in circuitry, but not so much in software due to relying
+//! on bit-level operations. Fortunately there are several optimizations we can do
 //! to speed up CRC calculation in software.
 //!
 //! A straightforward implementation of polynomial remainder is available in `naive`
