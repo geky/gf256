@@ -105,19 +105,20 @@
 //! assert_ne!(a + a, gf256(2)*a);
 //! ```
 //! 
-//! Unsurprisingly, finite-fields can be very useful for applying high-level math
-//! onto machine words, since machine words (u8, u16, u32, etc) are inherently
-//! finite, we just normally try to ignore this limitation.
+//! Finite-fields can be very useful for applying high-level math onto machine
+//! words, since machine words (u8, u16, u32, etc) are inherently finite. Normally
+//! we just ignore this until an integer overflow occurs and then we just waive our
+//! hands around wailing that math has failed us.
 //! 
-//! In Rust this has the fun feature that the Galois-field types can not overflow,
-//! so Galois-field types don't need the set of overflowing operations normally
-//! found in other Rust types:
+//! In Rust this has the fun side-effect that the Galois-field types are incapable
+//! of overflowing, so Galois-field types don't need the set of overflowing
+//! operations normally found in other Rust types:
 //! 
 //! ``` rust
 //! # use ::gf256::*;
 //! #
-//! let a = (u8::MAX).checked_add(1);  // overflows
-//! let b = gf256(u8::MAX) + gf256(1); // does not overflow
+//! let a = (u8::MAX).checked_add(1);  // overflows          :(
+//! let b = gf256(u8::MAX) + gf256(1); // does not overflow  :)
 //! ```
 //! 
 //! ## Galois-field construction
@@ -210,7 +211,9 @@
 //! 
 //! I'm going to use the polynomial `0b10011` in this example, but it can be any
 //! polynomial as long as it's 1. irreducible and 2. has n+1 bits where n is the
-//! number of bits in our field.
+//! number of bits in our field. How we find these polynomials is explained in
+//! more detail in the [Finding irreducible polynomials and generators][blablabla]
+//! section.
 //! 
 //! 1. Why does the polynomial need to be irreducible?
 //!  
@@ -226,8 +229,6 @@
 //!    Much like how the prime number that defines prime fields is outside that
 //!    field, the irreducible polynomial that defines a binary-extension field is
 //!    outside of the field.
-//! 
-//! TODO show tool here
 //! 
 //! Multiplication modulo our irreducible polynomial now always stays in our field:
 //! 
@@ -302,7 +303,7 @@
 //! 
 //! In fact, there are several numbers in every finite-field whose multiplicative
 //! cycle actually includes every non-zero number in the field. These are called
-//! "generators" or "primitive elements" and are very useful for several
+//! "generators" or "primitive elements" and are very useful when designing
 //! algorithms.
 //! 
 //! ``` rust
@@ -399,18 +400,20 @@
 //! ```
 //! 
 //! This means we can define division in terms of repeated multiplication, which
-//! gives us the last of our field operations!
+//! gives us the last of our field operations:
 //! 
 //! ``` text
 //! a + b = a + b
+//!
 //! a - b = a - b
-//! a * b = (a * b) % p
-//!          (2^n)-1-2
-//! a / b = b * (π a % p)
-//! 
-//! where a and b are viewed as polynomials, p is an irreducible polynomial with
-//! n+1 bits, and n is the number of bits in our field.
+//!
+//! a * b = a * b mod p
+//!         (2^n)-1-2
+//! a / b = a * ∏ b mod p
 //! ```
+//! 
+//! Where a and b are viewed as polynomials, p is an irreducible polynomial with
+//! n+1 bits, and n is the number of bits in our field.
 //! 
 //! These operations follow our field axioms:
 //! 
@@ -483,7 +486,44 @@
 //! assert_eq!(gf16::new(0b1011) * gf16::new(0b1101), gf16::new(0b0110));
 //! }
 //! ```
-//! 
+//!
+//! ## Finding irreducible polynomials and generators
+//!
+//! So far we've mentioned that the representation of Galois-fields in gf256
+//! require "irreducible polynomials", and that every Galois-field contains
+//! "generators", sometimes called "primitive elements".
+//!
+//! - irreducible polynomial - a polynomial that can't be evenly divided by any
+//!   other non-trivial polynomial
+//!
+//! - generator - an element of a finite-field whose multiplicative cycle
+//!   contains all non-zero elements of the field.
+//!
+//! But we haven't actually explained how to find these important polynomials.
+//!
+//! Unfortunately, much like traditional prime numbers, there just isn't a
+//! straightforward formula for finding irreducible polynomials or generators.
+//! Our best option is a brute force search.
+//!
+//! To help with this, gf256 contains the tool/example [find-p][find-p], which
+//! can search for irreducible polynomials and their generators of a given
+//! bit-width. Note you need a 5-bit irreducible polynomial for a 4-bit field:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=5 -m=1
+//! polynomial=0x13, generator=0x2
+//! polynomial=0x19, generator=0x2
+//! polynomial=0x1f, generator=0x3
+//! ```
+//!
+//! So far this has been efficient enough to find irreducible polynomials and
+//! their generators up to 65-bits:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=65 -m=1 -n=1
+//! polynomial=0x1000000000000001b, generator=0x2
+//! ```
+//!
 //! ## Optimizations
 //!
 //! There are a number of optimizations we can do to make Galois-fields more

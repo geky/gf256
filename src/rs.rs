@@ -1,4 +1,4 @@
-//! ## Reed-Solomon error-correction codes
+//! ## Reed-Solomon error-correction codes in BCH-view
 //!
 //! [Reed-Solomon error-correction][rs] is a scheme for creating error-correction
 //! codes (ECC) capable of detecting and correcting multiple byte-level errors.
@@ -244,7 +244,7 @@
 //! primtive element, generate all non-zero elements in a finite-field before
 //! looping.
 //!
-//! TODO how do we find generators? something to link to here?
+//! For more information on generators, see the documentation in [gf](../gf.rs).
 //!
 //! With this we can create an arbitrary polynomial that evaluates to zero for
 //! a fixed set of points:
@@ -252,7 +252,7 @@
 //! ``` text
 //! G(x) = (x - g^0)*(x - g^1)*(x - g^2)*...
 //!
-//! Or:
+//! or
 //!
 //! G(x) = ∏ (x - g^i)
 //!        i
@@ -283,7 +283,6 @@
 //! Just like [CRCs][crcs], this creates a polynomial that is a multiple of
 //! our generator polynomial:
 //!
-//! TODO do we actually describe this in CRCs?
 //! TODO is use of n consistent in this document?
 //!
 //! ``` text
@@ -319,7 +318,7 @@
 //! ``` text
 //! e(x) = Y0*x^j0 + Y1*x^j1 + Y2*x^j2 + ...
 //!
-//! Or:
+//! or
 //!        v
 //! e(x) = Σ Yj*x^j
 //!        j
@@ -428,7 +427,7 @@
 //! ``` text
 //! Λ(x) = (1 - x*X0)*(1 - x*X1)*(1 - x*X2)*...
 //!
-//! Or:
+//! or
 //!        v
 //! Λ(x) = ∏ (1 - Xk*x)
 //!        k
@@ -463,7 +462,7 @@
 //!
 //!    Λ(x) = 1 + Λ1*x + Λ2*x^2 + Λ3*x^3 + ...
 //!
-//!    Or:
+//!    or
 //!               v
 //!    Λ(x) = 1 + Σ Λk*x^i
 //!              i=1
@@ -520,7 +519,7 @@
 //!
 //! Si = - Si-1*Λ1 - Si-2*Λ2 - Si-3*Λ3 - ...
 //!
-//! Or:
+//! or
 //!        v
 //! Si = - Σ Si-j*Λ1
 //!        j
@@ -532,7 +531,7 @@
 //! ``` text
 //! Sv+i = - Sv+i-1*Λ1 - Sv+i-2*Λ2 - Sv+i-3*Λ3 - ...
 //!
-//! Or:
+//! or
 //!          v
 //! Sv+i = - Σ Sv+i-j*Λ1
 //!          j
@@ -573,13 +572,13 @@
 //! polynomial over a finite-field and solving via syndromes, is called
 //! a [BCH code][bch]. The original form of Reed-Solomon viewed the message
 //! as a set of oversaturated points, much like in [Shamir's secret sharing scheme][ssss].
-//! Because it is easier to decode, BCH view is more common.
+//! Because it is easier to decode, BCH view is much more common.
 //!
 //! ---
 //!
 //! Let's actually start implementing this thing.
 //!
-//! Say we had a message we wanted to protect agaisnt, hmm, up to 2 unknown
+//! Say we had a message we wanted to protect against up to 2 unknown
 //! byte errors:
 //!
 //! ``` text
@@ -691,6 +690,11 @@
 //!
 //! ``` text
 //! hello!.... 68 65 6c 6c 6f 21 15 e5 ab 18
+//!            \-------+-------/ \----+----/
+//!                    |              '-- 4-byte ECC
+//!                    '----------------- original message
+//!            \--------------+------------/
+//!                           '---------- codeword 
 //! ```
 //!
 //! Our codeword, c(x), should now be a multiple of G(x). And, since G(x)
@@ -796,7 +800,7 @@
 //!
 //! Λ(x) = 1 + Λ1*x + Λ2*x^2 + Λ3*x^3 + ...
 //!
-//! Or:
+//! or
 //!            v
 //! Λ(x) = 1 + Σ Λk*x^i
 //!           i=1
@@ -888,7 +892,7 @@
 //!
 //! Λ(x) = 1 + Λ1*x + Λ2*x^2 + Λ3*x^3 + ...
 //!
-//! Or:
+//! or
 //!            v
 //! Λ(x) = 1 + Σ Λk*x^i
 //!           i=1
@@ -937,7 +941,7 @@
 //! assert_eq!(&error_locations, &[2, 6]);
 //! ```
 //!
-//! Note this is only O(n), unlike the O(n^2) search we did for CRCs.
+//! Note this is only O(n), unlike the O(n^2) brute force search we did for CRCs.
 //!
 //! And sure enough, there's our error locations!
 //!
@@ -960,12 +964,12 @@
 //! Ω(x) = S(x)*Λ(x) mod x^2v
 //! ```
 //!
-//! Where S(x) is the "partial syndrome polynomial" defined as:
+//! And S(x) is the "partial syndrome polynomial" defined as:
 //!
 //! ``` text
 //! S(x) = S0 + S1*x + S2*x^2 + ...
 //!
-//! Or:
+//! or
 //!       2v
 //! S(x) = Σ Si*x^i
 //!        i
@@ -977,7 +981,7 @@
 //! ``` text
 //! Λ'(x) = Λ1 + 2*Λ2*x + 3*Λ3*x^2 + ...
 //!
-//! Or:
+//! or
 //!         v
 //! Λ'(x) = Σ i*Λi*x^(i-1)
 //!        i=1
@@ -1093,11 +1097,26 @@
 //! hello!.... 68 65 6c 6c 6f 21 15 e5 ab 18
 //! ```
 //!
+//! ## Limitations
+//!
+//! In order for Reed-Solomon to work, we need a unique non-zero error
+//! location, Xj, for each symbol in our codeword. This limits the size of the
+//! _total_ codeword, the message + ecc, to the number of non-zero elements in
+//! the field. In the case of GF(256), this limits Reed-Solomon to 255-byte
+//! codewords.
+//!
+//! The most common scheme is 32 bytes of ECC with up to 223 bytes of message,
+//! provided by this crate as [rs255w223][rs255w223]. This was the scheme
+//! famously used on the [Voyager missions][voyager-missions].
+//!
+//! 
+//!
 //! TODO links
 //!
 //! http://pfister.ee.duke.edu/courses/ecen604/rsdecode.pdf
 //! https://en.wikipedia.org/wiki/BCH_code
 //! https://users.ece.cmu.edu/~koopman/crc/ 
+//! https://en.wikipedia.org/wiki/Voyager_program
 
 use crate::macros::rs;
 

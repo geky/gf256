@@ -17,7 +17,7 @@
 //! For example, to find all irreducible polynomials and their minimum
 //! generators for GF(2^16):
 //!
-//! RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features use-nightly-features --example find-p -- --width=17 -m=1
+//! RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=17 -m=1
 //!
 
 use std::iter;

@@ -5,7 +5,7 @@ instructions (mostly carry-less multiplication) when available.
 
 This project started as a learning project to learn more about these
 "Galois-field thingies" after seeing them pop up in way too many subjects, so
-this crate may be more educational than practical. PRs welcome.
+this crate may be more educational than practical.
 
 ``` rust
 use ::gf256::*;
@@ -110,19 +110,20 @@ This also means not all of math works in a Galois-field:
 assert_ne!(a + a, gf256(2)*a);
 ```
 
-Unsurprisingly, finite-fields can be very useful for applying high-level math
-onto machine words, since machine words (u8, u16, u32, etc) are inherently
-finite, we just normally try to ignore this limitation.
+Finite-fields can be very useful for applying high-level math onto machine
+words, since machine words (u8, u16, u32, etc) are inherently finite. Normally
+we just ignore this until an integer overflow occurs and then we just waive our
+hands around wailing that math has failed us.
 
-In Rust this has the fun feature that the Galois-field types can not overflow,
-so Galois-field types don't need the set of overflowing operations normally
-found in other Rust types:
+In Rust this has the fun side-effect that the Galois-field types are incapable
+of overflowing, so Galois-field types don't need the set of overflowing
+operations normally found in other Rust types:
 
 ``` rust
 # use ::gf256::*;
 #
-let a = (u8::MAX).checked_add(1);  // overflows
-let b = gf256(u8::MAX) + gf256(1); // does not overflow
+let a = (u8::MAX).checked_add(1);  // overflows          :(
+let b = gf256(u8::MAX) + gf256(1); // does not overflow  :)
 ```
 
 For more information on Galois-fields and how we construct them, see the
@@ -131,7 +132,7 @@ relevant documentation in [`gf`'s module-level documentation](gf).
 ## Included in gf256
 
 gf256 contains a bit more than the Galois-field types. It also contains a
-number of other utilities that are based on the math around finite-fields:
+number of other utilities that rely on the math around finite-fields:
 
 - [**Polynomial types**](p)
 
@@ -155,14 +156,6 @@ number of other utilities that are based on the math around finite-fields:
   assert_eq!(a*(b+c), a*b + a*c);
   ```
 
-- [**CRC functions**](crc) (requires feature `crc`)
-
-  ``` rust
-  use gf256::crc::crc32c;
-
-  assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
-  ```
-
 - [**LFSR structs**](lfsr) (requires feature `lfsr`)
 
   ``` rust
@@ -178,6 +171,14 @@ number of other utilities that are based on the math around finite-fields:
   assert_eq!(lfsr.prev(16), 0x0451);
   assert_eq!(lfsr.prev(16), 0x002d);
   assert_eq!(lfsr.prev(16), 0x0001);
+  ```
+
+- [**CRC functions**](crc) (requires feature `crc`)
+
+  ``` rust
+  use gf256::crc::crc32c;
+
+  assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
   ```
 
 - [**Shamir secret-sharing functions**](shamir) (requires features `shamir` and `thread-rng`)
@@ -259,9 +260,8 @@ assert_eq!(a*(b+c), a*b + a*c);
 
 ## Hardware support
 
-The initial motivation for this crate was the discovery that most modern
-64-bit hardware contains instructions for accelerating this sort of
-math. This usually comes in the form of a [carry-less multiplication][clmul]
+Most modern 64-bit hardware contains instructions for accelerating this sort
+of math. This usually comes in the form of a [carry-less multiplication][clmul]
 instruction.
 
 Carry-less multiplication, also called polynomial multiplication or xor
@@ -354,7 +354,7 @@ const CRC_TABLE: [u32; 256] = {
 gf256 is just a pile of math, so it is mostly `no_std` compatible.
 
 The exceptions are the extra utilities `rs` and `shamir`, which
-require `alloc`.
+currently require `alloc`.
 
 ## Constant-time
 
@@ -376,7 +376,7 @@ evaluated before use, and you use this library at your own risk.
 - Galois-field operations
 
   Galois-field types in `barret` mode rely only on carry-less multiplication
-  and xors, and should always execut in constant time.
+  and xors, and should always execute in constant time.
 
   The other Galois-field implementations are NOT constant-time due to the use
   of lookup tables, which may be susceptible to cache-timing attacks. Note that
@@ -398,7 +398,8 @@ evaluated before use, and you use this library at your own risk.
 - Shamir secret-sharing
 
   The default Shamir secret-sharing implementation internally uses a custom
-  Galois-field type in `barret` mode and should be constant-time.
+  Galois-field type in `barret` mode and should (keyword _should_) be
+  constant-time.
 
 ## Features
 

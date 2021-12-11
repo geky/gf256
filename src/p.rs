@@ -4,8 +4,8 @@
 //!
 //! These types act as a building block for most of the math in gf256.
 //!
-//! They are primarily useful for giving access to polynomial
-//! multiplication (sometimes called carry-less multiplication or xor
+//! They are primarily useful for giving access to hardware accelerated
+//! polynomial multiplication (sometimes called carry-less multiplication or xor
 //! multiplication).
 //! 
 //! ``` rust
@@ -102,9 +102,9 @@
 //! };
 //! ```
 //!
-//! Note! There is no hardware support for polynomial division and remainder. These
-//! are expensive, branching, loop-based implementations and should generally
-//! be avoided in performance-sensitive code.
+//! Note! There currently is no hardware support for polynomial division and
+//! remainder. These are expensive, branching, loop-based implementations and
+//! should generally be avoided in performance-sensitive code.
 //!
 //! ## `const fn` support
 //!

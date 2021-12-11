@@ -74,7 +74,7 @@
 //! ``` text
 //! p = d0 + d1 + d2 + ...
 //!
-//! Or:
+//! or
 //!
 //! p = Σ di
 //!     i
@@ -93,7 +93,7 @@
 //!
 //! dx = p - (d0 + d2 + ...)
 //!
-//! Or:
+//! or
 //!
 //! dx = p - Σ di
 //!         i!=x
@@ -101,8 +101,6 @@
 //!
 //! And since subtraction is also xor in a finite-field, this is the equivalent 
 //! to xoring the parity block and data blocks together.
-//!
-//! ---
 //!
 //! But what if two blocks go bad?
 //!
@@ -114,10 +112,9 @@
 //! can't find a unique solution.
 //!
 //! But we can if we have two equations! In RAID-parity schemes, we treat the blocks
-//! as a linear system of equations. And if you recall grade-school algebra, you can
-//! find a unique solution to a linear system of equations if you have more equations
-//! than unknowns, and the equations are _linearly independent_ (this becomes
-//! important later).
+//! as a linear system of equations. And if you recall algebra, you can find a unique
+//! solution to a linear system of equations if you have more equations than unknowns,
+//! and the equations are _linearly independent_ (this becomes important later).
 //!
 //! Say, for our second parity block, "q", we came up with a different equation by
 //! using some arbitrary constants, we'll call them "c0, c1, c2..." for now:
@@ -127,7 +124,7 @@
 //!
 //! q = d0*c0 + d1*c1 + d2*c2 + ...
 //!
-//! Or:
+//! or
 //!
 //! p = Σ di
 //!     i
@@ -156,24 +153,28 @@
 //!
 //! dx*c0 + dy*c1 = q - (d2*c2 + ...)
 //!
-//! Or:
+//! or
 //!
 //! dx + dy = p - Σ di
 //!             i!=x,y
 //!
 //! dx*cx + dy*cy = q - Σ di*ci
 //!                   i!=x,y
+//! ```
 //!
-//! Solving for dy:
+//! Solve for dy:
 //!
+//! ``` text
 //! dx + dy = p - Σ di
 //!             i!=x,y
 //! 
 //! dy = p - Σ di - dx
 //!        i!=x,y
+//! ```
 //!
-//! Substitute dy:
+//! Substitute dy and solve for dx:
 //!
+//! ``` text
 //! dx*cx + (p - Σ di - dx)*cy = q - Σ di*ci
 //!            i!=x,y              i!=x,y
 //!
@@ -190,9 +191,11 @@
 //!         i!=x,y          i!=x,y
 //! dx = -----------------------------
 //!                 cx - cy
+//! ```
 //!
-//! So:
+//! Putting it all together:
 //!
+//! ``` text
 //!      (q - Σ di*ci) - (p - Σ di)*cy
 //!         i!=x,y          i!=x,y
 //! dx = -----------------------------
@@ -214,7 +217,9 @@
 //! given field before looping. So g^i is both non-zero and unique for any
 //! i < the number of non-zero elements in the field, 255 for GF(256), which
 //! means our equation will always be solvable as long as we don't have more
-//! than 255 disks! TODO how do we find generators? something to link to here?
+//! than 255 disks!
+//!
+//! For more information on generators, see the documentation in [gf](../gf.rs).
 //!
 //! We can substitute powers of our generator "g" back into our solutions to give
 //! us our final equations:
@@ -226,7 +231,7 @@
 //!
 //! q = d0*g^0 + d1*g^1 + d2*g^2 + ...
 //!
-//! Or:
+//! or
 //!
 //! p = Σ di
 //!     i
@@ -244,7 +249,7 @@
 //! dx*g^x + dy*g^y = q - Σ di*g^i
 //!                     i!=x,y
 //!
-//! Therefore:
+//! or
 //!
 //!      (q - Σ di*g^i) - (p - Σ di)*g^y
 //!         i!=x,y           i!=x,y
@@ -318,36 +323,35 @@
 //!
 //! Can we push this further?
 //!
-//! We can kind of fudge our original equations so they're in a similar form:
+//! We can fudge our original equations so they're in a similar form:
 //!
 //! ``` text
-//! p = Σ di*g^0i      dx*g^0x + dy*g^0y = p - Σ di*g^0i
+//! p = Σ di*g^0i  =>  dx*g^0x + dy*g^0y = p - Σ di*g^0i
 //!     i                                    i!=x,y
-//!                =>  
-//! q = Σ di*g^1i      dx*g^1x + dy*g^1y = q - Σ di*g^1i
+//!                    
+//! q = Σ di*g^1i  =>  dx*g^1x + dy*g^1y = q - Σ di*g^1i
 //!     i                                    i!=x,y    
 //! ```
 //!
 //! Which raises an interesting question, can we keep going?
 //!
 //! ``` text
-//! p = Σ di*g^0i      dx*g^0x + dy*g^0y + dz*g^0z + dw*g^0w + ... = p - Σ di*g^0i
+//! p = Σ di*g^0i  =>  dx*g^0x + dy*g^0y + dz*g^0z + dw*g^0w + ... = p - Σ di*g^0i
 //!     i                                                            i!=x,y,z,w,...
 //!                
-//! q = Σ di*g^1i      dx*g^1x + dy*g^1y + dz*g^1z + dw*g^1w + ... = q - Σ di*g^1i
+//! q = Σ di*g^1i  =>  dx*g^1x + dy*g^1y + dz*g^1z + dw*g^1w + ... = q - Σ di*g^1i
 //!     i                                                            i!=x,y,z,w,...
-//!                =>  
-//! r = Σ di*g^2i      dx*g^2x + dy*g^2y + dz*g^2z + dw*g^2w + ... = r - Σ di*g^2i
+//!                    
+//! r = Σ di*g^2i  =>  dx*g^2x + dy*g^2y + dz*g^2z + dw*g^2w + ... = r - Σ di*g^2i
 //!     i                                                            i!=x,y,z,w,...
 //!
-//! s = Σ di*g^3i      dx*g^3x + dy*g^3y + dz*g^3z + dw*g^3w + ... = s - Σ di*g^3i
+//! s = Σ di*g^3i  =>  dx*g^3x + dy*g^3y + dz*g^3z + dw*g^3w + ... = s - Σ di*g^3i
 //!     i                                                            i!=x,y,z,w,...
 //!
 //! ...                ...
 //! ```
 //!
-//! Perhaps surprisingly, it turns out the answer is no! Kinda. At least not
-//! generally.
+//! Perhaps surprisingly, it turns out the answer is no! At least not generally.
 //!
 //! Rather than trying to reason about this big mess of equations, let us just
 //! consider pairs of equations. We at least need to always be able to solve
@@ -379,8 +383,8 @@
 //!
 //! c = g^((k-j)*x)
 //! ```
-//! And since our constant is arbitrary, we can substitute it for, say, the
-//! log base g of c.
+//!
+//! And since our constant is arbitrary, we can substitute it for, say, `log_g(c)`.
 //!
 //! Except this gets a bit tricky, recall that the powers of g form a multiplicative
 //! cycle equal to the number of non-zero elements in our field, 255 for GF(256).
@@ -388,17 +392,19 @@
 //! because the powers of g loops.
 //!
 //! We're actually dealing with two number systems here, our finite-field and the
-//! infinite integers. There's probably a better way to notate this mathematically:
+//! infinite integers (there's probably a better way to notate this mathematically):
 //!
 //! ``` text
 //! c = g^((k-j)*x)
 //!
-//! log_g(c) = log_g(g^((k-j)*x))
+//! let c' = log_g(c) = log_g(g^((k-j)*x))
+//!
+//! c' = log_g(g^((k-j)*x))
 //!
 //! c' = (k-j)*x mod 255
 //! ```
 //!
-//! So! Is (k-j)*x mod 255 unique for any k!=j, x < 255?
+//! So the new qutions is: is (k-j)*x mod 255 unique for any k!=j, x < 255?
 //!
 //! Unfortunately, while x is less than 255, (k-j)*x may not be.
 //!
@@ -450,7 +456,7 @@
 //!
 //! So how many parity blocks does that give us?
 //!
-//! Three.
+//! Three!
 //!
 //! That's right, only three. It turns out the above constraint is actually quite
 //! limiting.
@@ -503,7 +509,7 @@
 //! prime factor is 2), g^(2^k) is also a generator for any k is also a
 //! generator.
 //!
-//! This isn't actually useful here, but it's interesting to know!
+//! This isn't actually useful here, but it's interesting to know.
 //!
 //! ---
 //!
@@ -519,7 +525,7 @@
 //!
 //! r = d0*h^0 + d1*h^1 + d2*h^2 + ...
 //!
-//! Or:
+//! or
 //!
 //! p = Σ di
 //!     i
@@ -547,17 +553,19 @@
 //!
 //! Ready for some big equations?
 //!
-//! ``` text
-//! Solving for dz:
+//! Solve for dz:
 //!
+//! ``` text
 //! dx + dy + dz = p - Σ di
 //!                 i!=x,y,z
 //!
 //! dz = p - Σ di - dx - dy
 //!       i!=x,y,z
+//! ```
 //!
-//! Substitute dz:
+//! Substitute dz and solve for dy:
 //!
+//! ``` text
 //! dx*g^x + dy*g^y + (p - Σ di - dx - dy)*g^z = q - Σ di*g^i
 //!                     i!=x,y,z                  i!=x,y,z
 //!
@@ -574,9 +582,11 @@
 //!        i!=x,y,z         i!=x,y,z
 //! dy = ------------------------------------------------
 //!                         g^y - g^z
+//! ```
 //!
-//! Substitute dy:
+//! Substitute dy and solve for dx
 //!
+//! ``` text
 //!                  ( (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z) )
 //!                  (   i!=x,y,z         i!=x,y,z                      )
 //! dx*(h^x - h^z) + ( ------------------------------------------------ )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
@@ -673,9 +683,11 @@
 //!         i!=x,y,z         i!=x,y,z                     i!=x,y,z
 //! dx = ----------------------------------------------------------------
 //!                      (g^x - g^y)*(g^x - g^z)
+//! ```
 //!
-//! So:
+//! Putting it all together:
 //!
+//! ``` text
 //!      (r - Σ di*h^i) - (q - Σ di*g^i)*(g^y - g^z) - (p - Σ di)*g^y*g^z
 //!         i!=x,y,z         i!=x,y,z                     i!=x,y,z
 //! dx = ----------------------------------------------------------------
@@ -699,7 +711,7 @@
 //!
 //! r = d0*h^0 + d1*h^1 + d2*h^2 + ...
 //!
-//! Or:
+//! or
 //!
 //! p = Σ di
 //!     i
@@ -723,7 +735,7 @@
 //! dx*h^x + dy*h^y + dz*h^z = r - Σ di*h^i
 //!                             i!=x,y,z
 //!
-//! Therefore:
+//! or
 //!
 //!      (r - Σ di*h^i) - (q - Σ di*g^i)*(g^y - g^z) - (p - Σ di)*g^y*g^z
 //!         i!=x,y,z         i!=x,y,z                     i!=x,y,z
@@ -739,7 +751,7 @@
 //!       i!=x,y,z
 //! ```
 //!
-//! And the moment you've all been waiting for, lets see this in action:
+//! And, the moment you've all been waiting for, lets see this in action!
 //!
 //! ``` rust
 //! # use ::gf256::*;
@@ -816,8 +828,8 @@
 //!     assert_eq!(data[i], gf256::from_lossy(i));
 //! }
 //! ```
-//! 
-//! And those are RAID-parity schemes all the way up to RAID 7, aka triple-parity!
+//!
+//! And that's RAID 7, aka triple-parity.
 //!
 //! There are still a number of steps not covered here. It's always possible
 //! for your parity blocks themselves to fail, in which case you just need
@@ -849,22 +861,17 @@
 //!
 //! As outlined in James S. Plank’s paper [Note: Correction to the 1997 Tutorial
 //! on Reed-Solomon Coding][plank], you can construct a modified Vandermonde matrix
-//! that allows you to solve the linear system of equations for any number of parit
+//! that allows you to solve the linear system of equations for any number of parity
 //! blocks.
 //!
-//! The downside Plank's approach is that at minimum you do need to store an array
-//! of relatively arbitrary constants for each parity block.
+//! The downside Plank's approach is that at minimum you need to store an array of
+//! computed constants for each parity block.
 //!
 //! 
 //!
 //!
 //! TODO cite correctly everywhere?
 //! [plank]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.7.155&rep=rep1&type=pdf
-
-//!
-//! 
-
-
 //!
 //! TODO limitations
 //! TODO note on more parity blocks
@@ -872,648 +879,6 @@
 //! TODO efficient updates?
 //! 
 //! 
-
-// Solve:
-//
-// dz = p - Σ di - dx - dy
-//       i!=x,y,z
-//
-// Subst dz:
-//
-// dx*g^x + dy*g^y + (p - Σ di - dx - dy)*g^z = q - Σ di*g^i
-//                     i!=x,y,z                  i!=x,y,z
-//
-// dx*g^x + dy*g^y + (p - Σ di)*g^z - dx*g^z - dy*g^z = q - Σ di*g^i
-//                     i!=x,y,z                          i!=x,y,z
-//
-// dx*(g^x - g^z) + dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z
-//                                     i!=x,y,z         i!=x,y,z
-//
-// dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
-//                    i!=x,y,z         i!=x,y,z
-//
-//      (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
-//        i!=x,y,z         i!=x,y,z
-// dy = ------------------------------------------------
-//                         g^y - g^z
-//
-// Subst dz:
-//
-// dx*h^x + dy*h^y + (p - Σ di - dx - dy)*h^z = r - Σ di*h^i
-//                     i!=x,y,z                  i!=x,y,z
-//
-// dx*h^x + dy*h^y + (p - Σ di)*h^z - dx*h^z - dy*h^z = r - Σ di*h^i
-//                     i!=x,y,z                          i!=x,y,z
-//
-// dx*(h^x - h^z) + dy*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                                     i!=x,y,z        i!=x,y,z
-//
-// Subst dy:
-//
-//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z) )
-//                  (   i!=x,y,z         i!=x,y,z                      )
-// dx*(h^x - h^z) + ( ------------------------------------------------ )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                  (                    g^y - g^z                     )                 i!=x,y,z        i!=x,y,z
-//
-//
-//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z )
-//                  (   i!=x,y,z         i!=x,y,z     )               ( dx*(g^x - g^z) )
-// dx*(h^x - h^z) + ( ------------------------------- )*(h^y - h^z) - ( -------------- )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                  (             g^y - g^z           )               (   g^y - g^z    )                 i!=x,y,z        i!=x,y,z
-//
-//                                                                                     ( (q - Σ di*g^i) - (p - Σ di)*g^z )
-//                  ( dx*(g^x - g^z) )                                                 (   i!=x,y,z         i!=x,y,z     )
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = (r - Σ di*h^i) - (p - Σ di)*h^z - ( ------------------------------- )*(h^y - h^z)
-//                  (   g^y - g^z    )                 i!=x,y,z         i!=x,y,z       (             g^y - g^z           )
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (p - Σ di)*h^z*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) + (p - Σ di)*g^z*(h^y - h^z)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = -----------------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(h^z*(g^y - g^z) - g^z*(h^y - h^z))
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = --------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^z - g^z*h^y + g^z*h^z)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ------------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ----------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                         g^y - g^z
-//
-//                                                           (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z)     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// ------------------------------------------------------- = ----------------------------------------------------------------------------------------
-//                        g^y - g^z                                                                    g^y - g^z
-//
-// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                                                             i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-//
-// dx*((h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                                                            i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//        i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx = ----------------------------------------------------------------------------------------
-//                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
-//
-//
-
-
-
-
-
-
-
-
-
-
-//! 
-//!
-//!
-//!
-//! Let there be three parity blocks, "p", "q",  and "r", each defined by
-//! by a linearly independent equation using the constants we found above:
-//!
-//!
-//!
-//! Say, for our second parity block, "q", we came up with a different equation by
-//! using some arbitrary constants, we'll call them "c0, c1, c2..." for now:
-//!
-//! ``` text
-//! p = d0 + d1 + d2 + ...
-//!
-//! q = d0*c0 + d1*c1 + d2*c2 + ...
-//!
-//! Or:
-//!
-//! p = Σ di
-//!     i
-//!
-//! q = Σ di*ci
-//!     i
-//! ```
-//! 
-//! ## Limitations
-//!
-//! 
-//! 
-//! TODO limitations
-//! TODO note on more parity blocks
-//! TODO note on optimizations (successive powers, moving gh consts out)
-//! TODO efficient updates?
-
-
-
-
-
-
-
-
-
-//!
-//! But it turns out modular multiplication has this
-//! fun property that multiplication by a constant will traverse all non-zero elements
-//! if the constant and the modulo are coprime. 
-//!
-//!
-//! 
-//!
-//! , because we have two variables. So we can actually rephrase this
-//! question: Does c*g^(j*x) = g^(k*x) for a unique c, where j != k, for any x < 255
-//!
-//! Ah! flip these!
-//!
-//!   Say, worst case, y=0. Suddenly the whole right-side of the equations becomes
-//! one big constant.
-//!
-//! This leaves us with the x-terms, which must not be multiples of each other.
-//! Otherwise the system collapses and we can't solve for a unique solution any
-//! more.
-//!
-//! So now the question is, is there a constant c such that: TODO wait no, how to phrase?
-//!
-//! ``` text
-//! c*dx*g^(j*x) = dx*g^(k*x) when j != k
-//! ```
-//!
-//! We can reduce this a bit:
-//!
-//! ``` text
-//! c*dx*g^(j*x) = dx*g^(k*x) when j != k
-//!
-//! c*g^(j*x) = g^(k*x) when j != k
-//!
-//! c = g^(k*x - j*x) when j != k
-//!
-//! c = g^((k-j)*x) when j != k
-//! ```
-//!
-//! And since our constant is arbitrary, we can substitute it for, say, the
-//! log base g of c.
-//!
-//! Except this gets a bit tricky, recall that the powers of g form a multiplicative
-//! cycle equal to the number of non-zero elements in our field, 255 for GF(256).
-//! So when we take the logarithm, we actually end up with an equation that's true
-//! under mod 255, because the powers of g loops.
-//!
-//! We're actually dealing with two number systems here, our finite-field and the
-//! infinite integers. There's probably a better way to notate this mathematically
-//! but I'm not sure what it is:
-//!
-//! ``` text
-//! c = g^((k-j)*x) when j != k
-//!
-//! log_g(c) = (k-j)*x mod 255 when j != k
-//! ```
-//!
-//!
-//!
-//! We can also note that we can find a solution as long as cx != cy, otherwise
-//! we end up dividing by zero, which suggests the original equations were not
-//! linearly independent.
-//!
-//! TODO rewrite this?:
-//! We can choose any set of unique constants, but usually we use powers of a
-//! generator in our field "g". Recall that generators, also called primitive
-//! elements, by definition have a multiplicative cycle containing all non-zero
-//! elements of our field.  Or in other words, the powers of g will iterate
-//! through non-zero numbers before looping.
-//!
-//! TODO triple parity?
-//! 
-//!
-//! ``` rust ignore
-//! use ::gf256::*;
-//! println!("hm {}", gf256(0xfe).pow(1));
-//! println!("hm {}", gf256(0xfe).pow(2));
-//! println!("hm {}", gf256(0xfe).pow(4));
-//! println!("hm {}", gf256(0xfe).pow(8));
-//! println!("hm {}", gf256(0xfe).pow(16));
-//! println!("hm {}", gf256(0xfe).pow(32));
-//! println!("hm {}", gf256(0xfe).pow(64));
-//! println!("hm {}", gf256(0xfe).pow(128));
-//! println!("hm {}", gf256(0xfe).pow((256 % 255) as u8));
-//! println!("hm {}", gf256(0xfe).pow((512 % 255) as u8));
-//! println!("hm {}", gf256(0xfe).pow((1024 % 255) as u8));
-//! println!("hm {}", gf256(0xfe).pow((2048 % 255) as u8));
-//! println!("hm {}", gf256(0xfe).pow((4096 % 255) as u8));
-//! println!("hm {}", gf256(0xfe).pow(128)*gf256(0xfe).pow(128));
-//! assert!(false);
-//! ```
-//!
-//!
-//! How far can we push this?
-//!
-//! 
-//! dx*g^0x + dy*g^0y + dz*g^0z + ... = p - Σ di*g^0i
-//!                                     i!=x,y,z,...
-//!
-//! dx*g^1x + dy*g^2y + dz*g^1z + ... = q - Σ di*g^1i
-//!                                     i!=x,y,z,...
-//!
-//! dx*g^2x + dy*g^2y + dz*g^2z + ... = r - Σ di*g^2i
-//!                                     i!=x,y,z,...
-//!
-//! ...
-//!
-//!
-//! [ g^0x g^0y g^0z ... | p - Σ di*g^0i ]
-//! [ g^1x g^1y g^1z ... | q - Σ di*g^1i ]
-//! [ g^2x g^2y g^2z ... | r - Σ di*g^2i ]
-//! [ ...                | ...           ]
-//!
-//!
-//!
-//! 
-//!
-//! dx*g^0x + dy*g^0y + dz*g^0z + dw*g^0w = p - Σ di*g^0i
-//!                                          i!=x,y,z,w
-//!
-//! dx*g^1x + dy*g^1y + dz*g^1z + dw*g^1w = q - Σ di*g^1i
-//!                                          i!=x,y,z,w
-//!
-//! dx*g^2x + dy*g^2y + dz*g^2z + dw*g^2w = r - Σ di*g^2i
-//!                                          i!=x,y,z,w
-//!
-//! dx*g^4x + dy*g^4y + dz*g^4z + dw*g^4w = s - Σ di*g^4i
-//!                                          i!=x,y,z,w
-//!
-//! Does there exist any i where g^i = g^4i?
-//! 
-//!
-//!
-//!
-//!
-//! 
-//! 
-//!
-//! TODO limitations
-//! TODO note on more parity blocks
-//! TODO note on optimizations (successive powers, moving gh consts out)
-//! TODO efficient updates?
-//!
-//! ## RAID8?
-//!
-//! TODO quadruple parity using hardcoded matrices
-//! 
-//! ## Limitations
-//!
-//! 
-//!
-
-
-
-
-
-// TODO document this
-// TODO and implement triple parity?
-//
-// Single parity:
-//
-// p = d0 + d1 + d2 + ... = Σ di
-//                          i
-//
-// For a missing block dx:
-//
-// dx = p - Σ di
-//         i!=x
-//
-//
-// Double parity:
-//
-// p = d0 + d1 + d2 + ... = Σ di
-//                          i
-//
-// q = d0*g^0 + d1*g^1 + d2*g^2 = Σ di*g^i
-//                                i
-//
-// For two missing blocks dx and dy:
-//
-// dx + dy = p - Σ di
-//             i!=x,y
-//
-// dx*g^x + dy*g^y = q - Σ di*g^i
-//                     i!=x,y
-//
-// Solve:
-//
-// dy = p - Σ di - dx
-//        i!=x,y
-//
-// Subst dy:
-//
-// dx*g^x + (p - Σ di - dx)*g^y = q - Σ di*g^i
-//             i!=x,y               i!=x,y
-//
-// dx*g^x + (p - Σ di)*g^y - dx*g^y = q - Σ di*g^i
-//             i!=x,y                  i!=x,y
-//
-// dx*(g^x - g^y) + (p - Σ di)*g^y = q - Σ di*g^i
-//                     i!=x,y          i!=x,y
-//
-// dx*(g^x - g^y) = (q - Σ di*g^i) - (p - Σ di)*g^y
-//                     i!=x,y           i!=x,y
-//
-//      (q - Σ di*g^i) - (p - Σ di)*g^y
-//         i!=x,y           i!=x,y
-// dx = -------------------------------
-//                g^x - g^y
-//
-//
-// Triple parity:
-//
-// p = d0 + d1 + d2 + ... = Σ di
-//                          i
-//
-// q = d0*g^0 + d1*g^1 + d2*g^2 = Σ di*g^i
-//                                i
-//
-// r = d0*h^0 + d1*h^1 + d2*h^2 = Σ di*h^i
-//                                i
-//
-// For three missing blocks dx, dy, and dz:
-//
-// dx + dy + dz = p - Σ di
-//                 i!=x,y,z
-//
-// dx*g^x + dy*g^y + dz*g^z = q - Σ di*g^i
-//                             i!=x,y,z
-//
-// dx*h^x + dy*h^y + dz*h^z = r - Σ di*h^i
-//                             i!=x,y,z
-//
-// Solve:
-//
-// dz = p - Σ di - dx - dy
-//       i!=x,y,z
-//
-// Subst dz:
-//
-// dx*g^x + dy*g^y + (p - Σ di - dx - dy)*g^z = q - Σ di*g^i
-//                     i!=x,y,z                  i!=x,y,z
-//
-// dx*g^x + dy*g^y + (p - Σ di)*g^z - dx*g^z - dy*g^z = q - Σ di*g^i
-//                     i!=x,y,z                          i!=x,y,z
-//
-// dx*(g^x - g^z) + dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z
-//                                     i!=x,y,z         i!=x,y,z
-//
-// dy*(g^y - g^z) = (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
-//                    i!=x,y,z         i!=x,y,z
-//
-//      (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
-//        i!=x,y,z         i!=x,y,z
-// dy = ------------------------------------------------
-//                         g^y - g^z
-//
-// Subst dz:
-//
-// dx*h^x + dy*h^y + (p - Σ di - dx - dy)*h^z = r - Σ di*h^i
-//                     i!=x,y,z                  i!=x,y,z
-//
-// dx*h^x + dy*h^y + (p - Σ di)*h^z - dx*h^z - dy*h^z = r - Σ di*h^i
-//                     i!=x,y,z                          i!=x,y,z
-//
-// dx*(h^x - h^z) + dy*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                                     i!=x,y,z        i!=x,y,z
-//
-// Subst dy:
-//
-//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z) )
-//                  (   i!=x,y,z         i!=x,y,z                      )
-// dx*(h^x - h^z) + ( ------------------------------------------------ )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                  (                    g^y - g^z                     )                 i!=x,y,z        i!=x,y,z
-//
-//
-//                  ( (q - Σ di*g^i) - (p - Σ di)*g^z )
-//                  (   i!=x,y,z         i!=x,y,z     )               ( dx*(g^x - g^z) )
-// dx*(h^x - h^z) + ( ------------------------------- )*(h^y - h^z) - ( -------------- )*(h^y - h^z) + (p - Σ di)*h^z = r - Σ di*h^i
-//                  (             g^y - g^z           )               (   g^y - g^z    )                 i!=x,y,z        i!=x,y,z
-//
-//                                                                                     ( (q - Σ di*g^i) - (p - Σ di)*g^z )
-//                  ( dx*(g^x - g^z) )                                                 (   i!=x,y,z         i!=x,y,z     )
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = (r - Σ di*h^i) - (p - Σ di)*h^z - ( ------------------------------- )*(h^y - h^z)
-//                  (   g^y - g^z    )                 i!=x,y,z         i!=x,y,z       (             g^y - g^z           )
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (p - Σ di)*h^z*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) + (p - Σ di)*g^z*(h^y - h^z)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = -----------------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(h^z*(g^y - g^z) - g^z*(h^y - h^z))
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = --------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^z - g^z*h^y + g^z*h^z)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ------------------------------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                              g^y - g^z
-//
-//                                                   (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                  ( dx*(g^x - g^z) )                 i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx*(h^x - h^z) - ( -------------- )*(h^y - h^z) = ----------------------------------------------------------------------------------------
-//                  (   g^y - g^z    )                                                         g^y - g^z
-//
-//                                                           (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z)     i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// ------------------------------------------------------- = ----------------------------------------------------------------------------------------
-//                        g^y - g^z                                                                    g^y - g^z
-//
-// dx*(h^x - h^z)*(g^y - g^z) - dx*(g^x - g^z)*(h^y - h^z) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                                                             i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-//
-// dx*((h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)) = (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//                                                            i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//        i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx = ----------------------------------------------------------------------------------------
-//                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
-//
-//
-
-
-
-// Recall h = g^2
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-//         i!=x,y,z                     i!=x,y,z                     i!=x,y,z
-// dx = ----------------------------------------------------------------------------------------
-//                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^2y - g^2z) - (p - Σ di)*(g^y*g^2z - g^z*g^2y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//                         (g^2x - g^2z)*(g^y - g^z) - (g^2y - g^2z)*(g^x - g^z)
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^2y - g^2z) - (p - Σ di)*(g^y*g^2z - g^z*g^2y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//        (g^(2x+y) - g^(2x+z) - g^(2z+y) + g^(2z+z)) - (g^(2y+x) - g^(2y+z) - g^(2z+x) + g^(2z+z))
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^2y - g^2z) - (p - Σ di)*(g^y*g^2z - g^z*g^2y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//                     g^(2x+y) - g^(2x+z) - g^(2z+y) - g^(2y+x) + g^(2y+z) + g^(2z+x)
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^2y - g^2z) - (p - Σ di)*(g^y*g^2z - g^z*g^2y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//                     g^(2x+y) - g^(2x+z) - g^(2z+y) - g^(2y+x) + g^(2y+z) + g^(2z+x)
-//
-// wolfram says this is (g^x - g^y)*(g^x - g^z)*(g^y - g^z) ?
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^2y - g^2z) - (p - Σ di)*(g^y*g^2z - g^z*g^2y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//                               (g^x - g^y)*(g^x - g^z)*(g^y - g^z)
-//
-//      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(g^y - g^z)^2 - (p - Σ di)*g^y*g^z*(g^z - g^y)
-//         i!=x,y,z                     i!=x,y,z                       i!=x,y,z
-// dx = --------------------------------------------------------------------------------------------
-//                               (g^x - g^y)*(g^x - g^z)*(g^y - g^z)
-//
-//      (r - Σ di*h^i) - (q - Σ di*g^i)*(g^y - g^z) - (p - Σ di)*g^y*g^z
-//         i!=x,y,z         i!=x,y,z                     i!=x,y,z
-// dx = ----------------------------------------------------------------
-//                      (g^x - g^y)*(g^x - g^z)
-//
-// Hmm
-//
-//      (q - Σ di*g^i) - (p - Σ di)*g^y
-//         i!=x,y           i!=x,y
-// dx = -------------------------------
-//                g^x - g^y
-//
-
-
-
-
-
-
-
-
-
-
-// NOTE NO
-// Wait, actually (for double parity)
-//
-// p = d0 + d1 + d2 + ... = Σ di
-//                          i
-//
-// q = d0*g^0 + d1*g^1 + d2*g^2 = Σ di*g^i
-//                                i
-//
-// For two missing blocks dx and dy:
-//
-// dx + dy = p - Σ di
-//             i!=x,y
-//
-// dx*g^x + dy*g^y = q - Σ di*g^i
-//                     i!=x,y
-//
-// Solve:
-//
-// dy*g^y = q - Σ di*g^i - dx*g^x
-//            i!=x,y
-//
-//      q - Σ di*g^i - dx*g^x
-//        i!=x,y
-// dy = ---------------------
-//               g^y
-//
-// Subst dy:
-//
-//      ( q - Σ di*g^i - dx*g^x )
-//      (   i!=x,y              )
-// dx + ( --------------------- ) = p - Σ di
-//      (          g^y          )     i!=x,y
-//
-//      ( q - Σ di*g^i )
-//      (   i!=x,y     )   ( dx*g^x )
-// dx + ( ------------ ) - ( ------ ) = p - Σ di
-//      (     g^y      )   (  g^y   )     i!=x,y
-//
-//                              ( q - Σ di*g^i )
-//      ( dx*g^x )              (   i!=x,y     )
-// dx - ( ------ ) = p - Σ di - ( ------------ )
-//      (  g^y   )     i!=x,y   (     g^y      )
-//
-// dx*g^y - dx*g^x   (p - Σ di)*g^y - q - Σ di*g^i
-// --------------- = -----------------------------
-//       g^y                      g^y
-//
-// dx*g^y - dx*g^x = (p - Σ di)*g^y - q - Σ di*g^i
-//
-//      (p - Σ di)*g^y - q - Σ di*g^i
-// dx = -----------------------------
-//                 g^y - g^x
-//
-// Hmmmmm
-// 
-
-
-// Also (for p + 2d corruption): 
-//
-// dx*g^x + dy*g^y = q - Σ di*g^i
-//                         i!=x,y
-//
-// dx*h^x + dy*h^y = r - Σ di*h^i
-//                         i!=x,y
-//
-// Subst:
-//
-// 
-// dy*g^y = q - Σ di*g^i - dx^g^x
-// 
-//      q - Σ di*g^i - dx^g^x
-// dy = ---------------------
-//               g^y
-// 
-// Subst:
-// 
-//          ( q - Σ di*g^i - dx^g^x )
-// dx*h^x + ( --------------------- )*h^y = r - Σ di*h^i
-//          (          g^y          )
-// 
-//          ( q - Σ di*g^i )          ( g^x*h^y )
-// dx*h^x + ( ------------ )*h^y - dx*( ------- ) = r - Σ di*h^i
-//          (      g^y     )          (   g^y   )
-// 
-//             ( g^x*h^y )                   ( q - Σ di*g^i )    
-// dx*h^x - dx*( ------- )  = r - Σ di*h^i - ( ------------ )*h^y
-//             (   g^y   )                   (      g^y     )
-// 
-//             ( g^x*h^y )    (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
-// dx*h^x - dx*( ------- )  = ---------------------------------------
-//             (   g^y   )                      g^y  
-// 
-//    ( h^x*g^y - g^x*h^y )    (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
-// dx*( ----------------- )  = ---------------------------------------
-//    (        g^y        )                      g^y  
-// 
-// dx*(h^x*g^y - g^x*h^y) = (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
-// 
-//      (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
-// dx = ---------------------------------------
-//                 g^y*h^x - g^x*h^y
-
-
-
-// (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
-
-
-
-
-
-
 
 use crate::macros::raid;
 

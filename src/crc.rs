@@ -20,8 +20,8 @@
 //!
 //! ## How do CRCs work?
 //! 
-//! As mentioned above, CRCs mathematically are fascinating. A CRC is nothing more
-//! than the binary remainder after polynomial division by some constant.
+//! CRCs mathematically are fascinating as they are nothing more than the binary
+//! remainder after polynomial division by some constant.
 //!
 //! Take some data for example:
 //!
@@ -76,10 +76,13 @@
 //! subtractions, we are doing shifts and xors. See the [p](../p) module's
 //! documentation for more info on viewing data as binary polynomials.
 //!
-//! There's some interesting things to note, for one, the original message bits
-//! will always end up as zero if our polynomial size matches the number of
-//! appended zeros + 1. And for two, the message bits seem to have a rather
-//! large impact on every bit in the resulting CRC, a property of a good checksum.
+//! There's some interesting things to note:
+//!
+//! 1. The original message bits will always end up as zero if the size of our 
+//!    polynomial matches the number of appended zeros + 1
+//!
+//! 2. The message bits seem to have a rather large impact on every bit in the
+//!    resulting CRC, a property of a good checksum.
 //!
 //! TODO Hm do I really need a link here? consistency?
 //! We can of course compute this directly with our [polynomial types](../p):
@@ -92,7 +95,7 @@
 //! assert_eq!(data % polynomial, p32(0b01000101));
 //! ```
 //!
-//! One fun feature of CRCs, is that, since the CRC is the remainder after division,
+//! One fun feature of CRCs is that, since the CRC is the remainder after division,
 //! if we replace our padding zeros with the CRC (note this is the same as appending
 //! the CRC to our original message), computing the CRC again will give us a value of
 //! zero:
@@ -105,7 +108,49 @@
 //! assert_eq!(data_with_crc % polynomial, p32(0));
 //! ```
 //!
-//! This trick can sometimes be useful for simplifying the validation CRCs.
+//! This is because we've effectively calculated:
+//!
+//! ``` text
+//! m' = m - (m % p)
+//! ```
+//!
+//! TODO consistent "m" notation?
+//!
+//! Where "m" is our original message with padded zeros and "p" is our polynomial.
+//!
+//! Since the [remainder][remainder] is defined as:
+//!
+//! ``` text
+//! a % b = a - b*floor(a/b)
+//! ```
+//!
+//! We can substitute m and p in:
+//!
+//! ``` text
+//! m' = (m - (m % p))
+//!
+//! m' = m - (m - p*floor(m/p))
+//!
+//! m' = p*floor(m/p)
+//! ```
+//!
+//! Which shows that m' is now some integer-polynomial multiple of p. And since
+//! the remainder of a multiple is always zero, the result of a second remainder,
+//! our second CRC, should also be zero.
+//!
+//! ``` text
+//! m' % p = p*floor(m/p) % p
+//!
+//! m' % p = p*floor(m/p) - (p*floor(p*floor(m/p)/p))
+//!
+//! m' % p = p*floor(m/p) - (p*floor(floor(m/p)))
+//!
+//! m' % p = p*floor(m/p) - p*floor(m/p)
+//!
+//! m' % p = 0
+//! ```
+//!
+//! This trick can sometimes be useful for simplifying the CRC validation.
 //!
 //! And we can create this exact CRC using gf256:
 //!
@@ -180,8 +225,8 @@
 //!
 //! Generally you want to choose a CRC that has the largest "Hamming distance" for
 //! your message length, or at least a good "Hamming distance" over your range of
-//! message lengths. Hamming distance (HD) is the number of bit-flips required to
-//! get to another message with a valid CRC, so a larger Hamming distance means
+//! message lengths. Hamming distance is the number of bit-flips required to get
+//! to another message with a valid CRC, so a larger Hamming distance means
 //! more bit errors before you fail to detect that something is wrong.
 //!
 //! Philip Koopman also has a list of good CRC polynomials and their effective
@@ -214,7 +259,7 @@
 //! underlying algorithm.
 //!
 //! But CRC32 is still in heavy use today, so gf256 provides both [`crc32`] and
-//! [`crc32c`]. Though it's suggested to use [`crc32c`] for new applications.
+//! [`crc32c`]. It's suggested to use [`crc32c`] for new applications.
 //!
 
 

@@ -1,22 +1,12 @@
 //! ## LFSR structs and macros
 //!
-//! A [linear-feedback shift registers (LFSR)][lfsr] is a simple method of
+//! A [linear-feedback shift register (LFSR)][lfsr] is a simple method of
 //! creating a pseudo-random stream of bits using only a small circuit of shifts
 //! and xors.
 //!
 //! LFSRs can be modelled mathematically as multiplication in a Galois-field,
 //! allowing efficient bit generation, both forward and backwards, and efficient
 //! seeking to any state of the LFSR.
-//!
-//! //``` text
-//! //output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
-//! //         '-----------------------'-----'-----'------------'
-//! //```
-//!
-//! //Interestingly in the context of gf256, LFSRs can be modelled mathematically
-//! //as multiplication in a Galois-field, allowing efficient bit generation, both
-//! //forward and backwards, and efficient seeking to any position in the LFSR
-//! //state.
 //!
 //! ``` rust
 //! # use std::iter;
@@ -58,8 +48,6 @@
 //!      1      1     0     1     0     1     0     0     1
 //!      ...
 //! ```
-//!
-//! I guess it looks pseudo-random enough to me.
 //!
 //! Consider what this might look like in code. We can model the bit of feedback
 //! as a branch on whether or not to xor our internal state with an integer
@@ -110,14 +98,13 @@
 //! assert_eq!(step(), 1);
 //! ```
 //!
-//! If you're overly observant, you may notice this is actually polynomial
-//! division of a 9-bit number! Remember that polynomial division is repeated
-//! shifts and xors until the dividend is smaller than our divisor. In this
-//! case, we only need a single step.
+//! This is actually polynomial division of a 9-bit number! Remember that
+//! polynomial division is repeated shifts and xors until the dividend is
+//! smaller than our divisor. In this case, we only need a single step.
 //!
 //! And if you remember your computer-science tricks, shifting by one is
-//! equivalent to multiplying by 2 (this is still true with polynomials because
-//! there's no carry).
+//! equivalent to multiplying by 2 (this is still true with polynomial
+//! multiplication because no carry could have occured).
 //!
 //! So instead of using bit-shifts and xors, we could use multiplication and
 //! division with our polynomial types:
@@ -314,8 +301,7 @@
 //! - In `table_barret` mode, LFSRs use [Barret-reduction][barret-reduction] to find
 //!   the remainder, and a precomputed division table to compute the quotient.
 //!
-//!   This seems to have the worst of both worlds, and does not seem to perform
-//!   that well.
+//!   This seems to have the worst of both worlds, and does not perform that well.
 //!
 //! - In `small_table_barret` mode, the same strategy as `table_barret` mode is used,
 //!   but with a 16 element table for the quotient, making this mode even less

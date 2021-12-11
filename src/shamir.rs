@@ -168,9 +168,8 @@
 //! ```
 //! # // using a fixed-rng (bad!) so this example is reproducible/testable
 //! # pub use ::gf256::*;
-//! # use gf256::lfsr::Lfsr64;
 //! # use gf256::macros;
-//! # #[macros::shamir(rng=gf256::lfsr::Lfsr8::new(1))]
+//! # #[macros::shamir(rng=gf256::lfsr::Lfsr64::new(0x123456789abcdef1))]
 //! # mod shamir {}
 //! #
 //! # fn main() {
@@ -183,10 +182,10 @@
 //!         .collect()
 //! }
 //!
-//! assert_eq!(hex(&shares[0]), "01a9a9b7a3d7eb8bd30f5d2525a343d0e4ccb5237479");
-//! assert_eq!(hex(&shares[1]), "021d7cab978f60df90c271bb8e2174eaa0b9903e95f6");
-//! assert_eq!(hex(&shares[2]), "03c7b07f463dff7430a84feccef617492116577895ae");
-//! assert_eq!(hex(&shares[3]), "04941d07d0da80296ae7e27c1f61fa73bd9472a80813");
+//! assert_eq!(hex(&shares[0]), "01fb3cdc338aed9bc436218f52788f5768e1d282042a");
+//! assert_eq!(hex(&shares[1]), "0264be77c1902132faa6661c7c7f9c8b00ec15d89fd7");
+//! assert_eq!(hex(&shares[2]), "03ece7c8807fb8894df524e14b7333af0d6eb53fefdc");
+//! assert_eq!(hex(&shares[3]), "0435778acd4a2bfdb37757b0962e9e644e0254a79377");
 //! //                            ^\-------------------+--------------------/
 //! //                            |                    |
 //! //                 arbitrary x-coordinate    y-coordinates
