@@ -864,29 +864,25 @@ fn main() {
     }
 
     fn grid<'a>(width: usize, bs: &'a [u8]) -> impl Iterator<Item=String> + 'a {
-        fn braille(b: u8) -> char {
-            let b = '⠀' as u32
-                + ((b as u32) & 0x87)
-                + (((b as u32) & 0x08) << 3)
-                + (((b as u32) & 0x70) >> 1);
-            char::from_u32(b).unwrap()
-        }
-
         (0 .. (bs.len()+width-1)/width)
-            .step_by(4)
+            .step_by(2)
             .rev()
             .map(move |y| {
                 let mut line = String::new();
-                for x in (0..width).step_by(2) {
+                for x in 0..width {
                     let mut b = 0;
-                    for i in 0..4 {
-                        for j in 0..2 {
-                            if bs.get((y+i)*width + x+j).filter(|b| **b != 0).is_some() {
-                                b |= 1 << (j*4+(3-i));
-                            }
+                    for i in 0..2 {
+                        if bs.get((y+i)*width + x).filter(|b| **b != 0).is_some() {
+                            b |= 1 << (1-i);
                         }
                     }
-                    line.push(braille(b));
+                    line.push(match b {
+                        0x0 => ' ',
+                        0x1 => '\'',
+                        0x2 => '.',
+                        0x3 => ':',
+                        _ => unreachable!(),
+                    });
                 }
                 line
             })
@@ -1166,8 +1162,8 @@ fn main() {
     // distribution distribution, X = Y+Z where Y and Z are uniform (our prng)
     //
     const SAMPLES: usize = 2048;
-    const WIDTH: usize = 128;
-    const HEIGHT: usize = 64;
+    const WIDTH: usize = 64;
+    const HEIGHT: usize = 32;
 
     println!("{} lfsr64 samples:", SAMPLES);
     let mut lfsr = Lfsr64Table::new(1);
@@ -1206,12 +1202,12 @@ fn main() {
         }
     }
 
-    for (line, y_dist_line) in grid(128, &buffer).zip(grid(4, &y_dist)) {
+    for (line, y_dist_line) in grid(WIDTH, &buffer).zip(grid(4, &y_dist)) {
         println!("    {}  {}", line, y_dist_line);
     }
     println!();
 
-    for x_dist_line in grid(128, &x_dist) {
+    for x_dist_line in grid(WIDTH, &x_dist) {
         println!("    {}", x_dist_line);
     }
     println!();
@@ -1225,7 +1221,7 @@ fn main() {
     let comp = comp.finish().unwrap();
     println!("{}/{} ones ({:.2}%), {:.2}% compressability",
         ones,
-        zeros,
+        ones + zeros,
         100.0 * (ones as f64 / (ones as f64 + zeros as f64)),
         100.0 * ((bytes.len() as f64 - comp.len() as f64) / bytes.len() as f64),
     );

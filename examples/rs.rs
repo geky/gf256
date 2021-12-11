@@ -45,8 +45,8 @@ use ::gf256::*;
 // correction is required, however the total size is limited to 255 bytes
 // in a gf(256) field.
 //
-pub const DATA_SIZE:  usize = 12;
-pub const ECC_SIZE:   usize = 8;
+pub const DATA_SIZE:  usize = 223;
+pub const ECC_SIZE:   usize = 32;
 pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 
 // The generator polynomial in Reed-Solomon is a polynomial with roots
@@ -371,7 +371,8 @@ fn rs_find_errors(error_locator: &[gf256]) -> Vec<usize> {
         }
     }
 
-    debug_assert_eq!(errors.len(), error_locator.len()-1);
+    // TODO do we catch more errors than are decodable correctly?
+    //debug_assert_eq!(errors.len(), error_locator.len()-1);
     errors
 }
 
@@ -420,6 +421,7 @@ fn rs_find_erasure_magnitude(
 
         // derivative should never be zero, though this can happen if there
         // are redundant erasures
+        if derivative == gf256(0) { println!("hm {:?}", erasures); }
         assert!(derivative != gf256(0));
 
         // evaluate error evaluator
@@ -569,7 +571,13 @@ pub fn rs_correct(
 
     // find all error locations
     let mut errors = rs_find_errors(&error_locator);
-    errors.extend_from_slice(&erasures);
+//    errors.extend_from_slice(&erasures);
+    // TODO do we need this? shouldn't the Forney syndromes prevent duplicates?
+    for e in erasures.iter() {
+        if !errors.contains(e) {
+            errors.push(*e);
+        }
+    }
 
     // find erasure locator polynomial
     let erasure_locator = rs_find_erasure_locator(&errors);
@@ -710,5 +718,365 @@ fn main() {
         orig_message
     );
 
+    println!();
+
+    // for fun lets render a corrected image
+    fn dots<'a>(width: usize, dots: &'a [u8]) -> impl Iterator<Item=String> + 'a {
+        fn todots(d: u8) -> String {
+            fn tod(d: u8) -> char {
+                match d & 0x3 {
+                    0x0 => ' ',
+                    0x1 => '\'',
+                    0x2 => '.',
+                    0x3 => ':',
+                    _ => unreachable!(),
+                }
+            }
+            [tod(d >> 6), tod(d >> 4), tod(d >> 2), tod(d >> 0)]
+                .iter()
+                .collect::<String>()
+        }
+
+        (0..dots.len())
+            .step_by(width)
+            .map(move |d| {
+                dots[d..d+width]
+                    .iter()
+                    .map(|d| todots(*d))
+                    .collect::<String>()
+            })
+    }
+
+    let width = 16;
+    let image = [
+        0x00, 0x00, 0x00, 0x00, 0x0a, 0xff, 0xff, 0xfe, 0xa0, 0x00, 0x00, 0x00, 0x00, 0xbf, 0xaa, 0xfe,
+        0x00, 0x00, 0x00, 0x02, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
+        0x00, 0x00, 0x00, 0x2f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf8, 0x00, 0x00, 0x00, 0xff, 0xff, 0xf4,
+        0x00, 0x00, 0x02, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0x00, 0x00, 0x23, 0xff, 0xff, 0xc0,
+        0x00, 0x00, 0x0b, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xc0, 0x2a, 0x3c, 0xdf, 0xff, 0x40,
+        0x00, 0x00, 0x0f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfd, 0x4a, 0x1f, 0xc4, 0x00, 0x54, 0x00,
+        0x00, 0x00, 0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x5a, 0xff, 0xc4, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x3f, 0xff, 0xff, 0xff, 0xff, 0xff, 0x52, 0xbf, 0xf5, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x3f, 0xff, 0xff, 0xff, 0xff, 0x52, 0xbf, 0xf5, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x2b, 0x3f, 0xff, 0xff, 0xfd, 0x52, 0xbf, 0xf5, 0x2b, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x0a, 0xfd, 0x0f, 0xff, 0xfd, 0x4a, 0xff, 0xf5, 0x2b, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x3f, 0x40, 0x07, 0xf5, 0x2a, 0xff, 0xf5, 0xab, 0xff, 0xff, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0xf4, 0x00, 0x00, 0xab, 0xff, 0xd4, 0xaf, 0xff, 0xff, 0xfd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x2a, 0xbf, 0xff, 0x52, 0xbf, 0xff, 0xff, 0xff, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x7f, 0xff, 0xd5, 0x00, 0xff, 0xff, 0xff, 0xff, 0xfd, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x05, 0xff, 0xff, 0xfd, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
+
+    // we're using multiple lines per block here for the sole reason of making
+    // the result look nice
+    let block = 64;
+    let ecc_width = ((block+ECC_SIZE) / (block / width)) - width;
+
+    // intersperse the ECC, just so it looks nice
+    //
+    // though in practice ECC is actually often interspersed to prevent
+    // early failure from localized errors
+    //
+    let stripe = |encoded: &mut [u8], i: usize, slice: &[u8]| {
+        for j in 0 .. block/width {
+            encoded[i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block
+                .. i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width]
+                    .copy_from_slice(&slice[j*width .. (j+1)*width]);
+            encoded[i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width
+                .. i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width+ecc_width]
+                    .copy_from_slice(&slice[block + j*ecc_width .. block + (j+1)*ecc_width]);
+        }
+    };
+
+    let unstripe = |encoded: &[u8], i: usize| -> Vec<u8> {
+        let mut slice = vec![0; block+ECC_SIZE];
+        for j in 0 .. block/width {
+            slice[j*width .. (j+1)*width]
+                .copy_from_slice(&encoded[i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block
+                    .. i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width]);
+            slice[block + j*ecc_width .. block + (j+1)*ecc_width]
+                .copy_from_slice(&encoded[i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width
+                    .. i*(width+ecc_width) + j*(width+ecc_width)*image.len()/block + width+ecc_width]);
+        }
+        slice
+    };
+
+    let correct = |encoded: &mut [u8]| -> Result<(), RsError> {
+        for i in 0 .. encoded.len()/(block+ECC_SIZE) {
+            let mut slice = unstripe(encoded, i);
+            rs_correct_errors(&mut slice)?;
+            stripe(encoded, i, &slice);
+        }
+        Ok(())
+    };
+
+    // encode our image
+    let mut encoded = vec![0; image.len() + (image.len()/block)*ECC_SIZE];
+    for i in 0 .. image.len()/block {
+        let mut slice = vec![0; block + ECC_SIZE];
+        for j in 0 .. block/width {
+            slice[j*width .. (j+1)*width]
+                .copy_from_slice(&image[i*width + j*width*image.len()/block
+                    .. i*width + j*width*image.len()/block + width]);
+        }
+        rs_encode(&mut slice);
+        stripe(&mut encoded, i, &slice);
+    }
+
+    // bit-errors, roughly simulating something like radiation damage
+    //
+    // we push this until we fail, and then show the last recoverable image
+    //
+    let orig = encoded.clone();
+    let mut prev_errored = encoded.clone();
+    let mut errors = 0;
+    let mut rng = rand::thread_rng();
+    loop {
+        for _ in 0..errors {
+            let error = rng.gen_range(0..8*encoded.len());
+            let coord = error / 8;
+            let bit = error % 8;
+            encoded[coord] ^= 1 << bit;
+        }
+
+        let errored = encoded.clone();
+        match correct(&mut encoded) {
+            Ok(()) => {
+                if encoded != orig {
+                    break;
+                }
+            }
+            Err(RsError::TooManyErrors) => {
+                break
+            }
+        }
+
+        prev_errored = errored;
+        errors += 1;
+    }
+
+    println!("bit corrupted image (errors = {}/{}, {:.2}%):",
+        errors,
+        8*encoded.len(),
+        100.0 * (errors as f64 / ((8*encoded.len()) as f64)));
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
+    println!();
+
+    // byte-errors, more likely in physical mediums, such as CDs 
+    //
+    // we push this until we fail, and then show the last recoverable image
+    //
+    encoded = orig.clone();
+    let mut prev_errored = encoded.clone();
+    let mut errors = 0;
+    let mut rng = rand::thread_rng();
+    loop {
+        for _ in 0..errors {
+            let error = rng.gen_range(0..encoded.len());
+            encoded[error] ^= 0xff;
+        }
+
+        let errored = encoded.clone();
+        match correct(&mut encoded) {
+            Ok(()) => {
+                if encoded != orig {
+                    break;
+                }
+            }
+            Err(RsError::TooManyErrors) => {
+                break
+            }
+        }
+
+        prev_errored = errored;
+        errors += 1;
+    }
+
+    println!("byte corrupted image (errors = {}/{}, {:.2}%):",
+        errors,
+        encoded.len(),
+        100.0 * (errors as f64 / (encoded.len() as f64)));
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
+    println!();
+
+    // show the actual corrected image
+    correct(&mut prev_errored).unwrap();
+
+    println!("corrected:");
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
+    println!();
+
+
+    // here's another variation, except this time we're also using a
+    // parity-bit per byte to help locate the errors
+    //
+    // note the parity bits themselves can fail!
+    //
+    let encoded_size = encoded.len();
+    let mkparity = |slice: &mut [u8]| {
+        let encoded = &slice[..encoded_size];
+        let parity = (0..encoded_size/8)
+            .map(|i| {
+                let mut p = 0;
+                for j in 0..8 {
+                    let coord = i + j*(encoded_size/8);
+                    p |= (encoded[coord].count_ones() as u8 & 1) << j;
+                }
+                p
+            })
+            .collect::<Vec<_>>();
+        slice[encoded_size..].copy_from_slice(&parity);
+    };
+
+    let chparity = |slice: &[u8]| -> Vec<usize> {
+        let mut erasures = vec![];
+        let encoded = &slice[..encoded_size];
+        let parity = &slice[encoded_size..];
+        for i in 0..encoded_size/8 {
+            for j in 0..8 {
+                let coord = i + j*(encoded_size/8);
+                if (encoded[coord].count_ones() as u8 & 1)
+                    != ((parity[i] >> j) & 1)
+                {
+                    erasures.push(coord);
+                }
+            }
+        }
+        erasures
+    };
+
+    let correct = |encoded: &mut [u8]| -> Result<(), RsError> {
+        let erasures = chparity(encoded);
+        let mut encoded_erasures = vec![0; encoded_size];
+        for i in erasures {
+            encoded_erasures[i] = 1;
+        }
+
+        for i in 0 .. encoded_size/(block+ECC_SIZE) {
+            let mut slice = unstripe(&encoded, i);
+            let slice_erasures = unstripe(&encoded_erasures, i);
+            let mut erasures = slice_erasures.iter()
+                .enumerate()
+                .filter(|(_, erasure)| **erasure != 0)
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>();
+            erasures.sort_unstable();
+            // TODO should we catch this in rs?
+            if erasures.len() > ECC_SIZE {
+                return Err(RsError::TooManyErrors);
+            }
+            rs_correct(&mut slice, &erasures)?;
+            stripe(encoded, i, &slice);
+            mkparity(encoded);
+        }
+        Ok(())
+    };
+
+    encoded = orig.clone();
+    encoded.resize(encoded_size + encoded_size/8, 0);
+    mkparity(&mut encoded);
+    let orig = encoded.clone();
+
+    // bit-errors, roughly simulating something like radiation damage
+    //
+    // we push this until we fail, and then show the last recoverable image
+    //
+    let mut prev_errored = encoded.clone();
+    let mut errors = 0;
+    let mut rng = rand::thread_rng();
+    loop {
+        for _ in 0..errors {
+            let error = rng.gen_range(0..8*encoded.len());
+            let coord = error / 8;
+            let bit = error % 8;
+            encoded[coord] ^= 1 << bit;
+        }
+
+        let errored = encoded.clone();
+        match correct(&mut encoded) {
+            Ok(()) => {
+                if encoded != orig {
+                    break;
+                }
+            }
+            Err(RsError::TooManyErrors) => {
+                break
+            }
+        }
+
+        prev_errored = errored;
+        errors += 1;
+    }
+
+    println!("bit corrupted image (errors = {}/{}, {:.2}%):",
+        errors,
+        8*encoded.len(),
+        100.0 * (errors as f64 / ((8*encoded.len()) as f64)));
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
+    println!();
+
+    // byte-errors, more likely in physical mediums, such as CDs 
+    //
+    // we push this until we fail, and then show the last recoverable image
+    //
+    encoded = orig.clone();
+    let mut prev_errored = encoded.clone();
+    let mut errors = 0;
+    let mut rng = rand::thread_rng();
+    loop {
+        for _ in 0..errors {
+            // in theory our byte+parity-bit would be one word
+            let error = rng.gen_range(0..encoded_size);
+            encoded[error] ^= 0xff;
+            encoded[encoded_size + error%(encoded_size/8)]
+                ^= 1 << (error/(encoded_size/8));
+        }
+
+        let errored = encoded.clone();
+        match correct(&mut encoded) {
+            Ok(()) => {
+                if encoded != orig {
+                    break;
+                }
+            }
+            Err(RsError::TooManyErrors) => {
+                break
+            }
+        }
+
+        prev_errored = errored;
+        errors += 1;
+    }
+
+    println!("byte corrupted image (errors = {}/{}, {:.2}%):",
+        errors,
+        encoded.len(),
+        100.0 * (errors as f64 / (encoded.len() as f64)));
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
+    println!();
+
+    // show the actual corrected image
+    correct(&mut prev_errored).unwrap();
+
+    println!("corrected:");
+    println!();
+    for line in dots(width+ecc_width, &prev_errored) {
+        println!("    {}", line);
+    }
     println!();
 }
