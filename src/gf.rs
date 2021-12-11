@@ -536,7 +536,7 @@
 //! though more complex optimization are available, mostly around the expensive
 //! polynomial remainder we need to compute during multiplication and division:
 //!
-//! - In `log_table` mode, Galois-field types use [precomputed log and anti-log tables][log-tables].
+//! - In `table` mode, Galois-field types use [precomputed log and anti-log tables][log-tables].
 //!
 //!   This is the most common implementation of Galois-field types due to its
 //!   performance, but this technique really only works for small Galois-fields since
@@ -567,7 +567,7 @@
 //!
 //!   TODO more info?
 //!
-//! Galois-fields with <=8 bits default to the `log_table` mode, which is the fastest,
+//! Galois-fields with <=8 bits default to the `table` mode, which is the fastest,
 //! but requires two tables the size of the number of elements in the field.
 //! Galois-fields >8 bits default to `barret` mode, which, perhaps surprisingly,
 //! is the fastest even when hardware carry-less multiplication is not available.
@@ -690,8 +690,8 @@ mod test {
     type gf256_rijndael;
 
     // Test both table-based and Barret reduction implementations
-    #[gf(polynomial=0x11d, generator=0x2, log_table)]
-    type gf256_log_table;
+    #[gf(polynomial=0x11d, generator=0x2, table)]
+    type gf256_table;
     #[gf(polynomial=0x11d, generator=0x2, rem_table)]
     type gf256_rem_table;
     #[gf(polynomial=0x11d, generator=0x2, small_rem_table)]
@@ -707,12 +707,12 @@ mod test {
         assert_eq!(gf256(0x12) + gf256(0x34), gf256(0x26));
         assert_eq!(gf256_rijndael(0x12) + gf256_rijndael(0x34), gf256_rijndael(0x26));
 
-        assert_eq!(gf256_log_table(0x12).naive_add(gf256_log_table(0x34)), gf256_log_table(0x26));
+        assert_eq!(gf256_table(0x12).naive_add(gf256_table(0x34)), gf256_table(0x26));
         assert_eq!(gf256_rem_table(0x12).naive_add(gf256_rem_table(0x34)), gf256_rem_table(0x26));
         assert_eq!(gf256_small_rem_table(0x12).naive_add(gf256_small_rem_table(0x34)), gf256_small_rem_table(0x26));
         assert_eq!(gf256_barret(0x12).naive_add(gf256_barret(0x34)), gf256_barret(0x26));
 
-        assert_eq!(gf256_log_table(0x12) + gf256_log_table(0x34), gf256_log_table(0x26));
+        assert_eq!(gf256_table(0x12) + gf256_table(0x34), gf256_table(0x26));
         assert_eq!(gf256_rem_table(0x12) + gf256_rem_table(0x34), gf256_rem_table(0x26));
         assert_eq!(gf256_small_rem_table(0x12) + gf256_small_rem_table(0x34), gf256_small_rem_table(0x26));
         assert_eq!(gf256_barret(0x12) + gf256_barret(0x34), gf256_barret(0x26));
@@ -726,12 +726,12 @@ mod test {
         assert_eq!(gf256(0x12) - gf256(0x34), gf256(0x26));
         assert_eq!(gf256_rijndael(0x12) - gf256_rijndael(0x34), gf256_rijndael(0x26));
 
-        assert_eq!(gf256_log_table(0x12).naive_sub(gf256_log_table(0x34)), gf256_log_table(0x26));
+        assert_eq!(gf256_table(0x12).naive_sub(gf256_table(0x34)), gf256_table(0x26));
         assert_eq!(gf256_rem_table(0x12).naive_sub(gf256_rem_table(0x34)), gf256_rem_table(0x26));
         assert_eq!(gf256_small_rem_table(0x12).naive_sub(gf256_small_rem_table(0x34)), gf256_small_rem_table(0x26));
         assert_eq!(gf256_barret(0x12).naive_sub(gf256_barret(0x34)), gf256_barret(0x26));
 
-        assert_eq!(gf256_log_table(0x12) - gf256_log_table(0x34), gf256_log_table(0x26));
+        assert_eq!(gf256_table(0x12) - gf256_table(0x34), gf256_table(0x26));
         assert_eq!(gf256_rem_table(0x12) - gf256_rem_table(0x34), gf256_rem_table(0x26));
         assert_eq!(gf256_small_rem_table(0x12) - gf256_small_rem_table(0x34), gf256_small_rem_table(0x26));
         assert_eq!(gf256_barret(0x12) - gf256_barret(0x34), gf256_barret(0x26));
@@ -745,12 +745,12 @@ mod test {
         assert_eq!(gf256(0x12) * gf256(0x34), gf256(0x0f));
         assert_eq!(gf256_rijndael(0x12) * gf256_rijndael(0x34), gf256_rijndael(0x05));
 
-        assert_eq!(gf256_log_table(0x12).naive_mul(gf256_log_table(0x34)), gf256_log_table(0x0f));
+        assert_eq!(gf256_table(0x12).naive_mul(gf256_table(0x34)), gf256_table(0x0f));
         assert_eq!(gf256_rem_table(0x12).naive_mul(gf256_rem_table(0x34)), gf256_rem_table(0x0f));
         assert_eq!(gf256_small_rem_table(0x12).naive_mul(gf256_small_rem_table(0x34)), gf256_small_rem_table(0x0f));
         assert_eq!(gf256_barret(0x12).naive_mul(gf256_barret(0x34)), gf256_barret(0x0f));
 
-        assert_eq!(gf256_log_table(0x12) * gf256_log_table(0x34), gf256_log_table(0x0f));
+        assert_eq!(gf256_table(0x12) * gf256_table(0x34), gf256_table(0x0f));
         assert_eq!(gf256_rem_table(0x12) * gf256_rem_table(0x34), gf256_rem_table(0x0f));
         assert_eq!(gf256_small_rem_table(0x12) * gf256_small_rem_table(0x34), gf256_small_rem_table(0x0f));
         assert_eq!(gf256_barret(0x12) * gf256_barret(0x34), gf256_barret(0x0f));
@@ -764,12 +764,12 @@ mod test {
         assert_eq!(gf256(0x12) / gf256(0x34), gf256(0xc7));
         assert_eq!(gf256_rijndael(0x12) / gf256_rijndael(0x34), gf256_rijndael(0x54));
 
-        assert_eq!(gf256_log_table(0x12).naive_div(gf256_log_table(0x34)), gf256_log_table(0xc7));
+        assert_eq!(gf256_table(0x12).naive_div(gf256_table(0x34)), gf256_table(0xc7));
         assert_eq!(gf256_rem_table(0x12).naive_div(gf256_rem_table(0x34)), gf256_rem_table(0xc7));
         assert_eq!(gf256_small_rem_table(0x12).naive_div(gf256_small_rem_table(0x34)), gf256_small_rem_table(0xc7));
         assert_eq!(gf256_barret(0x12).naive_div(gf256_barret(0x34)), gf256_barret(0xc7));
 
-        assert_eq!(gf256_log_table(0x12) / gf256_log_table(0x34), gf256_log_table(0xc7));
+        assert_eq!(gf256_table(0x12) / gf256_table(0x34), gf256_table(0xc7));
         assert_eq!(gf256_rem_table(0x12) / gf256_rem_table(0x34), gf256_rem_table(0xc7));
         assert_eq!(gf256_small_rem_table(0x12) / gf256_small_rem_table(0x34), gf256_small_rem_table(0xc7));
         assert_eq!(gf256_barret(0x12) / gf256_barret(0x34), gf256_barret(0xc7));
@@ -783,7 +783,7 @@ mod test {
                 let x = gf256(a).naive_mul(gf256(b));
                 let y = gf256(a) * gf256(b);
                 let z = gf256_barret(a) * gf256_barret(b);
-                let w = gf256_log_table(a) * gf256_log_table(b);
+                let w = gf256_table(a) * gf256_table(b);
                 assert_eq!(u8::from(x), u8::from(y));
                 assert_eq!(u8::from(x), u8::from(z));
                 assert_eq!(u8::from(x), u8::from(w));
@@ -799,7 +799,7 @@ mod test {
                 let x = gf256(a).naive_div(gf256(b));
                 let y = gf256(a) / gf256(b);
                 let z = gf256_barret(a) / gf256_barret(b);
-                let w = gf256_log_table(a) / gf256_log_table(b);
+                let w = gf256_table(a) / gf256_table(b);
                 assert_eq!(u8::from(x), u8::from(y));
                 assert_eq!(u8::from(x), u8::from(z));
                 assert_eq!(u8::from(x), u8::from(w));
@@ -917,11 +917,11 @@ mod test {
     // niche implementations that are very prone to bugs
     //
 
-    #[gf(polynomial=0x13, generator=0x2, log_table)]
-    type gf16_log_table;
+    #[gf(polynomial=0x13, generator=0x2, table)]
+    type gf16_table;
 
-    test_axioms! { gf16_log_table_axioms;    gf16_log_table; 15;  0x1 }
-    test_axioms! { gf256_log_table_axioms;   gf256_log_table; 255; 0x11 }
+    test_axioms! { gf16_table_axioms;    gf16_table; 15;  0x1 }
+    test_axioms! { gf256_table_axioms;   gf256_table; 255; 0x11 }
 
     #[gf(polynomial=0x13, generator=0x2, rem_table)]
     type gf16_rem_table;

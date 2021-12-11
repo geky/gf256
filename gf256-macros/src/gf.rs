@@ -37,7 +37,7 @@ struct GfArgs {
     #[darling(default)]
     naive: bool,
     #[darling(default)]
-    log_table: bool,
+    table: bool,
     #[darling(default)]
     rem_table: bool,
     #[darling(default)]
@@ -81,8 +81,8 @@ pub fn gf(
     };
 
     // decide between implementations
-    let (naive, log_table, rem_table, small_rem_table, barret) = match
-        (args.naive, args.log_table, args.rem_table, args.small_rem_table, args.barret)
+    let (naive, table, rem_table, small_rem_table, barret) = match
+        (args.naive, args.table, args.rem_table, args.small_rem_table, args.barret)
     {
         // choose mode if one is explicitly requested
         (true,  false, false, false, false) => (true,  false, false, false, false),
@@ -97,7 +97,7 @@ pub fn gf(
             if cfg!(any(feature="no-tables", feature="small-tables"))
             => (false, false, false, false, true),
 
-        // if width <= 8, default to log_table as this is currently the fastest
+        // if width <= 8, default to table as this is currently the fastest
         // implementation, but uses O(2^n) memory
         (false, false, false, false, false)
             if width <= 8
@@ -108,7 +108,7 @@ pub fn gf(
         (false, false, false, false, false) => (false, false, false, false, true),
 
         // multiple modes selected?
-        _ => panic!("invalid configuration of macro gf (naive, log_table, rem_table, small_rem_table, barret?)"),
+        _ => panic!("invalid configuration of macro gf (naive, table, rem_table, small_rem_table, barret?)"),
     };
 
     // parse type
@@ -214,8 +214,8 @@ pub fn gf(
         ("__naive".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", naive), Span::call_site())
         )),
-        ("__log_table".to_owned(), TokenTree::Ident(
-            Ident::new(&format!("{}", log_table), Span::call_site())
+        ("__table".to_owned(), TokenTree::Ident(
+            Ident::new(&format!("{}", table), Span::call_site())
         )),
         ("__rem_table".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", rem_table), Span::call_site())

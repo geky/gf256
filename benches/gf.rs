@@ -12,8 +12,8 @@ use ::gf256::macros::gf;
 // generate explicit naive barret and table implementations
 #[gf(polynomial=0x11d, generator=0x02, naive)]
 type gf256_naive;
-#[gf(polynomial=0x11d, generator=0x02, log_table)]
-type gf256_log_table;
+#[gf(polynomial=0x11d, generator=0x02, table)]
+type gf256_table;
 #[gf(polynomial=0x11d, generator=0x02, rem_table)]
 type gf256_rem_table;
 #[gf(polynomial=0x11d, generator=0x02, small_rem_table)]
@@ -23,8 +23,8 @@ type gf256_barret;
 
 #[gf(polynomial=0x13, generator=0x2, naive)]
 type gf16_naive;
-#[gf(polynomial=0x13, generator=0x2, log_table)]
-type gf16_log_table;
+#[gf(polynomial=0x13, generator=0x2, table)]
+type gf16_table;
 #[gf(polynomial=0x13, generator=0x2, rem_table)]
 type gf16_rem_table;
 #[gf(polynomial=0x13, generator=0x2, small_rem_table)]
@@ -101,26 +101,26 @@ fn bench_gfmul(c: &mut Criterion) {
 
     // gf256 mul/div
     bench_mul!(group, "gf256_naive_mul",            gf256_naive);
-    bench_mul!(group, "gf256_log_table_mul",        gf256_log_table);
+    bench_mul!(group, "gf256_table_mul",            gf256_table);
     bench_mul!(group, "gf256_rem_table_mul",        gf256_rem_table);
     bench_mul!(group, "gf256_small_rem_table_mul",  gf256_small_rem_table);
     bench_mul!(group, "gf256_barret_mul",           gf256_barret);
 
     bench_div!(group, "gf256_naive_div",            gf256_naive);
-    bench_div!(group, "gf256_log_table_div",        gf256_log_table);
+    bench_div!(group, "gf256_table_div",            gf256_table);
     bench_div!(group, "gf256_rem_table_div",        gf256_rem_table);
     bench_div!(group, "gf256_small_rem_table_div",  gf256_small_rem_table);
     bench_div!(group, "gf256_barret_div",           gf256_barret);
 
     // gf16 mul/div
     bench_mul!(group, "gf16_naive_mul",             |x: u8| gf16_naive::try_from(x&0xf).unwrap());
-    bench_mul!(group, "gf16_log_table_mul",         |x: u8| gf16_log_table::try_from(x&0xf).unwrap());
+    bench_mul!(group, "gf16_table_mul",             |x: u8| gf16_table::try_from(x&0xf).unwrap());
     bench_mul!(group, "gf16_rem_table_mul",         |x: u8| gf16_rem_table::try_from(x&0xf).unwrap());
     bench_mul!(group, "gf16_small_rem_table_mul",   |x: u8| gf16_small_rem_table::try_from(x&0xf).unwrap());
     bench_mul!(group, "gf16_barret_mul",            |x: u8| gf16_barret::try_from(x&0xf).unwrap());
 
     bench_div!(group, "gf16_naive_div",             |x: u8| gf16_naive::try_from(x&0xf).unwrap());
-    bench_div!(group, "gf16_log_table_div",         |x: u8| gf16_log_table::try_from(x&0xf).unwrap());
+    bench_div!(group, "gf16_table_div",             |x: u8| gf16_table::try_from(x&0xf).unwrap());
     bench_div!(group, "gf16_rem_table_div",         |x: u8| gf16_rem_table::try_from(x&0xf).unwrap());
     bench_div!(group, "gf16_small_rem_table_div",   |x: u8| gf16_small_rem_table::try_from(x&0xf).unwrap());
     bench_div!(group, "gf16_barret_div",            |x: u8| gf16_barret::try_from(x&0xf).unwrap());

@@ -42,14 +42,12 @@ impl __gf {
     /// Number of non-zero elements in the finite-field
     pub const NONZEROS: __u = __nonzeros;
 
-    // Generate log/antilog tables using our generator
-    // if we're in log_table mode
-    //
-    #[cfg(__if(__log_table))]
+    // Generate log/antilog tables using our generator if we're in table mode
+    #[cfg(__if(__table))]
     const LOG_TABLE: [__u; __nonzeros+1] = Self::LOG_EXP_TABLES.0;
-    #[cfg(__if(__log_table))]
+    #[cfg(__if(__table))]
     const EXP_TABLE: [__u; __nonzeros+1] = Self::LOG_EXP_TABLES.1;
-    #[cfg(__if(__log_table))]
+    #[cfg(__if(__table))]
     const LOG_EXP_TABLES: ([__u; __nonzeros+1], [__u; __nonzeros+1]) = {
         let mut log_table = [0; __nonzeros+1];
         let mut exp_table = [0; __nonzeros+1];
@@ -292,7 +290,7 @@ impl __gf {
     #[inline]
     pub fn mul(self, other: __gf) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__log_table))] {
+            if #[cfg(__if(__table))] {
                 // multiplication using log/antilog tables
                 if self.0 == 0 || other.0 == 0 {
                     // special case for 0, this can't be constant-time
@@ -381,7 +379,7 @@ impl __gf {
     #[inline]
     pub fn pow(self, exp: __u) -> __gf {
         cfg_if! {
-            if #[cfg(__if(__log_table))] {
+            if #[cfg(__if(__table))] {
                 // another shortcut! if we are in table mode, the log/antilog
                 // tables let us compute the pow with traditional integer
                 // operations. Expensive integer operations, but less expensive
@@ -426,7 +424,7 @@ impl __gf {
         }
 
         cfg_if! {
-            if #[cfg(__if(__log_table))] {
+            if #[cfg(__if(__table))] {
                 // we can take a shortcut here if we are in table mode, by
                 // directly using the log/antilog tables to find the reciprocal
                 //
@@ -465,7 +463,7 @@ impl __gf {
         }
 
         cfg_if! {
-            if #[cfg(__if(__log_table))] {
+            if #[cfg(__if(__table))] {
                 // more table mode shortcuts, this just shaves off a pair of lookups
                 //
                 // a/b = a*b^-1 = g^(log_g(a)+log_g(b^-1)) = g^(log_g(a)-log_g(b)) = g^(log_g(a)+255-log_g(b))
