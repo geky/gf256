@@ -55,6 +55,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use rand;
 use ::gf256::*;
+use ::gf256::crc::crc32c;
 
 
 /// Error codes for RAID arrays
@@ -1351,22 +1352,50 @@ pub fn main() {
     ];
 
     // store our image in blocks
-    let block = 32;
+    let block = 64;
     let columns = block / (image.len()/width);
     let mut blocks = (0..image.len()/block)
         .map(|i| {
-            (0 .. image.len()/width)
+            let mut data = (0 .. image.len()/width)
                 .map(|j| {
                     image[i*columns+j*width..i*columns+j*width+columns].iter().copied()
                 })
                 .flatten()
-                .collect::<Vec<u8>>()
+                .collect::<Vec<u8>>();
+
+            // make space for CRCs, this is one option for determining block failures
+            //
+            // a 32-bit CRC is probably overkill for 64 bytes of data, but it aligns
+            // nicely with our image
+            //
+            data.resize(data.len()+4, 0);
+            data
         })
         .collect::<Vec<Vec<u8>>>();
-    blocks.resize_with(blocks.len()+3, || vec![0; block]);
+    blocks.resize_with(blocks.len()+3, || vec![0; block+4]);
+
+    let mkcrcs = |blocks: &mut [Vec<u8>]| {
+        for data in blocks {
+            let data_len = data.len();
+            let crc = crc32c(&data[..data_len-4]);
+            data[data_len-4..].copy_from_slice(&crc.to_le_bytes());
+        }
+    };
+
+    let chcrcs = |blocks: &[Vec<u8>]| -> Vec<usize> {
+        let mut bad_blocks = vec![];
+        for (i, data) in blocks.iter().enumerate() {
+            let data_len = data.len();
+            let crc = crc32c(&data[..data_len-4]);
+            if crc != u32::from_le_bytes(<[u8; 4]>::try_from(&data[data_len-4..]).unwrap()) {
+                bad_blocks.push(i);
+            }
+        }
+        bad_blocks
+    };
 
     let toimage = |blocks: &[Vec<u8>]| -> Vec<u8> {
-        let mut image = vec![0; image.len() + 3*block];
+        let mut image = vec![0; blocks[0].len()*blocks.len()];
         let image_len = image.len();
         for i in 0..blocks.len() {
             for j in 0..image_len/(width+3*columns) {
@@ -1385,6 +1414,8 @@ pub fn main() {
         let (p, blocks) = blocks.split_last_mut().unwrap();
         raid7_format(blocks, p, q, r);
     }
+    // update CRCs
+    mkcrcs(&mut blocks);
 
     // randomly choose three blocks to damage, this is the worst case
     // we can recover from
@@ -1404,6 +1435,8 @@ pub fn main() {
     }
     println!();
 
+    // find bad blocks by checking CRCs
+    let bad_blocks = chcrcs(&blocks);
     // repair
     {
         let (r, blocks) = blocks.split_last_mut().unwrap();
@@ -1411,6 +1444,8 @@ pub fn main() {
         let (p, blocks) = blocks.split_last_mut().unwrap();
         raid7_repair(blocks, p, q, r, &bad_blocks).unwrap();
     }
+    // update CRCs
+    mkcrcs(&mut blocks);
 
     println!("corrected:");
     println!();

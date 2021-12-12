@@ -876,7 +876,11 @@ fn main() {
     loop {
         for _ in 0..errors {
             let error = rng.gen_range(0..encoded.len());
-            encoded[error] ^= 0xff;
+            if encoded[error].count_ones() > 4 {
+                encoded[error] = 0x00;
+            } else {
+                encoded[error] = 0xff;
+            }
         }
 
         let errored = encoded.clone();
@@ -1039,9 +1043,15 @@ fn main() {
         for _ in 0..errors {
             // in theory our byte+parity-bit would be one word
             let error = rng.gen_range(0..encoded_size);
-            encoded[error] ^= 0xff;
-            encoded[encoded_size + error%(encoded_size/8)]
-                ^= 1 << (error/(encoded_size/8));
+            if encoded[error].count_ones() > 4 {
+                encoded[error] = 0x00;
+                encoded[encoded_size + error%(encoded_size/8)]
+                    &= !(1 << (error/(encoded_size/8)));
+            } else {
+                encoded[error] = 0xff;
+                encoded[encoded_size + error%(encoded_size/8)]
+                    |= 1 << (error/(encoded_size/8));
+            }
         }
 
         let errored = encoded.clone();
@@ -1062,8 +1072,8 @@ fn main() {
 
     println!("byte corrupted image (errors = {}/{}, {:.2}%):",
         errors,
-        encoded.len(),
-        100.0 * (errors as f64 / (encoded.len() as f64)));
+        (encoded.len()*8/9),
+        100.0 * (errors as f64 / ((encoded.len()*8/9) as f64)));
     println!();
     for line in dots(width+ecc_width, &prev_errored) {
         println!("    {}", line);
