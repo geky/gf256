@@ -1,4 +1,4 @@
-//! ## Reed-Solomon error-correction codes in BCH-view
+//! ## Reed-Solomon error-correction codes (BCH-view)
 //!
 //! [Reed-Solomon error-correction][rs] is a scheme for creating error-correction
 //! codes (ECC) capable of detecting and correcting multiple byte-level errors.
@@ -67,7 +67,7 @@
 //! ``` rust
 //! use ::gf256::crc::crc32c;
 //!
-//! assert_eq!(crc32c(b"hello!"), 0x8c09fd5b);
+//! assert_eq!(crc32c(b"hello!", 0), 0x8c09fd5b);
 //! ```
 //!
 //! ``` text
@@ -110,7 +110,7 @@
 //!             &codeword[codeword.len()-4..]
 //!         ).unwrap());
 //!
-//!         if crc32c(&codeword[..codeword.len()-4]) == crc {
+//!         if crc32c(&codeword[..codeword.len()-4], 0) == crc {
 //!             return Some(codeword);
 //!         }
 //!     }
@@ -150,7 +150,7 @@
 //!             &codeword[codeword.len()-4..]
 //!         ).unwrap());
 //!
-//!         if crc32c(&codeword[..codeword.len()-4]) == crc {
+//!         if crc32c(&codeword[..codeword.len()-4], 0) == crc {
 //!             return Some(codeword);
 //!         }
 //!        }  
@@ -856,6 +856,7 @@
 //!         delta += Λ[Λ.len()-1-j] * S[i-j];
 //!     }
 //!
+//!     // shift
 //!     prev_Λ.rotate_left(1);
 //!
 //!     if delta != gf256(0) {
@@ -870,6 +871,7 @@
 //!     }
 //! }
 //!
+//! // trim leading zeros
 //! let zeros = Λ.iter().take_while(|x| **x == gf256(0)).count();
 //! Λ.drain(0..zeros);
 //!
@@ -1032,7 +1034,7 @@
 //! let mut S_rev = S.clone();
 //! S_rev.reverse();
 //! let mut Ω = poly_mul(&S_rev, &Λ);
-//! Ω.drain(..Ω.len()-2*(Λ.len()-1));
+//! Ω.drain(..Ω.len()-S.len());
 //!
 //! // find the formal derivative of Λ
 //! //
@@ -1056,8 +1058,7 @@
 //! //         Λ'(Xj^-1)
 //! //
 //! let mut error_magnitudes = vec![];
-//! for i in 0..error_locations.len() {
-//!     let j = error_locations[i];
+//! for j in error_locations {
 //!     let Xj = gf256::GENERATOR.pow(u8::try_from(codeword.len()-1-j).unwrap());
 //!     let Yj = -Xj*poly_eval(&Ω, Xj.recip()) / poly_eval(&Λ_prime, Xj.recip());
 //!     error_magnitudes.push(Yj);

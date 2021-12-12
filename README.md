@@ -178,7 +178,7 @@ number of other utilities that rely on the math around finite-fields:
   ``` rust
   use gf256::crc::crc32c;
 
-  assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
+  assert_eq!(crc32c(b"Hello World!", 0), 0xfe6cf1dc);
   ```
 
 - [**Shamir secret-sharing functions**](shamir) (requires features `shamir` and `thread-rng`)
