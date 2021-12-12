@@ -34,8 +34,6 @@ struct CrcArgs {
     #[darling(default)]
     reflected: Option<bool>,
     #[darling(default)]
-    init: Option<U128Wrapper>,
-    #[darling(default)]
     xor: Option<U128Wrapper>,
 
     #[darling(default)]
@@ -203,12 +201,6 @@ pub fn crc(
         }))),
         ("__reflected".to_owned(), TokenTree::Ident(
             Ident::new(&format!("{}", args.reflected.unwrap_or(true)), Span::call_site())
-        )),
-        ("__init".to_owned(), TokenTree::Literal(
-            Literal::u128_unsuffixed(
-                args.init.map(|init| init.0)
-                    .unwrap_or_else(|| (1u128 << width) - 1)
-            )
         )),
         ("__xor".to_owned(), TokenTree::Literal(
             Literal::u128_unsuffixed(

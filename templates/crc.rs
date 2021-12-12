@@ -10,10 +10,18 @@ use core::mem::size_of;
 
 
 // TODO doc?
-pub fn __crc(data: &[u8]) -> __u {
+pub fn __crc(data: &[u8], crc: __u) -> __u {
     cfg_if! {
         if #[cfg(__if(__naive))] {
-            let mut crc = __p(__init << (8*size_of::<__u>()-__width));
+            let mut crc = __p(crc ^ __xor);
+
+            cfg_if! {
+                if #[cfg(__if(__reflected))] {
+                    crc = crc.reverse_bits() >> (8*size_of::<__u>()-__width);
+                }
+            }
+
+            crc = crc << 8*size_of::<__u>()-__width;
 
             // iterate over words
             let mut words = data.chunks_exact(size_of::<__u>());
@@ -47,7 +55,7 @@ pub fn __crc(data: &[u8]) -> __u {
 
             // our division is always 8-bit aligned, so we need to do some
             // finagling if our crc is not 8-bit aligned
-            crc = crc >> (8*size_of::<__u>()-__width);
+            crc = crc >> 8*size_of::<__u>()-__width;
 
             cfg_if! {
                 if #[cfg(__if(__reflected))] {
@@ -82,9 +90,9 @@ pub fn __crc(data: &[u8]) -> __u {
 
             cfg_if! {
                 if #[cfg(__if(__reflected))] {
-                    let mut crc = __init;
+                    let mut crc = crc ^ __xor;
                 } else {
-                    let mut crc = __init << (8*size_of::<__u>()-__width);
+                    let mut crc = (crc ^ __xor) << (8*size_of::<__u>()-__width);
                 }
             }
 
@@ -137,9 +145,9 @@ pub fn __crc(data: &[u8]) -> __u {
 
             cfg_if! {
                 if #[cfg(__if(__reflected))] {
-                    let mut crc = __init;
+                    let mut crc = crc ^ __xor;
                 } else {
-                    let mut crc = __init << (8*size_of::<__u>()-__width);
+                    let mut crc = (crc ^ __xor) << (8*size_of::<__u>()-__width);
                 }
             }
 
@@ -175,7 +183,15 @@ pub fn __crc(data: &[u8]) -> __u {
                 )
             };
 
-            let mut crc = __p(__init << (8*size_of::<__u>()-__width));
+            let mut crc = __p(crc ^ __xor);
+
+            cfg_if! {
+                if #[cfg(__if(__reflected))] {
+                    crc = crc.reverse_bits() >> (8*size_of::<__u>()-__width);
+                }
+            }
+
+            crc = crc << 8*size_of::<__u>()-__width;
 
             // iterate over words
             let mut words = data.chunks_exact(size_of::<__u>());

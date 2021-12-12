@@ -1377,7 +1377,7 @@ pub fn main() {
     let mkcrcs = |blocks: &mut [Vec<u8>]| {
         for data in blocks {
             let data_len = data.len();
-            let crc = crc32c(&data[..data_len-4]);
+            let crc = crc32c(&data[..data_len-4], 0);
             data[data_len-4..].copy_from_slice(&crc.to_le_bytes());
         }
     };
@@ -1386,7 +1386,7 @@ pub fn main() {
         let mut bad_blocks = vec![];
         for (i, data) in blocks.iter().enumerate() {
             let data_len = data.len();
-            let crc = crc32c(&data[..data_len-4]);
+            let crc = crc32c(&data[..data_len-4], 0);
             if crc != u32::from_le_bytes(<[u8; 4]>::try_from(&data[data_len-4..]).unwrap()) {
                 bad_blocks.push(i);
             }

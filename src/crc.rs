@@ -159,7 +159,7 @@
 //! // TODO move crc macro to gf256::crc::crc;
 //! use ::gf256::macros;
 //!
-//! #[macros::crc(polynomial=0b100000111, reflected=false, init=0, xor=0)]
+//! #[macros::crc(polynomial=0b100000111, reflected=false, xor=0)]
 //! fn crc8() {}
 //!
 //! # fn main() {
@@ -167,8 +167,8 @@
 //! # }
 //! ```
 //!
-//! The `reflected`, `init`, and `xor` options are extra tweaks to the CRC algorithm
-//! that are commonly found in standard CRCs. More info on these in the [crc macro](crccrccrc)
+//! The `reflected` and `xor` options are extra tweaks to the CRC algorithm that are
+//! commonly found in standard CRCs. More info on these in the [crc macro](crccrccrc)
 //! documentation.
 //!
 //! TODO wait can we not CRC incrementally?
@@ -308,11 +308,11 @@ mod test {
 
     #[test]
     fn crc() {
-        assert_eq!(crc8(b"Hello World!"),   0xb3);
-        assert_eq!(crc16(b"Hello World!"),  0x0bbb);
-        assert_eq!(crc32(b"Hello World!"),  0x1c291ca3);
-        assert_eq!(crc32c(b"Hello World!"), 0xfe6cf1dc);
-        assert_eq!(crc64(b"Hello World!"),  0x75045245c9ea6fe2);
+        assert_eq!(crc8(b"Hello World!", 0),   0xb3);
+        assert_eq!(crc16(b"Hello World!", 0),  0x0bbb);
+        assert_eq!(crc32(b"Hello World!", 0),  0x1c291ca3);
+        assert_eq!(crc32c(b"Hello World!", 0), 0xfe6cf1dc);
+        assert_eq!(crc64(b"Hello World!", 0),  0x75045245c9ea6fe2);
     }
 
     // explicit modes
@@ -342,65 +342,92 @@ mod test {
 
     #[test]
     fn crc_naive() {
-        assert_eq!(crc8_naive(b"Hello World!"),   0xb3);
-        assert_eq!(crc16_naive(b"Hello World!"),  0x0bbb);
-        assert_eq!(crc32_naive(b"Hello World!"),  0x1c291ca3);
-        assert_eq!(crc32c_naive(b"Hello World!"), 0xfe6cf1dc);
-        assert_eq!(crc64_naive(b"Hello World!"),  0x75045245c9ea6fe2);
+        assert_eq!(crc8_naive(b"Hello World!", 0),   0xb3);
+        assert_eq!(crc16_naive(b"Hello World!", 0),  0x0bbb);
+        assert_eq!(crc32_naive(b"Hello World!", 0),  0x1c291ca3);
+        assert_eq!(crc32c_naive(b"Hello World!", 0), 0xfe6cf1dc);
+        assert_eq!(crc64_naive(b"Hello World!", 0),  0x75045245c9ea6fe2);
     }
 
     #[test]
     fn crc_table() {
-        assert_eq!(crc8_table(b"Hello World!"),   0xb3);
-        assert_eq!(crc16_table(b"Hello World!"),  0x0bbb);
-        assert_eq!(crc32_table(b"Hello World!"),  0x1c291ca3);
-        assert_eq!(crc32c_table(b"Hello World!"), 0xfe6cf1dc);
-        assert_eq!(crc64_table(b"Hello World!"),  0x75045245c9ea6fe2);
+        assert_eq!(crc8_table(b"Hello World!", 0),   0xb3);
+        assert_eq!(crc16_table(b"Hello World!", 0),  0x0bbb);
+        assert_eq!(crc32_table(b"Hello World!", 0),  0x1c291ca3);
+        assert_eq!(crc32c_table(b"Hello World!", 0), 0xfe6cf1dc);
+        assert_eq!(crc64_table(b"Hello World!", 0),  0x75045245c9ea6fe2);
     }
 
     #[test]
     fn crc_small_table() {
-        assert_eq!(crc8_small_table(b"Hello World!"),   0xb3);
-        assert_eq!(crc16_small_table(b"Hello World!"),  0x0bbb);
-        assert_eq!(crc32_small_table(b"Hello World!"),  0x1c291ca3);
-        assert_eq!(crc32c_small_table(b"Hello World!"), 0xfe6cf1dc);
-        assert_eq!(crc64_small_table(b"Hello World!"),  0x75045245c9ea6fe2);
+        assert_eq!(crc8_small_table(b"Hello World!", 0),   0xb3);
+        assert_eq!(crc16_small_table(b"Hello World!", 0),  0x0bbb);
+        assert_eq!(crc32_small_table(b"Hello World!", 0),  0x1c291ca3);
+        assert_eq!(crc32c_small_table(b"Hello World!", 0), 0xfe6cf1dc);
+        assert_eq!(crc64_small_table(b"Hello World!", 0),  0x75045245c9ea6fe2);
     }
 
     #[test]
     fn crc_barret() {
-        assert_eq!(crc8_barret(b"Hello World!"),   0xb3);
-        assert_eq!(crc16_barret(b"Hello World!"),  0x0bbb);
-        assert_eq!(crc32_barret(b"Hello World!"),  0x1c291ca3);
-        assert_eq!(crc32c_barret(b"Hello World!"), 0xfe6cf1dc);
-        assert_eq!(crc64_barret(b"Hello World!"),  0x75045245c9ea6fe2);
+        assert_eq!(crc8_barret(b"Hello World!", 0),   0xb3);
+        assert_eq!(crc16_barret(b"Hello World!", 0),  0x0bbb);
+        assert_eq!(crc32_barret(b"Hello World!", 0),  0x1c291ca3);
+        assert_eq!(crc32c_barret(b"Hello World!", 0), 0xfe6cf1dc);
+        assert_eq!(crc64_barret(b"Hello World!", 0),  0x75045245c9ea6fe2);
     }
 
     #[test]
     fn crc_unaligned() {
-        assert_eq!(crc8_naive(b"Hello World!!"),   0x2f);
-        assert_eq!(crc16_naive(b"Hello World!!"),  0xcba0);
-        assert_eq!(crc32_naive(b"Hello World!!"),  0xd1a8249d);
-        assert_eq!(crc32c_naive(b"Hello World!!"), 0x1ec51c06);
-        assert_eq!(crc64_naive(b"Hello World!!"),  0xf5a8a397b60da2e1);
+        assert_eq!(crc8_naive(b"Hello World!!", 0),   0x2f);
+        assert_eq!(crc16_naive(b"Hello World!!", 0),  0xcba0);
+        assert_eq!(crc32_naive(b"Hello World!!", 0),  0xd1a8249d);
+        assert_eq!(crc32c_naive(b"Hello World!!", 0), 0x1ec51c06);
+        assert_eq!(crc64_naive(b"Hello World!!", 0),  0xf5a8a397b60da2e1);
 
-        assert_eq!(crc8_table(b"Hello World!!"),   0x2f);
-        assert_eq!(crc16_table(b"Hello World!!"),  0xcba0);
-        assert_eq!(crc32_table(b"Hello World!!"),  0xd1a8249d);
-        assert_eq!(crc32c_table(b"Hello World!!"), 0x1ec51c06);
-        assert_eq!(crc64_table(b"Hello World!!"),  0xf5a8a397b60da2e1);
+        assert_eq!(crc8_table(b"Hello World!!", 0),   0x2f);
+        assert_eq!(crc16_table(b"Hello World!!", 0),  0xcba0);
+        assert_eq!(crc32_table(b"Hello World!!", 0),  0xd1a8249d);
+        assert_eq!(crc32c_table(b"Hello World!!", 0), 0x1ec51c06);
+        assert_eq!(crc64_table(b"Hello World!!", 0),  0xf5a8a397b60da2e1);
 
-        assert_eq!(crc8_small_table(b"Hello World!!"),   0x2f);
-        assert_eq!(crc16_small_table(b"Hello World!!"),  0xcba0);
-        assert_eq!(crc32_small_table(b"Hello World!!"),  0xd1a8249d);
-        assert_eq!(crc32c_small_table(b"Hello World!!"), 0x1ec51c06);
-        assert_eq!(crc64_small_table(b"Hello World!!"),  0xf5a8a397b60da2e1);
+        assert_eq!(crc8_small_table(b"Hello World!!", 0),   0x2f);
+        assert_eq!(crc16_small_table(b"Hello World!!", 0),  0xcba0);
+        assert_eq!(crc32_small_table(b"Hello World!!", 0),  0xd1a8249d);
+        assert_eq!(crc32c_small_table(b"Hello World!!", 0), 0x1ec51c06);
+        assert_eq!(crc64_small_table(b"Hello World!!", 0),  0xf5a8a397b60da2e1);
 
-        assert_eq!(crc8_barret(b"Hello World!!"),   0x2f);
-        assert_eq!(crc16_barret(b"Hello World!!"),  0xcba0);
-        assert_eq!(crc32_barret(b"Hello World!!"),  0xd1a8249d);
-        assert_eq!(crc32c_barret(b"Hello World!!"), 0x1ec51c06);
-        assert_eq!(crc64_barret(b"Hello World!!"),  0xf5a8a397b60da2e1);
+        assert_eq!(crc8_barret(b"Hello World!!", 0),   0x2f);
+        assert_eq!(crc16_barret(b"Hello World!!", 0),  0xcba0);
+        assert_eq!(crc32_barret(b"Hello World!!", 0),  0xd1a8249d);
+        assert_eq!(crc32c_barret(b"Hello World!!", 0), 0x1ec51c06);
+        assert_eq!(crc64_barret(b"Hello World!!", 0),  0xf5a8a397b60da2e1);
+    }
+
+    #[test]
+    fn crc_partial() {
+        assert_eq!(crc8_naive(b"World!", crc8_naive(b"Hello ", 0)),     0xb3);
+        assert_eq!(crc16_naive(b"World!", crc16_naive(b"Hello ", 0)),   0x0bbb);
+        assert_eq!(crc32_naive(b"World!", crc32_naive(b"Hello ", 0)),   0x1c291ca3);
+        assert_eq!(crc32c_naive(b"World!", crc32c_naive(b"Hello ", 0)), 0xfe6cf1dc);
+        assert_eq!(crc64_naive(b"World!", crc64_naive(b"Hello ", 0)),   0x75045245c9ea6fe2);
+
+        assert_eq!(crc8_table(b"World!", crc8_table(b"Hello ", 0)),     0xb3);
+        assert_eq!(crc16_table(b"World!", crc16_table(b"Hello ", 0)),   0x0bbb);
+        assert_eq!(crc32_table(b"World!", crc32_table(b"Hello ", 0)),   0x1c291ca3);
+        assert_eq!(crc32c_table(b"World!", crc32c_table(b"Hello ", 0)), 0xfe6cf1dc);
+        assert_eq!(crc64_table(b"World!", crc64_table(b"Hello ", 0)),   0x75045245c9ea6fe2);
+
+        assert_eq!(crc8_small_table(b"World!", crc8_small_table(b"Hello ", 0)),     0xb3);
+        assert_eq!(crc16_small_table(b"World!", crc16_small_table(b"Hello ", 0)),   0x0bbb);
+        assert_eq!(crc32_small_table(b"World!", crc32_small_table(b"Hello ", 0)),   0x1c291ca3);
+        assert_eq!(crc32c_small_table(b"World!", crc32c_small_table(b"Hello ", 0)), 0xfe6cf1dc);
+        assert_eq!(crc64_small_table(b"World!", crc64_small_table(b"Hello ", 0)),   0x75045245c9ea6fe2);
+
+        assert_eq!(crc8_barret(b"World!", crc8_barret(b"Hello ", 0)),     0xb3);
+        assert_eq!(crc16_barret(b"World!", crc16_barret(b"Hello ", 0)),   0x0bbb);
+        assert_eq!(crc32_barret(b"World!", crc32_barret(b"Hello ", 0)),   0x1c291ca3);
+        assert_eq!(crc32c_barret(b"World!", crc32c_barret(b"Hello ", 0)), 0xfe6cf1dc);
+        assert_eq!(crc64_barret(b"World!", crc64_barret(b"Hello ", 0)),   0x75045245c9ea6fe2);
     }
 
     // odd-sized crcs
@@ -421,35 +448,35 @@ mod test {
 
     #[test]
     fn crc_odd_sizes() {
-        assert_eq!(crc4_naive(b"Hello World!"),       0x7);
-        assert_eq!(crc4_table(b"Hello World!"),       0x7);
-        assert_eq!(crc4_small_table(b"Hello World!"), 0x7);
-        assert_eq!(crc4_barret(b"Hello World!"),      0x7);
+        assert_eq!(crc4_naive(b"Hello World!", 0),       0x7);
+        assert_eq!(crc4_table(b"Hello World!", 0),       0x7);
+        assert_eq!(crc4_small_table(b"Hello World!", 0), 0x7);
+        assert_eq!(crc4_barret(b"Hello World!", 0),      0x7);
 
-        assert_eq!(crc12_naive(b"Hello World!"),       0x1d4);
-        assert_eq!(crc12_table(b"Hello World!"),       0x1d4);
-        assert_eq!(crc12_small_table(b"Hello World!"), 0x1d4);
-        assert_eq!(crc12_barret(b"Hello World!"),      0x1d4);
+        assert_eq!(crc12_naive(b"Hello World!", 0),       0x1d4);
+        assert_eq!(crc12_table(b"Hello World!", 0),       0x1d4);
+        assert_eq!(crc12_small_table(b"Hello World!", 0), 0x1d4);
+        assert_eq!(crc12_barret(b"Hello World!", 0),      0x1d4);
 
-        assert_eq!(crc23_naive(b"Hello World!"),       0x32da1c);
-        assert_eq!(crc23_table(b"Hello World!"),       0x32da1c);
-        assert_eq!(crc23_small_table(b"Hello World!"), 0x32da1c);
-        assert_eq!(crc23_barret(b"Hello World!"),      0x32da1c);
+        assert_eq!(crc23_naive(b"Hello World!", 0),       0x32da1c);
+        assert_eq!(crc23_table(b"Hello World!", 0),       0x32da1c);
+        assert_eq!(crc23_small_table(b"Hello World!", 0), 0x32da1c);
+        assert_eq!(crc23_barret(b"Hello World!", 0),      0x32da1c);
 
-        assert_eq!(crc4_naive(b"Hello World!!"),       0x1);
-        assert_eq!(crc4_table(b"Hello World!!"),       0x1);
-        assert_eq!(crc4_small_table(b"Hello World!!"), 0x1);
-        assert_eq!(crc4_barret(b"Hello World!!"),      0x1);
+        assert_eq!(crc4_naive(b"Hello World!!", 0),       0x1);
+        assert_eq!(crc4_table(b"Hello World!!", 0),       0x1);
+        assert_eq!(crc4_small_table(b"Hello World!!", 0), 0x1);
+        assert_eq!(crc4_barret(b"Hello World!!", 0),      0x1);
 
-        assert_eq!(crc12_naive(b"Hello World!!"),       0xb8d);
-        assert_eq!(crc12_table(b"Hello World!!"),       0xb8d);
-        assert_eq!(crc12_small_table(b"Hello World!!"), 0xb8d);
-        assert_eq!(crc12_barret(b"Hello World!!"),      0xb8d);
+        assert_eq!(crc12_naive(b"Hello World!!", 0),       0xb8d);
+        assert_eq!(crc12_table(b"Hello World!!", 0),       0xb8d);
+        assert_eq!(crc12_small_table(b"Hello World!!", 0), 0xb8d);
+        assert_eq!(crc12_barret(b"Hello World!!", 0),      0xb8d);
 
-        assert_eq!(crc23_naive(b"Hello World!!"),       0x11685a);
-        assert_eq!(crc23_table(b"Hello World!!"),       0x11685a);
-        assert_eq!(crc23_small_table(b"Hello World!!"), 0x11685a);
-        assert_eq!(crc23_barret(b"Hello World!!"),      0x11685a);
+        assert_eq!(crc23_naive(b"Hello World!!", 0),       0x11685a);
+        assert_eq!(crc23_table(b"Hello World!!", 0),       0x11685a);
+        assert_eq!(crc23_small_table(b"Hello World!!", 0), 0x11685a);
+        assert_eq!(crc23_barret(b"Hello World!!", 0),      0x11685a);
     }
 
     // bit reflected 
@@ -460,24 +487,24 @@ mod test {
 
     #[test]
     fn crc_unreflected() {
-        assert_eq!(crc32_naive_unreflected(b"Hello World!"),       0x6b1a7cae);
-        assert_eq!(crc32_table_unreflected(b"Hello World!"),       0x6b1a7cae);
-        assert_eq!(crc32_small_table_unreflected(b"Hello World!"), 0x6b1a7cae);
-        assert_eq!(crc32_barret_unreflected(b"Hello World!"),      0x6b1a7cae);
+        assert_eq!(crc32_naive_unreflected(b"Hello World!", 0),       0x6b1a7cae);
+        assert_eq!(crc32_table_unreflected(b"Hello World!", 0),       0x6b1a7cae);
+        assert_eq!(crc32_small_table_unreflected(b"Hello World!", 0), 0x6b1a7cae);
+        assert_eq!(crc32_barret_unreflected(b"Hello World!", 0),      0x6b1a7cae);
     }
 
     // bit inverted 
-    #[crc(polynomial=0x104c11db7, naive, init=0, xor=0)] fn crc32_naive_uninverted() {}
-    #[crc(polynomial=0x104c11db7, table, init=0, xor=0)] fn crc32_table_uninverted() {}
-    #[crc(polynomial=0x104c11db7, small_table, init=0, xor=0)] fn crc32_small_table_uninverted() {}
-    #[crc(polynomial=0x104c11db7, barret, init=0, xor=0)] fn crc32_barret_uninverted() {}
+    #[crc(polynomial=0x104c11db7, naive, xor=0)] fn crc32_naive_uninverted() {}
+    #[crc(polynomial=0x104c11db7, table, xor=0)] fn crc32_table_uninverted() {}
+    #[crc(polynomial=0x104c11db7, small_table, xor=0)] fn crc32_small_table_uninverted() {}
+    #[crc(polynomial=0x104c11db7, barret, xor=0)] fn crc32_barret_uninverted() {}
 
     #[test]
     fn crc_uninverted() {
-        assert_eq!(crc32_naive_uninverted(b"Hello World!"),       0x67fcdacc);
-        assert_eq!(crc32_table_uninverted(b"Hello World!"),       0x67fcdacc);
-        assert_eq!(crc32_small_table_uninverted(b"Hello World!"), 0x67fcdacc);
-        assert_eq!(crc32_barret_uninverted(b"Hello World!"),      0x67fcdacc);
+        assert_eq!(crc32_naive_uninverted(b"Hello World!", 0),       0x67fcdacc);
+        assert_eq!(crc32_table_uninverted(b"Hello World!", 0),       0x67fcdacc);
+        assert_eq!(crc32_small_table_uninverted(b"Hello World!", 0), 0x67fcdacc);
+        assert_eq!(crc32_barret_uninverted(b"Hello World!", 0),      0x67fcdacc);
     }
 
     // all CRC params
@@ -488,13 +515,12 @@ mod test {
         p=p32,
         p2=p64,
         reflected=true,
-        init=0xffffffff,
         xor=0xffffffff,
     )]
     fn crc32_all_params() {}
 
     #[test]
     fn crc_all_params() {
-        assert_eq!(crc32_all_params(b"Hello World!"), 0x1c291ca3);
+        assert_eq!(crc32_all_params(b"Hello World!", 0), 0x1c291ca3);
     }
 }
