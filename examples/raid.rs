@@ -287,7 +287,10 @@ pub fn raid6_repair<B: AsMut<[u8]>>(
         // find intermediate values
         //
         // p - Σ di
+        //   i!=x,y
+        // 
         // q - Σ di*g^i
+        //   i!=x,y
         //
         for i in 0..len {
             dx[i] = p[i];
@@ -307,22 +310,21 @@ pub fn raid6_repair<B: AsMut<[u8]>>(
 
         // find final dx/dy
         //
-        // dx     + dy     = p - Σ di
-        // dx*g^x + dy*g^y = q - Σ di*g^i
-        //
-        //      (q - Σ di*g^i) - (p - Σ di)*g^y
+        //     (q - Σ di*g^i) - (p - Σ di)*g^y
+        //        i!=x,y           i!=x,y
         // dx = -------------------------------
-        //               g^x - g^y
+        //                g^x - g^y
         //
         // dy = p - Σ di - dx
+        //        i!=x,y
         //
         let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
         let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
         for i in 0..len {
-            let p = dx[i];
-            let q = dy[i];
-            dx[i] = (q - p*gy) / (gx - gy);
-            dy[i] = p - dx[i];
+            let pdelta = dx[i];
+            let qdelta = dy[i];
+            dx[i] = (qdelta - pdelta*gy) / (gx - gy);
+            dy[i] = pdelta - dx[i];
         }
     }
 
@@ -551,7 +553,10 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
         // find intermediate values
         //
         // p - Σ di
+        //   i!=x,y
+        // 
         // q - Σ di*g^i
+        //   i!=x,y
         //
         for i in 0..len {
             dx[i] = p[i];
@@ -571,22 +576,21 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
 
         // find final dx/dy
         //
-        // dx     + dy     = p - Σ di
-        // dx*g^x + dy*g^y = q - Σ di*g^i
-        //
         //      (q - Σ di*g^i) - (p - Σ di)*g^y
+        //         i!=x,y           i!=x,y
         // dx = -------------------------------
         //               g^x - g^y
         //
         // dy = p - Σ di - dx
+        //        i!=x,y
         //
         let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
         let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
         for i in 0..len {
-            let p = dx[i];
-            let q = dy[i];
-            dx[i] = (q - p*gy) / (gx - gy);
-            dy[i] = p - dx[i];
+            let pdelta = dx[i];
+            let qdelta = dy[i];
+            dx[i] = (qdelta - pdelta*gy) / (gx - gy);
+            dy[i] = pdelta - dx[i];
         }
     } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
         && !bad_blocks.iter().any(|b| *b == blocks.len()+1 || *b == blocks.len()+2)
@@ -602,7 +606,10 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
         // find intermediate values
         //
         // q - Σ di*g^i
+        //   i!=x,y
+        // 
         // r - Σ di*h^i
+        //   i!=x,y
         //
         for i in 0..len {
             dx[i] = q[i];
@@ -623,26 +630,23 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
 
         // find final dx/dy
         //
-        // dx*g^x + dy*g^y = q - Σ di*g^i
-        // dx*h^x + dy*h^y = r - Σ di*h^i
-        //
-        //      (r - Σ di*h^i)*g^y - (q - Σ di*g^i)*h^y
-        // dx = ---------------------------------------
-        //                 g^y*h^x - g^x*h^y
+        //      (r - Σ di*h^i) - (q - Σ di*g^i)*g^y
+        //         i!=x,y           i!=x,y
+        // dx = -----------------------------------
+        //               g^x*(g^x - g^y)
         //
         //      q - Σ di*g^i - dx*g^x
+        //        i!=x,y
         // dy = ---------------------
         //               g^y
         //
         let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
-        let hx = gx*gx;
         let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
-        let hy = gy*gy;
         for i in 0..len {
-            let q = dx[i];
-            let r = dy[i];
-            dx[i] = (r*gy - q*hy) / (gy*hx - gx*hy);
-            dy[i] = (q - dx[i]*gx) / gy;
+            let qdelta = dx[i];
+            let rdelta = dy[i];
+            dx[i] = (rdelta - qdelta*gy) / (gx*(gx - gy));
+            dy[i] = (qdelta - dx[i]*gx) / gy;
         }
     } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 2
         && !bad_blocks.iter().any(|b| *b == blocks.len()+0 || *b == blocks.len()+2)
@@ -658,7 +662,10 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
         // find intermediate values
         //
         // p - Σ di
+        //   i!=x,y
+        // 
         // r - Σ di*h^i
+        //   i!=x,y
         //
         for i in 0..len {
             dx[i] = p[i];
@@ -679,24 +686,23 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
 
         // find final dx/dy
         //
-        // dx     + dy     = p - Σ di
-        // dx*h^x + dy*h^y = r - Σ di*h^i
-        //
         //      (r - Σ di*h^i) - (p - Σ di)*h^y
+        //         i!=x,y           i!=x,y
         // dx = -------------------------------
         //               h^x - h^y
         //
         // dy = p - Σ di - dx
+        //        i!=x,y
         //
         let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
         let hx = gx*gx;
         let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
         let hy = gy*gy;
         for i in 0..len {
-            let p = dx[i];
-            let r = dy[i];
-            dx[i] = (r - p*hy) / (hx - hy);
-            dy[i] = p - dx[i];
+            let pdelta = dx[i];
+            let rdelta = dy[i];
+            dx[i] = (rdelta - pdelta*hy) / (hx - hy);
+            dy[i] = pdelta - dx[i];
         }
     } else if bad_blocks.iter().filter(|b| **b < blocks.len()).count() == 3 {
         // repair dx, dy and dz using p, q and r
@@ -713,8 +719,13 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
         // find intermediate values
         //
         // p - Σ di
+        //  i!=x,y,z
+        //
         // q - Σ di*g^i
+        //  i!=x,y,z
+        //
         // r - Σ di*h^i
+        //  i!=x,y,z
         //
         for i in 0..len {
             dx[i] = p[i];
@@ -738,33 +749,29 @@ pub fn raid7_repair<B: AsMut<[u8]>>(
 
         // find final dx/dy/dz
         //
-        // dx     + dy     + dz     = p - Σ di
-        // dx*g^x + dy*g^y + dz*g^z = q - Σ di*g^i
-        // dx*h^x + dy*h^y + dz*h^z = r - Σ di*h^i
-        //
-        //      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
-        // dx = ----------------------------------------------------------------------------------------
-        //                       (h^x - h^z)*(g^y - g^z) - (h^y - h^z)*(g^x - g^z)
+        //      (r - Σ di*h^i) - (q - Σ di*g^i)*(g^y - g^z) - (p - Σ di)*g^y*g^z
+        //        i!=x,y,z         i!=x,y,z                     i!=x,y,z
+        // dx = ----------------------------------------------------------------
+        //                      (g^x - g^y)*(g^x - g^z)
         //
         //      (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z)
+        //        i!=x,y,z         i!=x,y,z
         // dy = ------------------------------------------------
         //                         g^y - g^z
         //
         // dz = p - Σ di - dx - dy
+        //       i!=x,y,z
         //
         let gx = gf256::GENERATOR.pow(u8::try_from(bad_blocks[0]).unwrap());
-        let hx = gx*gx;
         let gy = gf256::GENERATOR.pow(u8::try_from(bad_blocks[1]).unwrap());
-        let hy = gy*gy;
         let gz = gf256::GENERATOR.pow(u8::try_from(bad_blocks[2]).unwrap());
-        let hz = gz*gz;
         for i in 0..len {
-            let p = dx[i];
-            let q = dy[i];
-            let r = dz[i];
-            dx[i] = (r*(gy-gz) - q*(hy-hz) - p*(gy*hz-gz*hy)) / ((hx-hz)*(gy-gz) - (hy-hz)*(gx-gz));
-            dy[i] = (q - p*gz - dx[i]*(gx-gz)) / (gy - gz);
-            dz[i] = p - dx[i] - dy[i];
+            let pdelta = dx[i];
+            let qdelta = dy[i];
+            let rdelta = dz[i];
+            dx[i] = (rdelta - qdelta*(gy - gz) - pdelta*gy*gz) / ((gx - gy) * (gx - gz));
+            dy[i] = (qdelta - pdelta*gz - dx[i]*(gx - gz)) / (gy - gz);
+            dz[i] = pdelta - dx[i] - dy[i];
         }
     }
 
