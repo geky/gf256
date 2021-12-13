@@ -1,6 +1,6 @@
 //! ## LFSR structs and macros
 //!
-//! A [linear-feedback shift register (LFSR)][lfsr] is a simple method of
+//! A [linear-feedback shift register (LFSR)][lfsr-wiki] is a simple method of
 //! creating a pseudo-random stream of bits using only a small circuit of shifts
 //! and xors.
 //!
@@ -25,12 +25,77 @@
 //!
 //! Note this module requires feature `lfsr`.
 //!
-//! TODO link to example!
+//! A fully featured implementation of LFSRs can be found in
+//! [`examples/lfsr.rs`][lfsr-example]:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
+//!
+//! testing lfsr64
+//! lfsr64_naive                        => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_divrem                       => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_table                        => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_small_table                  => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_barret                       => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_table_barret                 => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_small_table_barret           => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! rev(lfsr64_naive)                   => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_divrem)                  => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_table)                   => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_small_table)             => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_barret)                  => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_table_barret)            => b71d00000000000045010000000000001b000000000000000100000000000000
+//! rev(lfsr64_small_table_barret)      => b71d00000000000045010000000000001b000000000000000100000000000000
+//! lfsr64_naive+9000                   => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_divrem+9000                  => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_table+9000                   => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_small_table+9000             => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_barret+9000                  => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_table_barret+9000            => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! lfsr64_small_table_barret+9000      => 4aec56b077706daa269325545515010d361e101b06c71bad8b33b14551004b42
+//! rev(lfsr64_naive+9000)              => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_divrem+9000)             => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_table+9000)              => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_small_table+9000)        => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_barret+9000)             => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_table_barret+9000)       => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! rev(lfsr64_small_table_barret+9000) => 424b005145b1338bad1bc7061b101e360d01155554259326aa6d7077b056ec4a
+//! lfsr64_naive+9000-9000              => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_divrem+9000-9000             => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_table+9000-9000              => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_small_table+9000-9000        => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_barret+9000-9000             => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_table_barret+9000-9000       => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! lfsr64_small_table_barret+9000-9000 => 0000000000000001000000000000001b00000000000001450000000000001db7
+//! 
+//! 2048 lfsr64 samples:
+//!                                           .      .                       .
+//!                  .     '  .    .  .'       .                             :
+//!              .  '               '   '' '    .      '  .'  '             ':
+//!           . .        '  . . .:  ::  . .' .. . '                .        .:
+//!        '   ' '    .:  ' ' . .: . .  ::  .:. .    . ' . ' .      .      .::
+//!             .'  .: ' ..   :.   ::.'.:. ' ' . '.'.  ' '       '         '::
+//!           '    .  ' .''..:..'.: .:.  '  '.    :'':.        '           .::
+//!          :   ''.. ''. '. .:':''''.:':..''...  :.  :  '.   :. '        ::::
+//!             .  . .:  .' ' :':.:'. :.''::' :::'.:... :    .'           ::::
+//!               ': ':''  '': :.: .:' .::::.:': ..' :.''   .' . :        ::::
+//!         .  .  .    ':.' :'   ''.:. ::.'''' '. : '.  ..     .   '       :::
+//!        '    . ' '.. .'  '..'.' .:'' . '. ''. ':  ' .. '     '   '       ::
+//!            '  ' .    '      ...''.: .:. .' :    ..' . '   :             ::
+//!                 '.         .     '  '' .      '    .  ': .'.             :
+//!                    '    .. .  '.'   .             '                      :
+//!     '         '    '.'.'  .    ''   :         .  .              '       ':
+//! 
+//!                                 :   :.     .
+//!     .  ...........:::...::::::.:::::::::.:::..:..::........... ..
+//! 
+//! 64513/131072 ones (49.22%), 0.27% compressability
+//! ```
 //!
 //! ## How do LFSRs work?
 //!
 //! Consider the following LFSR, where each bit represents a single-bit register,
-//! and each "x" represents an xor gate, sometimes called the "taps" of an LFSR.
+//! and each `x` represents an xor gate, sometimes called the "taps" of an LFSR.
 //!
 //! We can step through some states by hand to see what the output would be:
 //!
@@ -130,11 +195,9 @@
 //! ```
 //!
 //! And a polynomial multiplication followed by a remainder with a constant...
-//! Isn't that equivalent to our [Galois-field multiplication](../gf)?
+//! Isn't that equivalent to Galois-field multiplication?
 //!
 //! Why yes it is!
-//!
-//! TODO get these working...
 //!
 //! ``` rust
 //! # pub use ::gf256::*;
@@ -178,14 +241,14 @@
 //! of the finite-field defined by said polynomial. If these conditions are met,
 //! than repeated multiplications by 2 (shifting our LFSR) will actually iterate
 //! through every non-zero element of our field before looping, giving us the
-//! maximum cycle-length for any n-bit LFSR (or any pseudo-random number generator
-//! with n-bits of state).
+//! maximum cycle-length for any `n`-bit LFSR (or any pseudo-random number generator
+//! with `n`-bits of state).
 //!
 //! These polynomials are sometimes called "primitive polynomials", but there's
 //! nothing really magical about them. In order to find primitive polynomials, we
-//! just brute force search all polynomials until we find one that works.
-//!
-//! TODO show tool
+//! just brute force search all polynomials until we find one that works. There is
+//! more information about this in [`gf`'s module-level documentation
+//! ](../gf#finding-irreducible-polynomials-and-generators).
 //!
 //! Knowing that LFSRs are equivalent to polynomial multiplication and division,
 //! we can also step through multiple bits at a time by multiplying by a
@@ -206,7 +269,6 @@
 //!
 //! And we can create this exact LFSR using gf256:
 //!
-//! TODO test these!
 //! ``` rust
 //! # pub use ::gf256::*;
 //! use ::gf256::lfsr::lfsr;
@@ -221,6 +283,8 @@
 //! ```
 //!
 //! ## Stepping backwards
+//!
+//! TODO actually run this backwards
 //!
 //! Fascinating to me was learning that you can actually run an LFSR _backwards_.
 //! All you need to do is invert the taps and shift in the other direction:
@@ -243,11 +307,11 @@
 //! This works perfectly fine with powers-of-two, allowing multiple bits to be
 //! stepped through at a time:
 //!
-//! TODO
+//! TODO example
 //!
 //! And is supported by the LFSR structs:
 //!
-//! TODO
+//! TODO example
 //!
 //! However, as far as I can tell, this doesn't generalize to non-power-of-two
 //! multiplicands, which is a real shame since it would provide a much more
@@ -267,7 +331,7 @@
 //! our finite-field
 //! ```
 //!
-//! This means we can seek to any position in the LFSR state with only O(log log n)
+//! This means we can seek to any position in the LFSR state with only `O(log log n)`
 //! operations.
 //!
 //! TODO example
@@ -312,26 +376,28 @@
 //!
 //! Though note the default mode is susceptible to change.
 //!
-//! See also [BENCHMARKS][BENCHMARKS.md]
+//! See also [BENCHMARKS.md][benchmarks]
 //!
 //! ## The `Rng` trait 
 //!
-//! TODO link these
-//!
 //! In addition to the above APIs, the LFSR structs in this module satisfy the
-//! [`RngCore`] and [`SeedableRng`] traits found in the [`rand`] crate. This
-//! allows custom LFSRs to act as drop-in replacements for other pseudo-random
-//! number generators with the additional ability to seek and rewind, allowing
-//! perfect replayability.
+//! [`RngCore`](rand::RngCore) and [`SeedableRng`](rand::SeedableRng) traits found
+//! in the [`rand`] crate. This allows custom LFSRs to act as drop-in replacements
+//! for other pseudo-random number generators with the additional ability to seek and
+//! rewind, allowing perfect replayability.
 //!
 //! Note! If you're just looking for a pseudo-random number generator, the
 //! randomness generated by these LFSRs is equivalent to the same-sized, naive
-//! Xorshift generators, with the same limitations and cycle-length. However,
-//! Xorshift generators are much more efficient, using only a handful of shifts
-//! and xors.
+//! [Xorshift generators][xorshift], with the same limitations and cycle-length.
+//! However, Xorshift generators are much more efficient, using only a handful of
+//! shifts and xors.
 //!
-//! TODO link to xorshift rng?
 //!
+//! [lfsr-wiki]: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+//! [barret-reduction]: https://en.wikipedia.org/wiki/Barrett_reduction
+//! [xorshift]: https://en.wikipedia.org/wiki/Xorshift
+//! [lfsr-example]:
+//! [benchmarks]:
 
 
 // macro for creating LFSR implementations
