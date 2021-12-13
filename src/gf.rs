@@ -13,12 +13,12 @@
 //!
 //! ## What are Galois-fields?
 //! 
-//! Galois-fields, also called finite-fields, are a finite set of "numbers" (for
-//! some definition of number), that you can do "math" on (for some definition
-//! of math).
+//! [Galois-fields][finite-field], also called finite-fields, are a finite set of
+//! "numbers" (for some definition of number), that you can do "math" on (for some
+//! definition of math).
 //! 
 //! More specifically, Galois-fields support addition, subtraction, multiplication,
-//! and division, which follow a set of rules called "field axioms":
+//! and division, which follow a set of rules called "[field axioms][field-axioms]":
 //! 
 //! 1. Subtraction is the inverse of addition, and division is the inverse of
 //!    multiplication:
@@ -32,7 +32,7 @@
 //!    assert_eq!((a*b)/b, a);
 //!    ```
 //!  
-//!    Except for 0, over which division is undefined:
+//!    Except for `0`, over which division is undefined:
 //!  
 //!    ``` rust
 //!    # use ::gf256::*;
@@ -41,8 +41,8 @@
 //!    assert_eq!(a.checked_div(gf256(0)), None);
 //!    ```
 //!  
-//! 1. There exists an element 0 that is the identity of addition, and an element
-//!    1 that is the identity of multiplication:
+//! 1. There exists an element `0` that is the identity of addition, and an element
+//!    `1` that is the identity of multiplication:
 //!  
 //!    ``` rust
 //!    # use ::gf256::*;
@@ -106,9 +106,9 @@
 //! ```
 //! 
 //! Finite-fields can be very useful for applying high-level math onto machine
-//! words, since machine words (u8, u16, u32, etc) are inherently finite. Normally
-//! we just ignore this until an integer overflow occurs and then we just waive our
-//! hands around wailing that math has failed us.
+//! words, since machine words (`u8`, `u16`, `u32`, etc) are inherently finite.
+//! Normally we just ignore this until an integer overflow occurs and then we just
+//! waive our hands around wailing that math has failed us.
 //! 
 //! In Rust this has the fun side-effect that the Galois-field types are incapable
 //! of overflowing, so Galois-field types don't need the set of overflowing
@@ -146,15 +146,15 @@
 //! Normally we would view this as the binary representation of the decimal
 //! number 11.
 //! 
-//! Instead, lets view it as a polynomial for some made-up variable "x", where
-//! each coefficient is a binary 1 or 0:
+//! Instead, lets view it as a polynomial for some made-up variable `x`, where
+//! each coefficient is a binary `1` or `0`:
 //! 
 //! ``` text
 //! a = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
 //! ```
 //! 
-//! We can add polynomials together, as long as we mod each coefficient by 2 so
-//! they remain binary:
+//! We can add polynomials together, as long as we mod each coefficient by `2`
+//! so they remain binary:
 //! 
 //! ``` text
 //! a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
@@ -181,12 +181,13 @@
 //!     = 0b1111111
 //! ```
 //! 
-//! It's worth emphasizing that the "x" in these polynomials is a variable that we
-//! never actually evaluate. We just use it to create a view of the underlying
+//! It's worth emphasizing that the `x` in these polynomials is a variable that
+//! we never actually evaluate. We just use it to create a view of the underlying
 //! binary numbers that we can do polynomial operations on.
 //! 
-//! gf256 actually comes with a set of polynomial types to perform these
-//! operations directly:
+//! gf256 comes with a set of polynomial types to perform these operations
+//! directly, and there is more info on these types [`p`'s module-level
+//! documentation](p):
 //! 
 //! ``` rust
 //! # use ::gf256::*;
@@ -212,8 +213,8 @@
 //! I'm going to use the polynomial `0b10011` in this example, but it can be any
 //! polynomial as long as it's 1. irreducible and 2. has n+1 bits where n is the
 //! number of bits in our field. How we find these polynomials is explained in
-//! more detail in the [Finding irreducible polynomials and generators][blablabla]
-//! section.
+//! more detail in the [Finding irreducible polynomials and generators
+//! ](#finding-irreducible-polynomials-and-generators) section.
 //! 
 //! 1. Why does the polynomial need to be irreducible?
 //!  
@@ -254,12 +255,12 @@
 //! assert_eq!((a*b) % p8(0b10011) + (a*c) % p8(0b10011), p8(0b0001));
 //! ```
 //! 
-//! But we need the inverses: subtraction and division.
+//! But to satisfy the field-axioms, we need the inverses: subtraction and division.
 //! 
 //! Fortunately subtraction is easy to define, it's polynomial subtraction with
-//! each coefficient modulo 2 in order to remain binary, which is... the exact same
-//! as addition. But that's perfectly fine! Polynomial addition (xor!) is its own
-//! inverse:
+//! each coefficient modulo 2 in order to remain binary, which is... the exact
+//! same as addition. But that's perfectly fine! Polynomial addition (xor!) is its
+//! own inverse:
 //! 
 //! ``` rust
 //! # use ::gf256::*;
@@ -327,8 +328,8 @@
 //! 
 //! This has some very interesting implications.
 //! 
-//! If we raise any non-zero number in our field to the power of 15 (the number of
-//! non-zero elements), we will end up with our original number:
+//! If we raise any non-zero number in our 16-element field to the power of `15`
+//! (the number of non-zero elements), we will end up with our original number:
 //! 
 //! ``` rust
 //! # use ::gf256::*;
@@ -348,9 +349,9 @@
 //! assert_eq!(pow(p8(0b0010), 15), p8(0b0010));
 //! ```
 //! 
-//! If we raise any non-zero number in our field to the power of 15-1 (the number
-//! of non-zero elements - 1), we will end up with the number divided by itself,
-//! aka the identity of multiplication, aka 1.
+//! If we raise any non-zero number in our field to the power of `15-1` (the
+//! number of non-zero elements - 1), we will end up with the number divided by
+//! itself, aka the identity of multiplication, aka `1`.
 //! 
 //! ``` rust
 //! # use ::gf256::*;
@@ -371,7 +372,7 @@
 //! ```
 //! 
 //! And, fascinatingly, if we raise any non-zero number of our field to the power
-//! of 15-2 (the number of non-zero elements - 2), we will end up with the number
+//! of `15-2` (the number of non-zero elements - 2), we will end up with the number
 //! divided by itself twice, which is the multiplicative inverse of the original
 //! number. Isn't that neat!
 //! 
@@ -412,8 +413,8 @@
 //! a / b = a * ∏ b mod p
 //! ```
 //! 
-//! Where a and b are viewed as polynomials, p is an irreducible polynomial with
-//! n+1 bits, and n is the number of bits in our field.
+//! Where `a` and `b` are viewed as polynomials, `p` is an irreducible polynomial
+//! with `n+1` bits, and `n` is the bit-width of our field.
 //! 
 //! These operations follow our field axioms:
 //! 
@@ -468,10 +469,10 @@
 //! different techniques to optimize these operations, but they are built on the
 //! same underlying theory.
 //! 
-//! We generally name these fields GF(n), where n is the number of elements in the
-//! field, in honor of Évariste Galois the mathematician who created this branch
+//! We generally name these fields `GF(n)`, where `n` is the number of elements in
+//! the field, in honor of Évariste Galois the mathematician who created this branch
 //! of mathematics. So since this field is defined for 4-bits, we can call this
-//! field GF(16).
+//! field `GF(16)`.
 //! 
 //! We can create this exact field using gf256:
 //! 
@@ -484,7 +485,7 @@
 //!
 //! # fn main() {
 //! assert_eq!(gf16::new(0b1011) * gf16::new(0b1101), gf16::new(0b0110));
-//! }
+//! # }
 //! ```
 //!
 //! ## Finding irreducible polynomials and generators
@@ -543,13 +544,11 @@
 //!   the log and anti-log tables require a number of elements equal to the size
 //!   of the finite-field.
 //!
-//!   TODO more info?
-//!
 //! - In `rem_table` mode, Galois-field types use a precomputed remainder table to
 //!   compute the remainder a byte at a time.
 //!
 //!   This uses the same technique as the precomputed remainder tables in CRC
-//!   calculation, since a CRC is just a polynomial remainder. The [crc](../crc)
+//!   calculation, since a CRC is just a polynomial remainder. The [`crc`](../crc)
 //!   module-level documentation has more info on this.
 //!
 //!   Surprisingly this technique is less powerful here, perhaps because of the
@@ -565,11 +564,9 @@
 //!   This mode is especially effective when hardware carry-less multiplication
 //!   instructions are available.
 //!
-//!   TODO more info?
-//!
-//! Galois-fields with <=8 bits default to the `table` mode, which is the fastest,
+//! Galois-fields with `<=8` bits default to the `table` mode, which is the fastest,
 //! but requires two tables the size of the number of elements in the field.
-//! Galois-fields >8 bits default to `barret` mode, which, perhaps surprisingly,
+//! Galois-fields `>8` bits default to `barret` mode, which, perhaps surprisingly,
 //! is the fastest even when hardware carry-less multiplication is not available.
 //!
 //! If the features `small-tables` or `no-tables` are enabled, `barret` mode is used
@@ -577,12 +574,12 @@
 //!
 //! Though note the default mode is susceptible to change.
 //!
-//! See also [BENCHMARKS][BENCHMARKS.md]
+//! See also [BENCHMARKS.md][benchmarks]
 //!
 //! ## `const fn` support
 //!
 //! Due to the use of traits and intrinsics, it's not possible to use the
-//! Galois-field operators in [`const fns`][const-fns].
+//! Galois-field operators in [`const fns`][const-fn].
 //!
 //! As an alternative, the Galois-field types preovide a set of "naive"
 //! functions, which provide less efficient, well, naive, implementations,
@@ -663,7 +660,16 @@
 //!
 //! # fn main() {}
 //! ```
-//! 
+//!
+//!
+//! [finite-field]: https://en.wikipedia.org/wiki/Finite_field
+//! [field-axioms]: https://en.wikipedia.org/wiki/Field_(mathematics)
+//! [exp-by-squaring]: https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+//! [log-tables]: https://en.wikipedia.org/wiki/Finite_field_arithmetic#Generator_based_tables
+//! [barret-reduction]: https://en.wikipedia.org/wiki/Barrett_reduction
+//! [const-fn]: https://doc.rust-lang.org/reference/const_eval.html
+//! [find-p]:
+//! [benchmarks]:
 
 
 // macro for creating Galois-field implementations

@@ -1,11 +1,11 @@
 ## gf256
 
 A Rust library containing Galois-field types and utilities, leveraging hardware
-instructions (mostly carry-less multiplication) when available.
+instructions when available.
 
 This project started as a learning project to learn more about these
-"Galois-field thingies" after seeing them pop up in way too many subjects, so
-this crate may be more educational than practical.
+"Galois-field thingies" after seeing them pop up in far too many subjects.
+So this crate may be more educational than practical.
 
 ``` rust
 use ::gf256::*;
@@ -16,14 +16,31 @@ let c = gf256(0xff);
 assert_eq!(a*(b+c), a*b + a*c);
 ```
 
+If you, like me, are interested in learning more about the fascinating utility
+of Galois-fields, take a look at the documentation of gf256's modules. I've
+tried to comprehensively capture what I've learned, hopefully provided a decent
+entry point into learning more about this useful field of math.
+
+I also want to point out that the Rust examples in each module are completely
+functional and tested in CI thanks to Rust's [doctest runner][doctest-runner].
+Feel free to copy and tweak them to see what happens.
+
+- [p - Polynomial types](p)
+- [gf - Galois-field types](gf)
+- [lfsr - LFSR structs](lfsr)
+- [crc - CRC functions](crc)
+- [shamir - Shamir secret-sharing functions](shamir)
+- [raid - RAID-parity functions](raid)
+- [rs - Reed-Solomon error-correction functions](rs)
+
 ## What are Galois-fields?
 
-Galois-fields, also called finite-fields, are a finite set of "numbers" (for
-some definition of number), that you can do "math" on (for some definition
-of math).
+[Galois-fields][finite-field], also called finite-fields, are a finite set of
+"numbers" (for some definition of number), that you can do "math" on (for some
+definition of math).
 
 More specifically, Galois-fields support addition, subtraction, multiplication,
-and division, which follow a set of rules called "field axioms":
+and division, which follow a set of rules called "[field axioms][field-axioms]":
 
 1. Subtraction is the inverse of addition, and division is the inverse of
    multiplication:
@@ -37,7 +54,7 @@ and division, which follow a set of rules called "field axioms":
    assert_eq!((a*b)/b, a);
    ```
  
-   Except for 0, over which division is undefined:
+   Except for `0`, over which division is undefined:
  
    ``` rust
    # use ::gf256::*;
@@ -46,8 +63,8 @@ and division, which follow a set of rules called "field axioms":
    assert_eq!(a.checked_div(gf256(0)), None);
    ```
  
-1. There exists an element 0 that is the identity of addition, and an element
-   1 that is the identity of multiplication:
+1. There exists an element `0` that is the identity of addition, and an element
+   `1` that is the identity of multiplication:
  
    ``` rust
    # use ::gf256::*;
@@ -111,9 +128,9 @@ assert_ne!(a + a, gf256(2)*a);
 ```
 
 Finite-fields can be very useful for applying high-level math onto machine
-words, since machine words (u8, u16, u32, etc) are inherently finite. Normally
-we just ignore this until an integer overflow occurs and then we just waive our
-hands around wailing that math has failed us.
+words, since machine words (`u8`, `u16`, `u32`, etc) are inherently finite.
+Normally we just ignore this until an integer overflow occurs and then we just
+waive our hands around wailing that math has failed us.
 
 In Rust this has the fun side-effect that the Galois-field types are incapable
 of overflowing, so Galois-field types don't need the set of overflowing
@@ -159,7 +176,6 @@ number of other utilities that rely on the math around finite-fields:
 - [**LFSR structs**](lfsr) (requires feature `lfsr`)
 
   ``` rust
-  # use std::iter;
   use gf256::lfsr::Lfsr16;
 
   let mut lfsr = Lfsr16::new(1);
@@ -202,21 +218,22 @@ number of other utilities that rely on the math around finite-fields:
 - [**RAID-parity functions**](raid) (requires feature `raid`)
 
   ``` rust
-  use gf256::raid::raid6;
+  use gf256::raid::raid7;
 
   // format
   let mut buf = b"Hello World!".to_vec();
   let mut parity1 = vec![0u8; 4];
   let mut parity2 = vec![0u8; 4];
+  let mut parity3 = vec![0u8; 4];
   let slices = buf.chunks(4).collect::<Vec<_>>();
-  raid6::format(&slices, &mut parity1, &mut parity2);
+  raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
 
   // corrupt
   buf[0..8].fill(b'x');
 
   // repair
   let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
-  raid6::repair(&mut slices, &mut parity1, &mut parity2, &[0, 1]);
+  raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
   assert_eq!(&buf, b"Hello World!");
   ```
 
@@ -241,7 +258,7 @@ number of other utilities that rely on the math around finite-fields:
 
 Since this math depends on some rather arbitrary constants, each of these
 utilities is available as both a normal Rust API, defined using reasonable
-defaults, and as a highly configurable proc_macro:
+defaults, and as a highly configurable [`proc_macro`][proc-macros]:
 
 ``` rust
 # pub use ::gf256::*;
@@ -261,10 +278,10 @@ assert_eq!(a*(b+c), a*b + a*c);
 ## Hardware support
 
 Most modern 64-bit hardware contains instructions for accelerating this sort
-of math. This usually comes in the form of a [carry-less multiplication][clmul]
+of math. This usually comes in the form of a [carry-less multiplication][xmul]
 instruction.
 
-Carry-less multiplication, also called polynomial multiplication or xor
+Carry-less multiplication, also called polynomial multiplication and xor
 multiplication, is the multiplication analog for xor. Where traditional
 multiplication can be implemented as a series of shifts and adds, carry-less
 multiplication can be implemented as a series of shifts and xors:
@@ -291,7 +308,7 @@ Carry-less multiplication:
 [`pclmulqdq`][pclmulqdq], and on aarch64 with the slightly less wordy
 [`pmull`][pmull] instruction.
 
-gf256 takes advantage of these instructions when possible, however at the time
+gf256 takes advantage of these instructions when possible. However, at the time
 of writing, `pmull` support in Rust is only available on [nightly][nightly].
 To take advantage of `pmull` on aarch64 you will need to use a nightly compiler
 and enable gf256's `nightly` feature ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
@@ -320,10 +337,14 @@ let b = if gf256::HAS_XMUL {
 };
 ```
 
+gf256 also leverages the hardware accelrated [carry-less addition][xor]
+instructions, sometimes called polynomial addition, or simply xor. But this
+is much less notable.
+
 ## `const fn` support
 
 Due to the use of traits and intrinsics, it's not possible to use the
-polynomial/Galois-field operators in [`const fns`][const-fns].
+polynomial/Galois-field operators in [`const fns`][const-fn].
 
 As an alternative, gf256 provides a set of "naive" functions, which
 provide less efficient, well, naive, implementations that can be used
@@ -351,7 +372,7 @@ const CRC_TABLE: [u32; 256] = {
 
 ## `no_std` support
 
-gf256 is just a pile of math, so it is mostly `no_std` compatible.
+gf256 is just a pile of math, so it is mostly [`no_std`][no-std] compatible.
 
 The exceptions are the extra utilities `rs` and `shamir`, which
 currently require `alloc`.
@@ -449,11 +470,18 @@ evaluated before use, and you use this library at your own risk.
 
 ## Testing
 
-gf256 comes with a number of tests implemented in Rust's test runner, these
-can be run with make:
+gf256 comes with a number of tests implemented in Rust's [test runner][test-runner],
+these can be run with make:
 
 ``` bash
 make test
+```
+
+Additionally all of the code samples in these docs can be ran with Rust's
+[doctest runner][doctest-runner]:
+
+``` bash
+make docs
 ```
 
 ## Benchmarking
@@ -466,11 +494,22 @@ with make:
 make bench
 ```
 
-A full summary of the benchmark results can be found in
-[BENCHMARKS.md](BENCHMARKS.md).
+A full summary of the benchmark results can be found in [BENCHMARKS.md][benchmarks].
 
 
-<!-- https://en.wikipedia.org/wiki/Field_(mathematics) >
-<!-- https://en.wikipedia.org/wiki/Finite_field >
-<!-- https://en.wikipedia.org/wiki/Finite_field_arithmetic >
-[clmul]: https://en.wikipedia.org/wiki/Carry-less_product
+
+[finite-field]: https://en.wikipedia.org/wiki/Finite_field
+[field-axioms]: https://en.wikipedia.org/wiki/Field_(mathematics)
+[proc-macros]: https://doc.rust-lang.org/reference/procedural-macros.html
+[xmul]: https://en.wikipedia.org/wiki/Carry-less_product
+[xor]: https://en.wikipedia.org/wiki/Bitwise_operation#XOR
+[pclmulqdq]: https://www.felixcloutier.com/x86/pclmulqdq
+[pmull]: https://developer.arm.com/documentation/ddi0596/2021-06/SIMD-FP-Instructions/PMULL--PMULL2--Polynomial-Multiply-Long-
+[nightly]: https://doc.rust-lang.org/book/appendix-07-nightly-rust.html
+[no-std]: https://docs.rust-embedded.org/book/intro/no-std.html
+[const-fn]: https://doc.rust-lang.org/reference/const_eval.html
+[test-runner]: https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html
+[doctest-runner]: https://doc.rust-lang.org/rustdoc/documentation-tests.html
+[criterion]: https://docs.rs/criterion/latest/criterion
+[benchmarks]:
+

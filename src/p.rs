@@ -4,10 +4,6 @@
 //!
 //! These types act as a building block for most of the math in gf256.
 //!
-//! They are primarily useful for giving access to hardware accelerated
-//! polynomial multiplication (sometimes called carry-less multiplication or xor
-//! multiplication).
-//! 
 //! ``` rust
 //! use ::gf256::*;
 //!
@@ -26,17 +22,18 @@
 //! ```
 //!
 //! Normally we would view this as the binary representation of the decimal
-//! number 11.
+//! number `11` (that's `11 = 1*10^1 + 1*10^0`, ok maybe a bad choice for an
+//! example number).
 //!
-//! Instead, lets view it as a polynomial for some made-up variable "x", where
-//! each coefficient is a binary 1 or 0:
+//! Instead, lets view it as a polynomial for some made-up variable `x`, where
+//! each coefficient is a binary `1` or `0`:
 //!
 //! ``` text
 //! a = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
 //! ```
 //!
-//! We can add polynomials together, as long as we mod each coefficient by 2 so
-//! they remain binary:
+//! We can add polynomials together, as long as we mod each coefficient by `2`
+//! so they remain binary:
 //!
 //! ``` text
 //! a   = 0b1011 = 1*x^3 + 0*x^2 + 1*x^1 + 1*x^0
@@ -63,11 +60,11 @@
 //!     = 0b1111111
 //! ```
 //!
-//! It's worth emphasizing that the "x" in these polynomials is a variable that we
+//! It's worth emphasizing that the `x` in these polynomials is a variable that we
 //! never actually evaluate. We just use it to create a view of the underlying
 //! binary numbers that we can do polynomial operations on.
 //!
-//! These operations, on bits viewed as binary polynomials, are available on these
+//! These operations, on bits viewed as binary polynomials, are available in gf256's
 //! polynomial types:
 //!
 //! ``` rust
@@ -76,16 +73,31 @@
 //! assert_eq!(p8(0b1011) + p8(0b1101), p8(0b0110));
 //! assert_eq!(p8(0b1011) * p8(0b1101), p8(0b1111111));
 //! ```
-//! 
+//!
+//! These polynomial types also provide division and remainder on binary polynomials,
+//! using similar algorithms. However these are more expensive than polynomial
+//! multiplication and rarely have hardware support. Still, they are quite useful
+//! for certain calculations:
+//!
+//! ``` rust
+//! use ::gf256::*;
+//!
+//! assert_eq!(p8(0b1111111) / p8(0b1011), p8(0b1101));
+//! assert_eq!(p8(0b1111111) % p8(0b1011), p8(0b0000));
+//!
+//! assert_eq!(p8(0b1111110) / p8(0b1011), p8(0b1101));
+//! assert_eq!(p8(0b1111110) % p8(0b1011), p8(0b0001));
+//! ```
+//!
 //! ## Hardware support
 //!
-//! The polynomial types leverage carry-less multiplication instructions when
-//! available, otherwise falling back to a more expensive, branch-less naive
+//! The polynomial types leverage [carry-less multiplication][clmul] instructions
+//! when available, otherwise falling back to a more expensive, branch-less naive
 //! implementation.
 //!
-//! Note that at the time of writing, aarch64 `pmull` support is only available
-//! on a [nightly][nightly] compiler, and requires gf256's `nightly` feature
-//! to be enabled ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
+//! Note that at the time of writing, aarch64 [`pmull`][pmull] support is only
+//! available on a [nightly][nightly] compiler, and requires gf256's `nightly`
+//! feature to be enabled ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
 //!
 //! gf256 also exposes the flag [`HAS_XMUL`], which can be used to choose
 //! algorithms based on whether or not hardware accelerated carry-less
@@ -102,14 +114,14 @@
 //! };
 //! ```
 //!
-//! Note! There currently is no hardware support for polynomial division and
+//! Note, there currently is no hardware support for polynomial division and
 //! remainder. These are expensive, branching, loop-based implementations and
 //! should generally be avoided in performance-sensitive code.
 //!
 //! ## `const fn` support
 //!
 //! Due to the use of traits and intrinsics, it's not possible to use the
-//! polynomial operators in [`const fns`][const-fns].
+//! polynomial operators in [`const fns`][const-fn].
 //!
 //! As an alternative, the polynomial types preovide a set of "naive"
 //! functions, which provide less efficient, well, naive, implementations,
@@ -146,6 +158,13 @@
 //! branching, loop-based implementations, which should generally be avoided for
 //! performance reasons anyway (outside of constant generation).
 //!
+//!
+//! [xmul]: https://en.wikipedia.org/wiki/Carry-less_product
+//! [xor]: https://en.wikipedia.org/wiki/Bitwise_operation#XOR
+//! [pclmulqdq]: https://www.felixcloutier.com/x86/pclmulqdq
+//! [pmull]: https://developer.arm.com/documentation/ddi0596/2021-06/SIMD-FP-Instructions/PMULL--PMULL2--Polynomial-Multiply-Long-
+//! [nightly]: https://doc.rust-lang.org/book/appendix-07-nightly-rust.html
+//! [const-fn]: https://doc.rust-lang.org/reference/const_eval.html
 
 
 // macro for creating polynomial implementations
