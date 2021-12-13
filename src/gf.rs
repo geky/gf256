@@ -594,33 +594,38 @@
 //! # use ::gf256::*;
 //! #
 //! const ECC_SIZE: usize = 32;
-//! const RS_GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
+//! const GENERATOR_POLY: [gf256; ECC_SIZE+1] = {
 //!     let mut g = [gf256(0); ECC_SIZE+1];
 //!     g[ECC_SIZE] = gf256(1);
 //! 
-//!     // find G(x) = π (x - g^i)
+//!     // find G(x)
+//!     //
+//!     //     ECC_SIZE
+//!     // G(x) = ∏  (x - g^i)
+//!     //        i
+//!     //
 //!     let mut i = 0usize;
 //!     while i < ECC_SIZE {
-//!         // H(x) = x - g^i
-//!         let h = [
+//!         // x - g^i
+//!         let root = [
 //!             gf256(1),
 //!             gf256::GENERATOR.naive_pow(i as u8),
 //!         ];
 //! 
-//!         // find G(x) = G(x)*H(x) = G(x)*(x - g^i)
-//!         let mut r = [gf256(0); ECC_SIZE+1];
+//!         // G(x)*(x - g^i)
+//!         let mut product = [gf256(0); ECC_SIZE+1];
 //!         let mut j = 0usize;
 //!         while j < i+1 {
 //!             let mut k = 0usize;
-//!             while k < h.len() {
-//!                 r[r.len()-1-(j+k)] = r[r.len()-1-(j+k)].naive_add(
-//!                     g[g.len()-1-j].naive_mul(h[h.len()-1-k])
+//!             while k < root.len() {
+//!                 product[product.len()-1-(j+k)] = product[product.len()-1-(j+k)].naive_add(
+//!                     g[g.len()-1-j].naive_mul(root[root.len()-1-k])
 //!                 );
 //!                 k += 1;
 //!             }
 //!             j += 1;
 //!         }
-//!         g = r;
+//!         g = product;
 //! 
 //!         i += 1;
 //!     }

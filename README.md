@@ -289,11 +289,11 @@ Carry-less multiplication:
 
 64-bit carry-less multiplication is available on x86_64 with the
 [`pclmulqdq`][pclmulqdq], and on aarch64 with the slightly less wordy
-[`pmul`][pmul] instruction.
+[`pmull`][pmull] instruction.
 
 gf256 takes advantage of these instructions when possible, however at the time
-of writing, `pmul` support in Rust is only available on [nightly][nightly].
-To take advantage of `pmul` on aarch64 you will need to use a nightly compiler
+of writing, `pmull` support in Rust is only available on [nightly][nightly].
+To take advantage of `pmull` on aarch64 you will need to use a nightly compiler
 and enable gf256's `nightly` feature ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
 
 ``` rust

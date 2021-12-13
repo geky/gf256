@@ -152,7 +152,7 @@ pub fn small_table_crc(data: &[u8]) -> u32 {
 /// A hardware-accelerated CRC implementation using Barret reduction
 ///
 /// This leverages polynomial multiplication instructions (pclmulqdq,
-/// pmul, etc) to provide an efficient CRC implementation without the need
+/// pmull, etc) to provide an efficient CRC implementation without the need
 /// of a lookup table.
 ///
 /// You may notice that polynomial multiplication is not the polynomial

@@ -83,7 +83,7 @@
 //! available, otherwise falling back to a more expensive, branch-less naive
 //! implementation.
 //!
-//! Note that at the time of writing, aarch64 `pmul` support is only available
+//! Note that at the time of writing, aarch64 `pmull` support is only available
 //! on a [nightly][nightly] compiler, and requires gf256's `nightly` feature
 //! to be enabled ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
 //!
