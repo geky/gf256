@@ -1,18 +1,171 @@
 //! ## Reed-Solomon error-correction codes (BCH-view)
 //!
-//! [Reed-Solomon error-correction][rs] is a scheme for creating error-correction
-//! codes (ECC) capable of detecting and correcting multiple byte-level errors.
-//! By adding n extra bytes to a message, Reed-Solomon is able to correct up to
-//! n byte-errors in known locations, called "erasures", and n/2 byte-errors in
-//! unknown locations, called "errors".
+//! [Reed-Solomon error-correction][rs-wiki] is a scheme for creating
+//! error-correction codes (ECC) capable of detecting and correcting multiple
+//! byte-level errors.  By adding `n` extra bytes to a message, Reed-Solomon is
+//! able to correct up to `n` byte-errors in known locations, called "erasures",
+//! and `n/2` byte-errors in unknown locations, called "errors".
 //!
 //! Reed-Solomon accomplishes this by viewing the entire codeword (message + ecc)
-//! as a polynomial in GF(256), and limiting valid codewords to polynomials that
-//! are a multiple of a special "generator polynomial" G(x).
+//! as a polynomial in `GF(256)`, and limiting valid codewords to polynomials that
+//! are a multiple of a special "generator polynomial" `G(x)`.
 //!
-//! TODO example
+//! ``` rust
+//! use gf256::rs::rs255w223;
+//! 
+//! // encode
+//! let mut buf = b"Hello World!".to_vec();
+//! buf.resize(buf.len()+32, 0u8);
+//! rs255w223::encode(&mut buf);
+//! 
+//! // corrupt
+//! buf[0..16].fill(b'x');
+//! 
+//! // correct
+//! rs255w223::correct_errors(&mut buf)?;
+//! assert_eq!(&buf[0..12], b"Hello World!");
+//! # Ok::<(), rs255w223::Error>(())
+//! ```
 //!
 //! Note this module requires feature `rs`.
+//!
+//! A fully featured implementation of Reed-Solomon error-correction can be found in
+//! [`examples/rs.rs`][rs-example]:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example rs
+//!
+//! testing rs("Hello World!")
+//! dimension = (255,223), 16 errors, 32 erasures
+//! generator = 01744034ae367e10c2a221219db0c5e10c3b37fde4942fb3b9188afd148e37ac58
+//! rs_encode           => Hello World!.......n_...K...4....%...a.....5  48656c6c6f20576f726c642185a6adf8bd15946e5fb607124bbd11d33414a706d625fd84c26181a78a15c935
+//! corrupted (32,0)    => xxlxoxxorxxxxxx..xxxx.xxKxxx4xxxxxx.xxxx.xx5  78786c786f78786f72787878787878f8bd78787878b678784b7878783478787878787884787878788a787835
+//! rs_correct_erasures => Hello World!.......n_...K...4....%...a.....5  48656c6c6f20576f726c642185a6adf8bd15946e5fb607124bbd11d33414a706d625fd84c26181a78a15c935
+//! corrupted (0,16)    => Hellx xoxld!..xxx..n_..xK.xx4xxxx%x..a.x.x.5  48656c6c7820786f786c642185a678787815946e5fb607784bbd78783478787878257884c26181788a78c935
+//! rs_correct_errors   => Hello World!.......n_...K...4....%...a.....5  48656c6c6f20576f726c642185a6adf8bd15946e5fb607124bbd11d33414a706d625fd84c26181a78a15c935
+//! corrupted (28,2)    => xxxlxxxxxxd!x.x..xxx_xxxKx.x4.x.xx.xxxxxx.xx  7878786c787878787878642178a678f8bd7878785f7878784b781178341478067878fd787878787878157878
+//! rs_correct          => Hello World!.......n_...K...4....%...a.....5  48656c6c6f20576f726c642185a6adf8bd15946e5fb607124bbd11d33414a706d625fd84c26181a78a15c935
+//! 
+//! bit corrupted image (errors = 48/3072, 1.56%):
+//! 
+//!                       ..:::::::::::...        '        '.:::....:::.:.:.'':.'...'::: :   :' ''  '''
+//!                    .::::::::'::::::::::..         '     ::::::::::::  .:....' . '.:...  :' :'':': .'
+//!                  .':::::::::::::::::::::::.             ::::::::::' . :..:..:' : '.':::  :. :'' '  :
+//!                .:::::::::::::::::::::::::::.         . ::::::::::   :: '::' .: '' ''. : :: .:..::. '
+//!               .:::::::::::::::::::::::::::::.    ... :: ''::::::'   ::':. ':' .. '.''::'::: ':''...:
+//!               ::::::::::::::::::::'::::::::'' .. '::: '     '''     ''..: :'.''::.   .:.' .'': '. .:
+//!              ::::: ::::::::' ::::::'::::''..::::: '                  : .: .'. :  :::.'.:':.:':: .. :
+//!              :::::::::::::::::::::::'' ..:::::'''                   ' :... .': ::.''':''.''. . '  ..
+//!           .  ::::::::::::::::':.'''..:::.:'' .                       : :..':::.:. : .:' :.   .':'.':
+//!          ..: ::::::::::::::''' ..:::::'' ..:::                      :' . :.' .'.'::  ' ::' ':  .:.
+//!       ..:::'  :::::::::'' ..::::::'' ..:::::::                      :''.  '.'::'.:  ' .:'' .:.'.::''
+//!     .:::'     ':::'' ...::::::''....::::::::'                        '' ' .'::...' :':...':.. . .' :
+//!     ::'     '   ...::::::'' ..:::::::::::::'                        . .. ' .:::.'':::.  .':''':::...
+//!          ....:::::::'' ..::::::::::::::.::'   .                     : '.   .': :. .:.': . .'  .  ::'
+//!     '::::::::'''    :::::::::::::::::::''                            '.. .:'::: ': ::'::. . '.': : '
+//!            .          '':::::::::::'''               .              .:.':..  ''.' : : ':'''.': '.:':
+//! 
+//! byte corrupted image (errors = 49/384, 12.76%):
+//! 
+//!                       ..    ::::    ..                  .:::....:::.:.:.'':.'.:.':::::::::::''  '''
+//!                    .:::::::::::::::::::..       ::::::::::::    ::::  .:::::'.. '.:...  :' :    : .'
+//!                  .::::::::::::::::::::::::.         ::::::::::::::' . :..:..:' ::::::::  :.':'' ::::
+//!                .:::::::::::::::::::::::::::.         . ::::::::::   :: '::' .: '' ''. : :: .    :. '
+//!     ::::      .:::::    :::::::::::::::::::::::: ... :: :'::::::'   ::':. ':' .:::::'::'::: ': '...:
+//!               ::::::::::::::    :::::::::::'' ..    : '     '''     :::::.:'    :.   .:.    ': '. .:
+//!              :::::::::::::::::::::::::::''..::::: '             :::: : .: .'. :  :::    ':.:':: .. :
+//!              :::::::    ::::::::::::'' ..:::::''::::                ' :... .    :.''':' .''. . '  ..
+//!         :::: :::::::::::::::::::'' ..::::::: .              :::::::: : :..':::.:. : .:' :.   .':'.':
+//!          ..: ::::::::::::::''' ..:::::'' ..:::                      :' .:::: .'.'::. ' ::' ':  .:.
+//!       ..:::'  ::::::    ' ..    ::'' ..:::::::                      :' .  '.'::'.:  : .::::::.'.:::'
+//!      :::'     ':::'' ...::::::''...:    :::::                        '' ' .'    .' :':...':.. . .' :
+//!     ::'         ...::::::'' ..::::::::::                            . ..:::::::.''::::::.':''':::...
+//!          ....:::::::'' ..:::::::::::::::::'                         : '.'  .': :. .:.': . .'  .
+//!     '::::::::'''    :::::::::::::::::::''                   :::::::: '.. .:     ': ::'::. ' '.': : '
+//!                     ::::::::::::    ''                              .:.':.. '''.  : : ':'':.': '.:':
+//! 
+//! corrected:
+//! 
+//!                       ..:::::::::::...                  .:::....:::.:.:.'':.'.:.'::: :   :' ''  '''
+//!                    .:::::::::::::::::::..               ::::::::::::  .:....'.. '.:...  :' :'':': .'
+//!                  .::::::::::::::::::::::::.             ::::::::::' . :..:..:' : '.':::  :.':'' '  :
+//!                .:::::::::::::::::::::::::::.         . ::::::::::   :: '::' .: '' ''. : :: .:..::. '
+//!               .::::::::::::::::::::::::::::::    ... :: :'::::::'   ::':. ':' .: '.:'::'::: ': '...:
+//!               :::::::::::::::::::::::::::::'' .. '::: '     '''     ''..:.:'.''::.   .:.' .'': '. .:
+//!              :::::::::::::::::::::::::::''..::::: '                  : .: .'. :  :::.'.:':.:':: .. :
+//!              :::::::::::::::::::::::'' ..:::::''                    ' :... .': ::.''':' .''. . '  ..
+//!              :::::::::::::::::::'' ..:::::'' .                       : :..':::.:. : .:' :.   .':'.':
+//!          ..: ::::::::::::::''' ..:::::'' ..:::                      :' . :.' .'.'::. ' ::' ':  .:.
+//!       ..:::'  :::::::::'' ..::::::'' ..:::::::                      :' .  '.'::'.:  : .:'' .:.'.:::'
+//!      :::'     ':::'' ...::::::''...::::::::::                        '' ' .'::...' :':...':.. . .' :
+//!     ::'         ...::::::'' ..:::::::::::::'                        . .. ' .:::.'':::.  .':''':::...
+//!          ....:::::::'' ..:::::::::::::::::'                         : '.'  .': :. .:.': . .'  .  ::'
+//!     '::::::::'''    :::::::::::::::::::''                            '.. .: ::: ': ::'::. ' '.': : '
+//!                       '':::::::::::'''                              .:.':.. '''.  : : ':'':.': '.:':
+//!
+//! bit corrupted image (errors = 106/3456, 3.07%):
+//! 
+//!               '        .:::::::::::...        .         .:::....:':.:.:.'':.'.:.'::' :   :' ''  '''
+//!       '        .    ::::::::::::::::::'..               ::::::::::':  .:....'.. '.:...  :' :'':': .'
+//!                  .:::::::::::::::::::::::::   .     .   ::':::::::' . '..:...' : '.':::  :.':'' '  :
+//!                .::::.::::::::::::.:::.:::::.   .     . ::::::::::   :: '::' .: '' ''. . :: .'..::. '
+//!               .::::':::::::::::::::::::::::::    ... :: :'::::::'   ::':  ':' .:  .:'::'::: ': '...:
+//!               :::::::::::::::::::::::::::::'' .: '::' '     '''    '''. :.:'.' ::  . .:.' .'': '...:
+//!      '       ::'::::::::::::::::::::::::''..::::: '    '             : .:'.'. : .:::.'.:':.:':: .. :
+//!     '        ::::::::::::::::::::::::' ..:::::''             '      ' :... .'' ::.''':' .':: . '  ..
+//!              ::::::::::::::.:::: ' ...:::''' .                       : ...':::.:. : .:'.:.   .':'.':
+//!          ..: ::::::::.'::::''' ..:::::'''..:::        .             :' . :.' .'.'::. ' ::' ':  .:.
+//!       ..:.''  :::::::::'' ..::::::'' :.::::.::                      :' .  '.'::'.:  : .:''..:.'.:::'
+//!      .::'.    ':::'' ....:::::''...::::::::::     '        '     .  ''' ' .'::...' :':...':..  ..' :
+//!     ::'     '   ...::.::.'' ..'::::::::::.:            '            .  : ' .:::.'':::.'..':''':::...
+//!          ....:::::::'' ..:::::::::':.:::::                          : '.'  .': :. ::.': :'.'  .  ::'
+//!     ':::'::::'''    :::::::::::.:::::::''        '  '             '  '.. .: ':: ': ::':..   '.'' : '
+//!                       '':::::::::::'''                              .:.':.: '''.  . : ':'':.':.'.: '
+//!     :    .  . ' '  . .   . '     ' '.'  :  . '    :       ''      ':: : .'.:''.:.: ::.. ': '... ::':
+//!     '   '.  '. .   ''.  ''   '  .:    .:' ::  '   '   '. '    '     .  : ...'':'  ::.: .:.':''.'''
+//! 
+//! byte corrupted image (errors = 81/384, 21.09%):
+//! 
+//!                       ..::::        ..                  .:::....:::.:.:.'':.         :   :' ''  '''
+//!             ::::   .:::::::::::::::::::.::::    ::::        ::::::::  .:....'.. '.:.:::::' :::::: .'
+//!                     ::::::::::::        ::.                 ::::::' . :..:..:' ::::::::  :.':'' '  :
+//!     ::::       .::::::::::::::::::::    :::.         . ::::::::::   :: '::' :::::::::::::: .:..::. '
+//!               .:::::::::    ::::    :::::::::    ... :: :'::::::'   ::':. '::::: '.:'::'::: ': '...:
+//!         ::::  :::::::::::::::::::::::::::::'' .. '::::::::::::::::::''..    .''::.   .:.' .'': '::::
+//!              :::::::::::::::::::::::::::''..::::::::                 : .: .'. :  :::.'.:':.:':: .. :
+//!              :::    ::::::::::::    '' ..:::::''            ::::    ' :... .': ::.''':' .''. . '  ..
+//!              :::::::::::::::::::'' ..:::::'' .              :::::::: : :    ::.:. : :::::.   .':'.':
+//!          ..:    :::::::::::''' ..:::::'' ..:::  ::::                :' . :.' .'.'::. ' ::' ':  .:.
+//!       ..    :::::::::::'::::::::::'' ..:::::::          ::::        :' .  '.'::'::::: .:'' .:.'.:::'
+//!      :::'     ':::'' ...::::::''...::::::::::       ::::::::         '' ::::::::.' :':...':.. . ::::
+//!     ::'         ...::::::''     :::::::::::'                        . .. ' .:::.''::    .':''':::...
+//!         ::::::::    '' ..:::::::::::::::::'         ::::            : '.'  .': :. .:.': . .':::: ::'
+//!     '::::::::'''        :::::::::::::::''                   ::::         .: ::: ': :    ::::     : '
+//!                 ::::  '':::::::::::'''  ::::                        .:.':..       : : ':'':.': '.:':
+//!     :       ..' '   '.   ..      '  .'  :  . '    :      .''.'   '':' : .  :'':..: . :. :: ' .. ::':
+//!        .'.' '. :.  ''.  ''   '  .:    .': ::  '  ''''.'. .'   :   ' .  : ...':::  ::.: ::.':'' '':'
+//! 
+//! corrected:
+//! 
+//!                       ..:::::::::::...                  .:::....:::.:.:.'':.'.:.'::: :   :' ''  '''
+//!                    .:::::::::::::::::::..               ::::::::::::  .:....'.. '.:...  :' :'':': .'
+//!                  .::::::::::::::::::::::::.             ::::::::::' . :..:..:' : '.':::  :.':'' '  :
+//!                .:::::::::::::::::::::::::::.         . ::::::::::   :: '::' .: '' ''. : :: .:..::. '
+//!               .::::::::::::::::::::::::::::::    ... :: :'::::::'   ::':. ':' .: '.:'::'::: ': '...:
+//!               :::::::::::::::::::::::::::::'' .. '::: '     '''     ''..:.:'.''::.   .:.' .'': '. .:
+//!              :::::::::::::::::::::::::::''..::::: '                  : .: .'. :  :::.'.:':.:':: .. :
+//!              :::::::::::::::::::::::'' ..:::::''                    ' :... .': ::.''':' .''. . '  ..
+//!              :::::::::::::::::::'' ..:::::'' .                       : :..':::.:. : .:' :.   .':'.':
+//!          ..: ::::::::::::::''' ..:::::'' ..:::                      :' . :.' .'.'::. ' ::' ':  .:.
+//!       ..:::'  :::::::::'' ..::::::'' ..:::::::                      :' .  '.'::'.:  : .:'' .:.'.:::'
+//!      :::'     ':::'' ...::::::''...::::::::::                        '' ' .'::...' :':...':.. . .' :
+//!     ::'         ...::::::'' ..:::::::::::::'                        . .. ' .:::.'':::.  .':''':::...
+//!          ....:::::::'' ..:::::::::::::::::'                         : '.'  .': :. .:.': . .'  .  ::'
+//!     '::::::::'''    :::::::::::::::::::''                            '.. .: ::: ': ::'::. ' '.': : '
+//!                       '':::::::::::'''                              .:.':.. '''.  : : ':'':.': '.:':
+//!     :    .  . ' '  . .   .       ' '.'  :  . '    :       ''      ':: : .' :''.:.: ::.. ': '... ::':
+//!         '.  '. .   ''.  ''   '  .:    .'' ::  '   '   '.      '     .  : ...'':'  ::.: .:.':'' '''
+//! ```
 //!
 //! ## How does error-correction work?
 //!
@@ -42,9 +195,9 @@
 //! requiring 2 character changes, but "hello" is closer, requiring only one
 //! character change.
 //!
-//! According to the [World English Language Scrabble Players Association][welspa],
-//! there are 277,663 words in the english language. In theory, all of these
-//! words should fit comfortably in 4 letters (log base 26 of 277663). But for
+//! According to the [World English Language Scrabble Players Association][wespa],
+//! there are 279,496 words in the english language. In theory, all of these
+//! words should fit comfortably in 4 letters (log base 26 of 279496). But for
 //! whatever reason, english has words with 5 letters, 6 letters, and sometimes
 //! even more!
 //!
@@ -62,7 +215,7 @@
 //! ---
 //!
 //! For another silly example, consider some data checksummed using a
-//! 32-bit [CRC][crc]:
+//! 32-bit [CRC](../crc):
 //! 
 //! ``` rust
 //! use ::gf256::crc::crc32c;
@@ -79,10 +232,10 @@
 //!                            '---------- codeword 
 //! ```
 //!
-//! Thanks to testing done by Philip Koopman, we know that CRC32C has a hamming
-//! distance >= 3 up to a message size of 2,147,483,615 bits or 255 MiB ([src][crc-hd]).
-//! What this means is it takes at minimum 3 or more bit flips to reach the next
-//! valid codeword.
+//! Thanks to testing done by Philip Koopman, we know that CRC32C has a [Hamming
+//! distance][hamming-distance] >= 3 up to a message size of 2,147,483,615 bits
+//! or 255 MiB ([src][crc-hd]). What this means is it takes at minimum 3 or more
+//! bit flips to reach the next valid codeword.
 //!
 //! But it also means that if there is one or fewer bit-flips, there is a single
 //! codeword that is most likely the correct value!
@@ -174,14 +327,14 @@
 //!
 //! ## How does Reed-Solomon error-correction work?
 //! 
-//! Reed-Solomon error-correction codes are actually very similar to [CRCs][crcs].
-//! They both involve viewing the message as a polynomial, and appending the
-//! remainder after polynomial division by a constant.
+//! Reed-Solomon error-correction codes are actually very similar to CRCs. They
+//! both involve viewing the message as a polynomial, and appending the remainder
+//! after polynomial division by a constant.
 //!
 //! However:
 //!
 //! 1. Reed-Solomon views the message as a polynomial in a finite-field,
-//!    usually GF(256).
+//!    usually `GF(256)`.
 //!
 //!    So for example:
 //!
@@ -195,12 +348,12 @@
 //!    f(x) = 68 x^5 + 65 x^4 + 6c x^3 + 6c x^2 + 6f x + 21
 //!    ```
 //!
-//!    Note! We are dealing with polynomials built out of elements in GF(256).
-//!    Elements in GF(256) are _also_ built out polynomials, but this is
+//!    Note! We are dealing with polynomials built out of elements in `GF(256)`.
+//!    Elements in `GF(256)` are _also_ built out polynomials, but this is
 //!    irrelevant for the implementation of Reed-Solomon.
 //!
-//!    Try to not worry about the implementation of GF(256) here, and just treat
-//!    it as a set of numbers in a conveniently byte-sized finite-field.
+//!    Try to ignore the implementation details of `GF(256)` here, and just
+//!    treat it as a set of numbers in a conveniently byte-sized finite-field.
 //!
 //! 2. The constant polynomial we use as a divisor, called the "generator
 //!    polynomial", is chosen to have some very special properties that makes
@@ -214,7 +367,7 @@
 //! f(x) = x - c
 //! ```
 //!
-//! This polynomial has the nice property that it's zero when x equals c:
+//! This polynomial has the nice property that it's zero when `x` equals `c`:
 //!
 //! ``` text
 //! f(c) = c - c = 0
@@ -222,7 +375,7 @@
 //!
 //! And because multiplication by zero is, well, zero, we can this with
 //! any polynomial to give us a new polynomial that is also zero when
-//! x equals c:
+//! `x` equals `c`:
 //!
 //! ``` text
 //! f(x) = (x - c)*g(x)
@@ -239,7 +392,7 @@
 //! f(c2) = (c2 - c0)*(c2 - c1)*(c2 - c2) = (c2 - c0)*(c2 - c1)*0         = 0
 //! ```
 //!
-//! We can use a generator element in our field, "g", as a source of unique
+//! We can use a generator element in our field, `g`, as a source of unique
 //! constants. Recall that the powers of a generator, sometimes called a
 //! primtive element, generate all non-zero elements in a finite-field before
 //! looping.
@@ -263,9 +416,9 @@
 //! can be a bit confusing.
 //!
 //! The main feature of the generator polynomial is that it evaluates to zero
-//! at a set of fixed points g^i. And, because of math, any polynomial
+//! at a set of fixed points `g^i`. And, because of math, any polynomial
 //! multiplied by our generator polynomial will also evaluate to zero at the
-//! set of fixed points g^i.
+//! set of fixed points `g^i`.
 //!
 //! ``` text
 //! let c(x) = m(x)*G(x)
@@ -275,15 +428,13 @@
 //! And this is one possible way of encoding a Reed-Solomon error-correcting
 //! code. But it's a bit messy since we end up obscuring our original message.
 //!
-//! Instead we like to use a "systematic" encoding, which just means our original
-//! message is contained in the codeword. We can do this by padding the original
-//! message with n zeros, and then subtracting the remainder after polynomial
-//! division.
+//! Instead we like to use a "[systematic][systematic]" encoding, which just means
+//! our original message is contained in the codeword. We can do this by padding
+//! the original message with `n` zeros, and then subtracting the remainder after
+//! polynomial division.
 //!
-//! Just like [CRCs][crcs], this creates a polynomial that is a multiple of
-//! our generator polynomial:
-//!
-//! TODO is use of n consistent in this document?
+//! Just like CRCs, this creates a polynomial that is a multiple of our generator
+//! polynomial:
 //!
 //! ``` text
 //! c(x) = m(x) - (m(x) % G(x))
@@ -291,13 +442,14 @@
 //!
 //! Polynomial remainder is very convenient because, thanks to no carry between
 //! digits, the remainder will always be one term less than the divisor. And since
-//! subtraction in GF(256) is xor, this is equivalent to concatenating the
+//! subtraction in `GF(256)` is xor, this is equivalent to concatenating the
 //! original message with the remainder.
 //!
-//! The important thing is that our codeword, c(x), is now perfectly divisible
-//! by our generator polynomial, G(x). This means there is some unimportant
-//! polynomial f(x) such that c(x) = f(x)*G(x). And since G(x) evaluates to zero
-//! for our fixed points, c(x) must also evaluate to zero for our fixed points:
+//! The important thing is that our codeword, `c(x)`, is now perfectly divisible
+//! by our generator polynomial, `G(x)`. This means there is some unimportant
+//! polynomial `f(x)` such that `c(x)` = `f(x)*G(x)`. And since `G(x)` evaluates
+//! to zero for our fixed points, `c(x)` must also evaluate to zero for our fixed
+//! points:
 //!
 //! ``` text
 //! c(g^i) = f(g^i)*G(g^i) = f(g^i)*0 = 0
@@ -306,14 +458,14 @@
 //! But what happens if our codeword contains errors?
 //!
 //! One way of representing errors is by saying our codeword has been xored with
-//! some unknown bytes, or equivalently, it has an unknown polynomial, e(x),
+//! some unknown bytes, or equivalently, it has an unknown polynomial, `e(x)`,
 //! added to it:
 //!
 //! ``` text
 //! c'(x) = c(x) + e(x)
 //! ```
 //!
-//! Say we have v errors at several positions j, with magnitude Yj:
+//! Say we have `v` errors at several positions `j`, with magnitude `Yj`:
 //!
 //! ``` text
 //! e(x) = Y0*x^j0 + Y1*x^j1 + Y2*x^j2 + ...
@@ -362,9 +514,9 @@
 //! The original message just drops out! And we're left with a series of
 //! equations that may be solvable.
 //!
-//! We call the evaluation of our recieved message the "syndromes", Si, and
-//! the terms that describe the errors the "error locators", Xj = g^j, and
-//! the "error values", Yj.
+//! We call the evaluation of our recieved message the "syndromes", `Si`, and
+//! the terms that describe the errors the "error locators", `Xj` = `g^j`, and
+//! the "error values", `Yj`.
 //!
 //! ``` text
 //!                v
@@ -376,7 +528,7 @@
 //! we need to perform error-correction, which is equivalent to solving for
 //! these unknowns.
 //!
-//! Note that if we can figure out all Yj and Xj, we can repair our codeword
+//! Note that if we can figure out all `Yj` and `Xj`, we can repair our codeword
 //! and extract our original message!
 //!
 //! ``` text
@@ -385,12 +537,12 @@
 //!                j
 //! ```
 //!
-//! Fortunately, if we know the locations of the errors, Xj, solving for the
-//! error values, Yj, isn't that bad.
+//! Fortunately, if we know the locations of the errors, `Xj`, solving for the
+//! error values, `Yj`, isn't that bad.
 //!
 //! We have a set of linearly-independent equations, and a set of unknowns. As
 //! long as we have more equations than unknowns we can solve this system of
-//! equations for the unknowns Yj:
+//! equations for the unknowns `Yj`:
 //!
 //! ``` text
 //! S0 = Y0*X0^0 + Y1*X1^0 + Y2*X2^0 + Y3*X3^0 + ...
@@ -414,15 +566,15 @@
 //! [..]   [...                    ]    [..]
 //! ```
 //!
-//! Note that in order to solve for v errors, we need v equations. This would
-//! need syndromes up to Sv. So if we have n syndromes, we are limited to
-//! repairing up to n errors at known locations (these are usually called
+//! Note that in order to solve for `v` errors, we need `v` equations. This would
+//! need syndromes up to `Sv`. So if we have `n` syndromes, we are limited to
+//! repairing up to `n` errors at known locations (these are usually called
 //! "erasures").
 //!
-//! When you don't know the locations of the errors, Xj, it gets a bit more
+//! When you don't know the locations of the errors, `Xj`, it gets a bit more
 //! tricky.
 //!
-//! Enter the "error locator polynomial", Λ(x):
+//! Enter the "error locator polynomial", `Λ(x)`:
 //!
 //! ``` text
 //! Λ(x) = (1 - x*X0)*(1 - x*X1)*(1 - x*X2)*...
@@ -437,19 +589,19 @@
 //!
 //! It has a number of useful properties:
 //!
-//! 1. Λ(Xj^-1) = 0 for any Xj^-1, j < n
+//! 1. `Λ(Xj^-1)` = `0` for any `Xj^-1`, `j` < `n`
 //!
-//!    This happens for the same reason G(g^i) = 0 in our generator polynomial.
-//!    `(1 - Xk*Xj^-1)` evaluates to zero when j == k, and since multiplying
-//!    any polynomial by zero evaluates to zero, the entirety of Λ(Xj^-1) reduces
+//!    This happens for the same reason `G(g^i)` = `0` in our generator polynomial.
+//!    `(1 - Xk*Xj^-1)` evaluates to zero when `j` = `k`, and since multiplying
+//!    any polynomial by zero evaluates to zero, the entirety of `Λ(Xj^-1)` reduces
 //!    to zero.
 //!
-//! 2. Λ(0) = 1
+//! 2. `Λ(0)` = `1`
 //!
-//!    This prevents trivial solutions for Λ(x) = 0.
+//!    This prevents trivial solutions for `Λ(x)` = `0`.
 //!
-//! 3. Λ(x), when multiplied out, gives us an v-term polynomial with some
-//!    coefficients, Λi:
+//! 3. `Λ(x)`, when multiplied out, gives us an v-term polynomial with some
+//!    coefficients, `Λi`:
 //!
 //!    ``` text
 //!    Λ(x) = (1 - X0*x)*(1 - X1*x)*(1 - X2*x)*...
@@ -468,12 +620,12 @@
 //!              i=1
 //!    ```
 //!
-//!    Note that floating +1 in front of the summation. This term doesn't need
+//!    Note that floating `+1` in front of the summation. This term doesn't need
 //!    an associated constant, which is what makes this polynomial useful.
 //!
-//! Consider what happens if we multiply the error locator polynomial, Λ(x), at
-//! the fixed points Xj^-1, with our syndromes, Si. We know Λ(Xj^-1) = 0, so this
-//! whole thing must also evaluate to zero:
+//! Consider what happens if we multiply the error locator polynomial, `Λ(x)`, at
+//! the fixed points `Xj^-1`, with our syndromes, `Si`. We know `Λ(Xj^-1)` = `0`,
+//! so this whole thing must also evaluate to zero:
 //!
 //! ``` text
 //! Si*Λ(Xj^-1) = 0
@@ -483,8 +635,8 @@
 //! Si + Si*Λ1*Xj^-1 + Si*Λ2*Xj^-2 + Si*Λ3*Xj^-3 + ... = 0
 //! ```
 //!
-//! Recall that Si can be defined in terms of Yj and Xj, so multiplying Si by
-//! some constant Xj^-k:
+//! Recall that `Si` can be defined in terms of `Yj` and `Xj`, so multiplying
+//! `Si` by some constant `Xj^-k`:
 //!
 //! ``` text
 //!      v
@@ -504,7 +656,7 @@
 //!            i
 //! ```
 //!
-//! But wait! That's the definition of a different syndrome, Si-k:
+//! But wait! That's the definition of a different syndrome, `Si-k`:
 //!
 //! ``` text
 //! Si*Xj^-k = Si-k
@@ -525,8 +677,9 @@
 //!        j
 //! ```
 //!
-//! Though note Si is only really valid when i > 0, so this equation is only
-//! really valid when i > v. We can shift this so it's valid for any i > 0:
+//! Though note `Si` is only really valid when `i` > `0`, so this equation is
+//! only really valid when `i` > `v`. We can shift this so it's valid for
+//! any `i` > `0`:
 //!
 //! ``` text
 //! Sv+i = - Sv+i-1*Λ1 - Sv+i-2*Λ2 - Sv+i-3*Λ3 - ...
@@ -537,10 +690,10 @@
 //!          j
 //! ```
 //!
-//! At this point in our computation, Si is known. So we've ended up with another
+//! At this point in our computation, `Si` is known. So we've ended up with another
 //! set of linearly-independent equations! As long as we have more equations than
-//! unknowns, Λj, we can solve for them. And since Λj is directly related to Xj,
-//! solving for Λj will let us solve for our error locations:
+//! unknowns, `Λj`, we can solve for them. And since `Λj` is directly related to `Xj`,
+//! solving for `Λj` will let us solve for our error locations:
 //! 
 //! ``` text
 //! Sv   = - Sv-1*Λ1 - Sv-2*Λ2 - Sv-3*Λ3 - Sv-4*Λ4 - ...
@@ -564,14 +717,14 @@
 //! [..]   [...                        ]    [... ]
 //! ```
 //!
-//! Note that in order to solve for v errors, we need v equations. This would
-//! need syndromes up to Sv+v or S2v. So if we have n syndromes, we are limited
-//! to repairing up to n/2 errors as unknown locations.
+//! Note that in order to solve for `v` errors, we need `v` equations. This would
+//! need syndromes up to `Sv+v` or `S2v`. So if we have `n` syndromes, we are limited
+//! to repairing up to `n/2` errors as unknown locations.
 //!
 //! It should be noted this form of Reed-Solomon, viewing the message as a
-//! polynomial over a finite-field and solving via syndromes, is called
-//! a [BCH code][bch]. The original form of Reed-Solomon viewed the message
-//! as a set of oversaturated points, much like in [Shamir's secret sharing scheme][ssss].
+//! polynomial over a finite-field and solving via syndromes, is called a
+//! [BCH code][bch]. The original form of Reed-Solomon viewed the message as a set
+//! of oversaturated points, much like in [Shamir's secret sharing scheme](../shamir).
 //! Because it is easier to decode, BCH view is much more common.
 //!
 //! ---
@@ -585,10 +738,10 @@
 //! hello!  68 65 6c 6c 6f 21
 //! ```
 //!
-//! Reed-Solomon can repair n/2 unknown errors for n symbols of error
+//! Reed-Solomon can repair `n/2` unknown errors for `n` symbols of error
 //! correction. So we're going to need 4 bytes of ECC.
 //!
-//! First we create an n+1 term generator polynomial, G(x):
+//! First we create an `n+1` term generator polynomial, `G(x)`:
 //!
 //! ``` rust
 //! # use ::gf256::*;
@@ -619,13 +772,13 @@
 //! assert_eq!(&G, &[gf256(0x01), gf256(0x0f), gf256(0x36), gf256(0x78), gf256(0x40)]);
 //! ```
 //!
-//! So our generator polynomial, G(x), is:
+//! So our generator polynomial, `G(x)`, is:
 //!
 //! ``` text
 //! G(x) = 01 x^4 + 0f x^3 + 36 x^2 + 78 x + 40
 //! ```
 //!
-//! Recall the generator polynomial should have zeros at the fixed points g^i:
+//! Recall the generator polynomial should have zeros at the fixed points `g^i`:
 //!
 //! ``` rust
 //! # use ::gf256::*;
@@ -648,8 +801,8 @@
 //! assert_eq!(poly_eval(&G, gf256::GENERATOR.pow(3)), gf256(0));
 //! ```
 //! 
-//! Now we want to encode our message using G(x). This is done by concatenating
-//! the original message with the remainder after polynomial division by G(x):
+//! Now we want to encode our message using `G(x)`. This is done by concatenating
+//! the original message with the remainder after polynomial division by `G(x)`:
 //!
 //! ``` rust
 //! # use ::gf256::*;
@@ -686,7 +839,7 @@
 //! ]);
 //! ```
 //!
-//! So our codeword, c(x), is:
+//! So our codeword, `c(x)`, is:
 //!
 //! ``` text
 //! hello!.... 68 65 6c 6c 6f 21 15 e5 ab 18
@@ -697,9 +850,9 @@
 //!                           '---------- codeword 
 //! ```
 //!
-//! Our codeword, c(x), should now be a multiple of G(x). And, since G(x)
-//! evaluated to zero at the fixed points g^i, c(x) should also evaluate
-//! to zero at the fixed points g^i:
+//! Our codeword, `c(x)`, should now be a multiple of `G(x)`. And, since `G(x)`
+//! evaluated to zero at the fixed points `g^i`, `c(x)` should also evaluate
+//! to zero at the fixed points `g^i`:
 //!
 //! ``` rust
 //! # use ::gf256::*;
@@ -790,11 +943,11 @@
 //!
 //! Our syndromes are no longer zero, which means we've detected some errors.
 //!
-//! In order to repair these errors, we need to find v, the number of errors,
-//! Xj, the error locations, and Yj, the error magnitudes.
+//! In order to repair these errors, we need to find `v`, the number of errors,
+//! `Xj`, the error locations, and `Yj`, the error magnitudes.
 //!
-//! The first step is to find the number of errors, v, and the coefficients of
-//! the error locator polynomial, Λ(x):
+//! The first step is to find the number of errors, `v`, and the coefficients of
+//! the error locator polynomial, `Λ(x)`:
 //!
 //! ``` text
 //!
@@ -879,7 +1032,7 @@
 //! ```
 //!
 //! That should be the coefficients of our error locator polynomial. Note the
-//! extra +1 which is in the expected equation:
+//! extra `+1` which is in the expected equation:
 //!
 //! ``` text
 //! Λ(x) = 74 x^2 + 88 x + 1
@@ -900,13 +1053,13 @@
 //!           i=1
 //! ```
 //!
-//! And that Λ(Xj^-1) = 0 for all Xj, we just need to find all x where
-//! Λ(x) = 0, these will be the inverse of our error locations.
+//! And that `Λ(Xj^-1)` = `0` for all `Xj`, we just need to find all `x` where
+//! `Λ(x)` = `0`, these will be the inverse of our error locations.
 //! 
 //! Unfortunately this is easier said than done.
 //!
-//! But we know Xj must be a location in our codeword, which, even at the maximum
-//! size of a Reed-Solomon codeword in GF(256), really isn't that large. So we
+//! But we know `Xj` must be a location in our codeword, which, even at the maximum
+//! size of a Reed-Solomon codeword in `GF(256)`, really isn't that large. So we
 //! can just find the error locations using a brute force search:
 //!
 //! ``` rust
@@ -943,12 +1096,12 @@
 //! assert_eq!(&error_locations, &[2, 6]);
 //! ```
 //!
-//! Note this is only O(n), unlike the O(n^2) brute force search we did for CRCs.
+//! Note this is only `O(n)`, unlike the `O(n^m)` brute force search we did for CRCs.
 //!
 //! And sure enough, there's our error locations!
 //!
 //! Now that we know where the errors are, we just need to find the error
-//! magnitudes, Yj, for each location.
+//! magnitudes, `Yj`, for each location.
 //!
 //! An efficient method for finding the error magnitudes is [Forney's algorithm][forney].
 //! The math is beyond me, but it gives us a relatively straightforward formula
@@ -960,13 +1113,13 @@
 //!         Λ'(Xj^-1)
 //! ```
 //!
-//! Where Ω(x) is the "error evaluator polynomial" defined as:
+//! Where `Ω(x)` is the "error evaluator polynomial" defined as:
 //!
 //! ``` text
 //! Ω(x) = S(x)*Λ(x) mod x^2v
 //! ```
 //!
-//! And S(x) is the "partial syndrome polynomial" defined as:
+//! And `S(x)` is the "partial syndrome polynomial" defined as:
 //!
 //! ``` text
 //! S(x) = S0 + S1*x + S2*x^2 + ...
@@ -977,7 +1130,7 @@
 //!        i
 //! ```
 //!
-//! And Λ'(x) is the "[formal derivative][formal-derivative]" of Λ(x),
+//! And `Λ'(x)` is the "[formal derivative][formal-derivative]" of `Λ(x)`,
 //! defined as:
 //!
 //! ``` text
@@ -989,8 +1142,8 @@
 //!        i=1
 //! ```
 //!
-//! Note that i here is not a finite-field element! The multiplication between
-//! i and the field elements is actually repeated addition, not normal
+//! Note that `i` here is not a finite-field element! The multiplication between
+//! `i` and the field elements is actually repeated addition, not normal
 //! finite-field multiplication.
 //! 
 //! ``` rust
@@ -1101,23 +1254,43 @@
 //! ## Limitations
 //!
 //! In order for Reed-Solomon to work, we need a unique non-zero error
-//! location, Xj, for each symbol in our codeword. This limits the size of the
+//! location, `Xj`, for each symbol in our codeword. This limits the size of the
 //! _total_ codeword, the message + ecc, to the number of non-zero elements in
-//! the field. In the case of GF(256), this limits Reed-Solomon to 255-byte
+//! the field. In the case of `GF(256)`, this limits Reed-Solomon to 255-byte
 //! codewords.
 //!
 //! The most common scheme is 32 bytes of ECC with up to 223 bytes of message,
-//! provided by this crate as [rs255w223][rs255w223]. This was the scheme
-//! famously used on the [Voyager missions][voyager-missions].
+//! provided by this crate as [`rs255w223`]. This was the scheme famously used
+//! on the [Voyager missions][voyager].
 //!
+//! ## Further reading
+//!
+//! Reed-Solomon error-correction, and error-correction in general, is a deep
+//! and complex field. The encoder/decoder presented here is just one method of
+//! encoding/decoding for one representation of Reed-Solomon error-correction.
+//!
+//! This documentation is the aggregation of knowledge from a number of helpful
+//! sources that contain more in-depth information:
+//!
+//! - [Wikipedia][rs-wiki]
+//! - [Wikiversity][rs-wikiversity]
+//! - [John Gill's lecture notes][rs-gill]
+//! - [Henry D. Pfister's Algebraic Decoding of Reed-Solomon and BCH Codes][rs-pfister]
 //! 
 //!
-//! TODO links
-//!
-//! http://pfister.ee.duke.edu/courses/ecen604/rsdecode.pdf
-//! https://en.wikipedia.org/wiki/BCH_code
-//! https://users.ece.cmu.edu/~koopman/crc/ 
-//! https://en.wikipedia.org/wiki/Voyager_program
+//! [rs-wiki]: https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction
+//! [wespa]: https://www.wespa.org/csw19ik.pdf
+//! [hamming-distance]: https://en.wikipedia.org/wiki/Hamming_distance
+//! [crc-hd]: https://users.ece.cmu.edu/~koopman/crc
+//! [systematic]: https://en.wikipedia.org/wiki/Systematic_code
+//! [bch]: https://en.wikipedia.org/wiki/BCH_code
+//! [forney]: https://en.wikipedia.org/wiki/Forney_algorithm
+//! [formal-derivative]: https://en.wikipedia.org/wiki/Formal_derivative
+//! [voyager]: https://en.wikipedia.org/wiki/Voyager_program
+//! [rs-wikiversity]: https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
+//! [rs-gill]: https://web.archive.org/web/20140630172526/http://web.stanford.edu/class/ee387/handouts/notes7.pdf
+//! [rs-pfister]: http://pfister.ee.duke.edu/courses/ecen604/rsdecode.pdf
+//! [rs-example]:
 
 
 // macro for creating Reed-Solomon error-correction implementations

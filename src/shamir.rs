@@ -1,8 +1,8 @@
 //! ## Shamir's secret-sharing scheme
 //!
-//! [Shamir's secret-sharing scheme][ssss] is an algorithm for splitting a secret
-//! into some number of shares "n", such that you need at minimum some number of
-//! shares "k" to reconstruct the original secret.
+//! [Shamir's secret-sharing scheme][shamir-wiki] is an algorithm for splitting a
+//! secret into some number of shares `n`, such that you need at minimum some number
+//! of shares `k` to reconstruct the original secret.
 //!
 //! ``` rust
 //! use gf256::shamir::shamir;
@@ -23,30 +23,107 @@
 //! Note this module requires feature `shamir`. You may also want to enable the
 //! feature `thread-rng`, which is required for the default rng.
 //!
-//! TODO link to example!
+//! A fully featured implementation of Shamir's secret sharing can be found in
+//! [`examples/shamir.rs`][shamir-example]:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example shamir
+//!
+//! testing shamir("Hello World!")
+//! generate share1 => .....uT4.z.O.  019ddb829d755434f77ae84ffd
+//! generate share2 => .Y4..Nq......  025934c8a74e711c05f4aeb7d0
+//! generate share3 => ...H7.....?v.  03c2be4837b908b4ad113f7607
+//! generate share4 => .y......]..x.  0479b0bbf09cb8e85de497780f
+//! generate share5 => ...,Z...e.m..  0515b62c5ad2e20b65b86d15e9
+//! reconstruct 1 shares => ....uT4.z.O.  9ddb829d755434f77ae84ffd
+//! reconstruct 2 shares => *uO...,R.!..  2a754f8b97bc2c520021ece6
+//! reconstruct 3 shares => .Q...-._.y.*  0651020d822d9c5f9f798e2a
+//! reconstruct 4 shares => Hello World!  48656c6c6f20576f726c6421
+//! reconstruct 5 shares => Hello World!  48656c6c6f20576f726c6421
+//! ```
 //!
 //! ## How does Shamir's secret sharing scheme work?
 //!
-//! The underlying theory of Shamir's secret sharing is actually quite relatively
-//! simple to visualize.
+//! The underlying theory of Shamir's secret sharing is actually relatively easy
+//! to visualize.
 //!
 //! Consider some 2-degree polynomial:
 //!
-//! TODO
+//! ``` text
+//!                 .
+//!                 . ......
+//!                ..'      ''.
+//!               ' .          '.
+//!             .'  .            '
+//!            .    .             '.
+//!.  . . . . : . . . . . . . . . . .
+//!          '      .
+//!         '       .
+//!        '        .
+//!       '         .
+//!      .          .
+//!                 .
+//! ```
 //!
 //! Because our polynomial is 2-degree, we need at minimum 3 points to uniquely
-//! define the polynomial. If we only have 2 point:
+//! define the polynomial. If we only have 2 points:
 //!
-//! TODO
+//! ``` text
+//!                 .
+//!                 .
+//!                 .
+//!                 .           o
+//!             o   .           
+//!                 .
+//! . . . . . . . . . . . . . . . . .
+//!                 .
+//!                 .
+//!                 .
+//!                 .
+//!                 .
+//!                 .
+//! ```
 //!
 //! There are any number of polynomials that intersect these 2 points! With only
 //! 2 points, it's impossible to figure out the original polynomial.
 //!
-//! TODO
+//! ``` text
+//!    '.           .
+//!      .    '     . ......     .  .
+//!       '.       ..'      ''.   .'
+//!         '. '  ' .          'o'
+//!           ''o'  .        ..' '
+//!            . '''......'''  '  '.
+//! . . . . . : .'. . . . . . . . . .
+//!          '    ' .        .
+//!         '      ..       .
+//!        '        :      .
+//!       '         .'....'
+//!      .          .
+//!                 .
+//! ```
+//!
+//! But with 3 points, there is only one 2-degree polynomial that hits all three:
+//!
+//! ``` text
+//!                 .
+//!                 . .o....
+//!                ..'      ''.
+//!               ' .          'o
+//!             o'  .            '
+//!            .    .             '.
+//!.  . . . . : . . . . . . . . . . .
+//!          '      .
+//!         '       .
+//!        '        .
+//!       '         .
+//!      .          .
+//!                 .
+//! ```
 //!
 //! We can store a secret value on a polynomial by creating a polynomial where
 //! the intersection at some arbitrary x-coordinate give us our secret value.
-//! Choosing the arbitrary coordinate x=0 is convenient because creating the
+//! Choosing the arbitrary coordinate `x=0` is convenient because creating the
 //! secret polynomial is as easy as choosing random values for the non-constant
 //! coefficients. Say we wanted to store the secret value [4][xkcd-4]:
 //!
@@ -71,12 +148,13 @@
 //! assert_eq!(f(4.0), 324.0);
 //! ```
 //!
-//! So our shares would be (x=1, y=48), (x=2, y=116), (x=3, y=208), and (x=4, y=324). 
+//! So our shares would be (`x=1`, `y=48`), (`x=2`, `y=116`), (`x=3`, `y=208`),
+//! and (`x=4`, `y=324`). 
 //!
 //! Since we used a 2-degree polynomial, we need at minimum any 3 of the shares to
 //! find the original polynomial. Any fewer and finding the original polynomial
-//! would be impossible. If we wanted a different threshold, say k shares, we would
-//! just need to use a k-1 degree polynomial.
+//! would be impossible. If we wanted a different threshold, say `k` shares, we would
+//! just need to use a `k-1` degree polynomial.
 //!
 //! If we have at least 3 of the shares, we can find the original secret using
 //! a technique called [Lagrange interpolation][lagrange-interpolation] (Wikipedia
@@ -207,7 +285,7 @@
 //! the arbitrary x-coordinates for our shares.
 //!
 //! Because of this, Shamir's secret sharing scheme is limited to the number of non-zero
-//! elements in our field. In the case of GF(256), this limits us to 255 shares.
+//! elements in our field. In the case of `GF(256)`, this limits us to 255 shares.
 //!
 //! ## Constant-time
 //!
@@ -221,6 +299,12 @@
 //! applications without first evaluating externally. You use this library at your
 //! own risk.
 //!
+//!
+//! [shamir-wiki]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
+//! [xkcd-4]: https://xkcd.com/221/
+//! [lagrange-interpolation]: https://en.wikipedia.org/wiki/Lagrange_polynomial
+//! [one-time-pad]: https://en.wikipedia.org/wiki/One-time_pad
+//! [shamir-example]:
 
 
 // macro for creating Shamir secret-sharing implementations

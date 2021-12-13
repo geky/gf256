@@ -1,8 +1,8 @@
 //! ## RAID-parity functions and macros
 //!
-//! [RAID](raid), short for a "Redundant Array of Independent Disks", is a set
-//! of schemes commonly found in storage systems, with the purpose of using an
-//! array of multiple disks to providing data redundancy and/or performance
+//! [RAID][raid-wiki], short for a "Redundant Array of Independent Disks", is a
+//! set of schemes commonly found in storage systems, with the purpose of using
+//! an array of multiple disks to providing data redundancy and/or performance
 //! improvements.
 //!
 //! The most interesting part for us is the higher-numbered RAID levels, which
@@ -10,18 +10,111 @@
 //! one (for RAID 5), two (for RAID 6), and even three (for RAID 7, though this
 //! name is not standardized) failed disks.
 //!
-//! TODO example
+//! ``` rust
+//! use gf256::raid::raid7;
+//! 
+//! // format
+//! let mut buf = b"Hello World!".to_vec();
+//! let mut parity1 = vec![0u8; 4];
+//! let mut parity2 = vec![0u8; 4];
+//! let mut parity3 = vec![0u8; 4];
+//! let slices = buf.chunks(4).collect::<Vec<_>>();
+//! raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
+//! 
+//! // corrupt
+//! buf[0..8].fill(b'x');
+//! 
+//! // repair
+//! let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
+//! raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
+//! assert_eq!(&buf, b"Hello World!");
+//! ```
 //!
 //! These parity-schemes aren't limited to physical disks. They can be applied
 //! to any array of blocks as long as there is some mechanism to detect failures,
 //! such as CRCs or other checksums.
 //!
+//! Compared to other, more general [Reed-Solomon](../rs) schemes, RAID-parity has
+//! the nice feature that it is cheap to update a single block, requiring only extra
+//! read and writes for each parity block.
+//!
 //! Note this module requires feature `raid`.
+//!
+//! A fully featured implementation of RAID-parity can be found in
+//! [`examples/raid.rs`][raid-example]:
+//!
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example raid
+//!
+//! testing raid5("Hello World?")
+//! format  => Hello World?U)_<  48656c6c6f20576f726c643f55295f3c
+//! update  => Hello World!U)_"  48656c6c6f20576f726c642155295f22
+//! corrupt => Hellxxxxrld!U)_"  48656c6c78787878726c642155295f22
+//! repair  => Hello World!U)_"  48656c6c6f20576f726c642155295f22
+//! 
+//! testing raid6("Hello World?")
+//! format  => Hello World?U)_<C.ON  48656c6c6f20576f726c643f55295f3c43884f4e
+//! update  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
+//! corrupt => xxxxo World!U)_"C.O6  787878786f20576f726c642155295f2243884f36
+//! repair  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
+//! corrupt => HellxxxxxxxxU)_"C.O6  48656c6c787878787878787855295f2243884f36
+//! repair  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
+//! 
+//! testing raid7("Hello World?")
+//! format  => Hello World?U)_<C.ON.k#.  48656c6c6f20576f726c643f55295f3c43884f4e9a6b231a
+//! update  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
+//! corrupt => Hello World!U)_"xxxx.k#.  48656c6c6f20576f726c642155295f22787878789a6b23e7
+//! repair  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
+//! corrupt => xxxxxxxxrld!U)_"C.O6.k#.  7878787878787878726c642155295f2243884f369a6b23e7
+//! repair  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
+//! corrupt => Hello WoxxxxU)_"xxxxxxxx  48656c6c6f20576f7878787855295f227878787878787878
+//! repair  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
+//! 
+//! block corrupted image (errors = 3/7, 42.86%):
+//! 
+//!                     ::::::::::::::::::::::::::::::::    .:::....:::.....'   ''''    ..:.': .:'..'  .::::::::::::::::
+//!                    .::::::::::::::::::::::::::::::::    ::::::::::::   '.          . :: ': .' . ' ..::::::::::::::::
+//!                  .::::::::::::::::::::::::::::::::::    ::::::::::'     ::.      .'  :. . ::' .  :::::::::::::::::::
+//!                .:::::::::::::::::::::::::::::::::::: . ::::::::::    . ::::.   .:    ::'.'':' ..'' .::::::::::::::::
+//!               .::::::::::::::::::::::::::::::::::::: :: :'::::::'    :: :'::: .:'...: ''. :.'.' . :.::::::::::::::::
+//!               ::::::::::::::::::::::::::::::::::::::: '     '''     : '    .:.:. '::'''. :  '  :'.  ::::::::::::::::
+//!              :::::::::::::::::::::::::::::::::::::::                    ..'' :::: '  :. .''.  ': ..:::::::::::::::::
+//!              :::::::::::::::::::::::::::::::::::::::                ..:''    :''    .:'. .'' .:: ': ::::::::::::::::
+//!              :::::::::::::::::::::::::::::::::::::::                '     ..:.  ..:' .'' '  '': ''.:::::::::::::::::
+//!          ..: :::::::::::::::::::::::::::::::::::::::                  ..:::'.':''    '  '.  ':: .': ::::::::::::::::
+//!       ..:::'  ::::::::::::::::::::::::::::::::::::::                :': ' .       ..'  '.: .  .:  . ::::::::::::::::
+//!      :::'     ':::''::::::::::::::::::::::::::::::::                :...'    : .'':..:  ':. :'':.::.::::::::::::::::
+//!     ::'         ...:::::::::::::::::::::::::::::::::                ::'  ..'..::''' : : '.'.'  :' . ::::::::::::::::
+//!          ....:::::::::::::::::::::::::::::::::::::::                ..:''. ''       ':::.::.'':  ': ::::::::::::::::
+//!     '::::::::'''    ::::::::::::::::::::::::::::::::                '::''    ...::::' ::   ' :'.:. :::::::::::::::::
+//!                     ::::::::::::::::::::::::::::::::                '''':::::::::::''''::. ::. ::.':::::::::::::::::
+//!     ':..:. ..:' ':. ::::::::::::::::::::::::::::::::.'. . ': ': :: :  ': :. :::' ::.  ' :'.' :. '':.::::::::::::::::
+//! 
+//! corrected:
+//! 
+//!                       ..:::::::::::...                  .:::....:::.....'   ''''    ..:.': .:'..'  .::.. .':  :...:.
+//!                    .:::::::::::::::::::..               ::::::::::::   '.          . :: ': .' . ' ...      .:...:..
+//!                  .::::::::::::::::::::::::.             ::::::::::'     ::.      .'  :. . ::' .  :::.'  :' ':... :::
+//!                .:::::::::::::::::::::::::::.         . ::::::::::    . ::::.   .:    ::'.'':' ..'' ..:. .: ':.. '.:.
+//!               .::::::::::::::::::::::::::::::    ... :: :'::::::'    :: :'::: .:'...: ''. :.'.' . :. ..:' .''::'': :
+//!               :::::::::::::::::::::::::::::'' .. '::: '     '''     : '    .:.:. '::'''. :  '  :'.  : ':.:  ..' : .'
+//!              :::::::::::::::::::::::::::''..::::: '                     ..'' :::: '  :. .''.  ': ..:.'   ' ...::::.
+//!              :::::::::::::::::::::::'' ..:::::''                    ..:''    :''    .:'. .'' .:: ': .' .:.'   :: .'
+//!              :::::::::::::::::::'' ..:::::'' .                      '     ..:.  ..:' .'' '  '': ''.::.'  :  :':.....
+//!          ..: ::::::::::::::''' ..:::::'' ..:::                        ..:::'.':''    '  '.  ':: .':  :  ': .:' ' :.'
+//!       ..:::'  :::::::::'' ..::::::'' ..:::::::                      :': ' .       ..'  '.: .  .:  . '' :.  :'.::  :
+//!      :::'     ':::'' ...::::::''...::::::::::                       :...'    : .'':..:  ':. :'':.::.:': :'  '.. '. :
+//!     ::'         ...::::::'' ..:::::::::::::'                        ::'  ..'..::''' : : '.'.'  :' . '.'  ': . '.':
+//!          ....:::::::'' ..:::::::::::::::::'                         ..:''. ''       ':::.::.'':  ':  ':. '':'.'  .'
+//!     '::::::::'''    :::::::::::::::::::''                           '::''    ...::::' ::   ' :'.:. :: ::''    :.:'.:
+//!                       '':::::::::::'''                              '''':::::::::::''''::. ::. ::.':'::':'.::'.::' :
+//!     ':..:. ..:' ':. :': :'..' .::. .'':.'.: :''.''' .'. . ': ': :: :  ': :. :::' ::.  ' :'.' :. '':..''': ' '. ':::.
+//! ```
 //!
 //! ## How does RAID-parity work?
 //!
 //! The simplest parity-scheme to understand is RAID 5, aka single-parity. In this
-//! scheme the parity block, "p", is simply the xor of all of the data blocks:
+//! scheme the parity block, `p`, is simply the xor of all of the data blocks:
 //!
 //! ``` text
 //! p = d0 ^ d1 ^ d2 ^ ...
@@ -86,7 +179,7 @@
 //! p = d0 + ? + d2 + ...
 //! ```
 //!
-//! But we can solve for it! Let's call the unknown "dx":
+//! But we can solve for it! Let's call the unknown `dx`:
 //!
 //! ``` text
 //! p = d0 + dx + d2 + ...
@@ -102,6 +195,8 @@
 //! And since subtraction is also xor in a finite-field, this is the equivalent 
 //! to xoring the parity block and data blocks together.
 //!
+//! ---
+//!
 //! But what if two blocks go bad?
 //!
 //! ``` text
@@ -116,8 +211,8 @@
 //! solution to a linear system of equations if you have more equations than unknowns,
 //! and the equations are _linearly independent_ (this becomes important later).
 //!
-//! Say, for our second parity block, "q", we came up with a different equation by
-//! using some arbitrary constants, we'll call them "c0, c1, c2..." for now:
+//! Say, for our second parity block, `q`, we came up with a different equation by
+//! using some arbitrary constants, we'll call them `c0`, `c1`, `c2`, etc for now:
 //!
 //! ``` text
 //! p = d0 + d1 + d2 + ...
@@ -142,7 +237,7 @@
 //! ```
 //!
 //! But since we have two equations, we can still solve it! Let's call the
-//! unknowns dx and dy:
+//! unknowns `dx` and `dy`:
 //!
 //! ``` text
 //! p = dx + dy + d2 + ...
@@ -162,7 +257,7 @@
 //!                   i!=x,y
 //! ```
 //!
-//! Solve for dy:
+//! Solve for `dy`:
 //!
 //! ``` text
 //! dx + dy = p - Σ di
@@ -172,7 +267,7 @@
 //!        i!=x,y
 //! ```
 //!
-//! Substitute dy and solve for dx:
+//! Substitute `dy` and solve for `dx`:
 //!
 //! ``` text
 //! dx*cx + (p - Σ di - dx)*cy = q - Σ di*ci
@@ -206,25 +301,25 @@
 //! ```
 //!
 //! This gives us two "simple" (at least for a computer) equations to find
-//! dx and dy.
+//! `dx` and `dy`.
 //!
-//! We can see that we can always find a solution as long as cx != cy, otherwise
+//! We can see that we can always find a solution as long as `cx` != `cy`, otherwise
 //! we end up dividing by zero.
 //!
 //! We can use any set of unique constants for this, but it's convenient to use
-//! powers of a generator in our field, "g". Recall that powers of a generator,
+//! powers of a generator in our field, `g`. Recall that powers of a generator,
 //! sometimes called a primitive element, generate all non-zero elements of a
-//! given field before looping. So g^i is both non-zero and unique for any
-//! i < the number of non-zero elements in the field, 255 for GF(256), which
+//! given field before looping. So `g^i` is both non-zero and unique for any
+//! `i` < the number of non-zero elements in the field, 255 for `GF(256)`, which
 //! means our equation will always be solvable as long as we don't have more
 //! than 255 disks!
 //!
-//! For more information on generators, see the documentation in [gf](../gf.rs).
+//! For more information on generators, see the documentation in [`gf`](../gf.rs).
 //!
-//! We can substitute powers of our generator "g" back into our solutions to give
+//! We can substitute powers of our generator `g` back into our solutions to give
 //! us our final equations:
 //!
-//! Given parity blocks p and q:
+//! Given parity blocks `p` and `q`:
 //!
 //! ``` text
 //! p = d0 + d1 + d2 + ...
@@ -240,7 +335,7 @@
 //!     i
 //! ```
 //!
-//! We can solve for any two bad blocks, dx and dy:
+//! We can solve for any two bad blocks, `dx` and `dy`:
 //!
 //! ``` text
 //! dx + dy = p - Σ di
@@ -365,14 +460,16 @@
 //!                             i!=x,y    
 //! ```
 //!
-//! We can solve a system of linear equations if they are "linearly independent",
-//! that is, no equation is a scalar-multiple of another linear equation.
+//! We can solve a system of linear equations if they are "[linearly independent
+//! ][linearly-independent]", that is, no equation is a scalar-multiple of another
+//! linear equation.
 //!
-//! Or an more mathy terms, is there a constant c such that c*f(...) = g(...)?
+//! Or an more mathy terms, is there a constant `c` such that `c*f(...)` = `g(...)`?
 //!
 //! What's interesting is we can actually allow one coefficient to be a multiple,
 //! but not both. So we can phrase the question a bit differently: Is there a
-//! unique c such that c*g^(j*x) = g^(k*x), assuming j!=k and x < 255?
+//! unique `c` such that `c*g^(j*x)` = `g^(k*x)`, assuming `j` != `k` and
+//! `x` < 255?
 //!
 //! We can reduce this a bit:
 //!
@@ -387,9 +484,9 @@
 //! And since our constant is arbitrary, we can substitute it for, say, `log_g(c)`.
 //!
 //! Except this gets a bit tricky, recall that the powers of g form a multiplicative
-//! cycle equal to the number of non-zero elements in our field, 255 for GF(256).
+//! cycle equal to the number of non-zero elements in our field, 255 for `GF(256)`.
 //! So when we take the logarithm, we actually end up with an equation under mod 255,
-//! because the powers of g loops.
+//! because the powers of `g` loops.
 //!
 //! We're actually dealing with two number systems here, our finite-field and the
 //! infinite integers (there's probably a better way to notate this mathematically):
@@ -404,13 +501,13 @@
 //! c' = (k-j)*x mod 255
 //! ```
 //!
-//! So the new qutions is: is (k-j)*x mod 255 unique for any k!=j, x < 255?
+//! So the new qutions is: is `(k-j)*x mod 255` unique for any `k` != `j`, `x` < 255?
 //!
-//! Unfortunately, while x is less than 255, (k-j)*x may not be.
+//! Unfortunately, while `x` is less than 255, `(k-j)*x` may not be.
 //!
 //! But there's a fun property of modular multiplication we can leverage. It turns
 //! out modular multiplication by a constant will iterate all elements of the group
-//! if the constant and the modulo are coprime.
+//! if the constant and the modulo are [_coprime_][coprime].
 //!
 //! For example, say we were dealing with mod 9. 3, which is not coprime with 9,
 //! gets stuck in a smaller loop:
@@ -445,14 +542,14 @@
 //! // ...
 //! ```
 //!
-//! So (k-j)*x mod 255 actually _is_ unique for any x < 255, as long as k!=j
-//! and k-j is coprime with 255.
+//! So `(k-j)*x mod 255` actually _is_ unique for any `x` < 255, as long as
+//! `k` != `j` and `k-j` is coprime with 255.
 //!
 //! So there you go!
 //!
 //! We can extend our RAID-parity scheme to any number of parity blocks as long
 //! as we have a set of unique constants where for ANY of the two constants,
-//! k and j, k-j is coprime with 255.
+//! `k` and `j`, `k-j` is coprime with 255.
 //!
 //! So how many parity blocks does that give us?
 //!
@@ -461,14 +558,14 @@
 //! That's right, only three. It turns out the above constraint is actually quite
 //! limiting.
 //!
-//! Note that 255, while mostly prime, is not actually prime. And, as Miracle Max
-//! would say, mostly prime just means slightly composite:
+//! Note that 255, while mostly prime, is not actually prime. And, as [Miracle Max
+//! ][miracle-max] would say, mostly prime just means slightly composite:
 //!
 //! ``` text
 //! 255 = 3 * 5 * 17
 //! ```
 //!
-//! So if any k-j is a multiple of 3, it fails to be coprime with 255.
+//! So if any `k-j` is a multiple of 3, it fails to be coprime with 255.
 //!
 //! We can choose some constants:
 //!
@@ -478,12 +575,12 @@
 //! l = 3n+2 for any n
 //! ```
 //!
-//! But the moment try to choose some constant m = 3n+3, well, m-j = 3n, some
-//! multiple of 3, which can't be coprime with 255.
+//! But the moment try to choose some constant `m` = `3n+3`, well, `m-j` = `3n`,
+//! some multiple of 3, which can't be coprime with 255.
 //!
-//! And this is true for ANY word-sized field. Any word-sized field GF(2^8),
-//! GF(2^16), GF(2^32), GF(2^(2^i)) has a multiplicative cycle of
-//! length 2^(2^i)-1 ([A051179][A051179]), which is always divisible by 3.
+//! And this is true for ANY word-sized field. Any word-sized field `GF(2^8)`,
+//! `GF(2^16)`, `GF(2^32)`, `GF(2^(2^i))` has a multiplicative cycle of
+//! length `2^(2^i)-1` ([A051179][A051179]), which is always divisible by 3.
 //!
 //! The good news is that this does gives us a set of three valid constants,
 //! which give us three linearly independent generators:
@@ -502,12 +599,11 @@
 //! g^2 = g^2
 //! ```
 //!
-//! It's worth noting that g^2 is also a generator of the field. For similar
-//! reasons to modular multiplication, for any generator g, g^k is also a
-//! generator, iff k is coprime with the size of the multiplicative cycle. And
-//! since any 2^i-1 (not divisible by 2) is always coprime with 2^j (only
-//! prime factor is 2), g^(2^k) is also a generator for any k is also a
-//! generator.
+//! It's worth noting that `g^2` is also a generator of the field. For similar
+//! reasons to modular multiplication, for any generator `g`, `g^k` is also a
+//! generator, iff `k` is coprime with the size of the multiplicative cycle. And
+//! since any `2^i-1` (not divisible by 2) is always coprime with `2^j` (only
+//! prime factor is 2), `g^(2^k)` is also a generator for any `k`.
 //!
 //! This isn't actually useful here, but it's interesting to know.
 //!
@@ -515,8 +611,8 @@
 //!
 //! With this, we can construct a triple-parity scheme!
 //!
-//! We can create three parity blocks, "p", "q", "r", with three linearly
-//! independent equations, by using two generators, "g" and "h", where h = g^2:
+//! We can create three parity blocks, `p`, `q`, `r`, with three linearly
+//! independent equations, by using two generators, `g` and `h`, where `h` = `g^2`:
 //!
 //! ``` text
 //! p = d0 + d1 + d2 + ...
@@ -537,8 +633,8 @@
 //!     i
 //! ```
 //!
-//! If three blocks go bad, we have three equations and three unknowns, "dx",
-//! "dy", "dz":
+//! If three blocks go bad, we have three equations and three unknowns, `dx`,
+//! `dy`, `dz`:
 //!
 //! ``` text
 //! dx + dy + dz = p - Σ di
@@ -553,7 +649,7 @@
 //!
 //! Ready for some big equations?
 //!
-//! Solve for dz:
+//! Solve for `dz`:
 //!
 //! ``` text
 //! dx + dy + dz = p - Σ di
@@ -563,7 +659,7 @@
 //!       i!=x,y,z
 //! ```
 //!
-//! Substitute dz and solve for dy:
+//! Substitute `dz` and solve for `dy`:
 //!
 //! ``` text
 //! dx*g^x + dy*g^y + (p - Σ di - dx - dy)*g^z = q - Σ di*g^i
@@ -584,7 +680,7 @@
 //!                         g^y - g^z
 //! ```
 //!
-//! Substitute dy and solve for dx
+//! Substitute `dy` and solve for `dx`:
 //!
 //! ``` text
 //!                  ( (q - Σ di*g^i) - (p - Σ di)*g^z - dx*(g^x - g^z) )
@@ -655,7 +751,7 @@
 //!       i!=x,y,z
 //! ```
 //!
-//! If we use the property that h = g^2, we can simplify a little bit further:
+//! If we use the property that `h` = `g^2`, we can simplify a little bit further:
 //!
 //! ``` text
 //!      (r - Σ di*h^i)*(g^y - g^z) - (q - Σ di*g^i)*(h^y - h^z) - (p - Σ di)*(g^y*h^z - g^z*h^y)
@@ -702,7 +798,7 @@
 //!       i!=x,y,z
 //! ```
 //!
-//! So, to summarize, given parity blocks p, q, r:
+//! So, to summarize, given parity blocks `p`, `q`, `r`:
 //!
 //! ``` text
 //! p = d0 + d1 + d2 + ...
@@ -723,7 +819,7 @@
 //!     i
 //! ```
 //!
-//! We can solve for any three bad blocks, dx, dy, dz:
+//! We can solve for any three bad blocks, `dx`, `dy`, `dz`:
 //!
 //! ``` text
 //! dx + dy + dz = p - Σ di
@@ -840,6 +936,21 @@
 //! blocks are left, and then rebuilding the missing parity blocks. This is
 //! equivalent to solving a smaller RAID-parity scheme.
 //!
+//! ## RAID 7 in ZFS
+//!
+//! The first use of triple-parity RAID, at least that I've seen, was developed
+//! by Adam Leventhal in order to increasing the resilience to disk failures
+//! in ZFS. He was the one who first found that there are up to three
+//! easy-to-calculate sources for linearly-independent equations, and it's the
+//! scheme that he outlined that is implemented here. You can read his original
+//! blog post [here][leventhal-blog].
+//!
+//! It's interesting to note that the original motivation for triple parity is
+//! actually the growing amount of time it takes to reconstruct a drive when a
+//! disk fails, which involves reading all other disks and is measured in hours.
+//! The risk being that the longer reconstruction takes the more likely that
+//! other disks will fail, putting you in a precarious position
+//!
 //! ## Limitations
 //!
 //! RAID 5, aka single-parity, is actually the most flexible. It can support
@@ -847,7 +958,7 @@
 //!
 //! RAID 6 and RAID 7, aka double-parity and triple-parity, rely on the uniqueness
 //! of powers of a generator in the field. Because of this, these schemes are
-//! limited to the number of non-zero elements in the field. In the case of GF(256),
+//! limited to the number of non-zero elements in the field. In the case of `GF(256)`,
 //! this limits RAID 6 and RAID 7 to 255 blocks.
 //!
 //! Each scheme can repair any block up to the number of parity blocks, however
@@ -859,26 +970,24 @@
 //! As it is, the current scheme only supports up to 3 parity blocks. But it is
 //! actually possible to use a different scheme that works beyond 3 parity blocks.
 //!
-//! As outlined in James S. Plank’s paper [Note: Correction to the 1997 Tutorial
-//! on Reed-Solomon Coding][plank], you can construct a modified Vandermonde matrix
-//! that allows you to solve the linear system of equations for any number of parity
-//! blocks.
+//! As outlined in James S. Plank’s paper, [Note: Correction to the 1997 Tutorial
+//! on Reed-Solomon Coding][plank], you can construct a modified [Vandermonde matrix
+//! ][vandermonde-matrix] that allows you to solve the linear system of equations for
+//! any number of parity blocks.
 //!
-//! The downside Plank's approach is that at minimum you need to store an array of
-//! computed constants for each parity block.
-//!
-//! 
+//! The downside Plank's approach is that you need to store an array of unique constants
+//! for each block of data, for each parity block.
 //!
 //!
-//! TODO cite correctly everywhere?
-//! [plank]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.7.155&rep=rep1&type=pdf
-//!
-//! TODO limitations
-//! TODO note on more parity blocks
-//! TODO note on optimizations (successive powers, moving gh consts out)
-//! TODO efficient updates?
-//! 
-//! 
+//! [raid-wiki]: https://en.wikipedia.org/wiki/Standard_RAID_levels
+//! [linearly-independent]: https://en.wikipedia.org/wiki/Linear_independence
+//! [coprime]: https://en.wikipedia.org/wiki/Coprime_integers
+//! [vandermonde-matrix]: https://en.wikipedia.org/wiki/Vandermonde_matrix
+//! [miracle-max]: https://www.imdb.com/title/tt0093779/characters/nm0000345
+//! [A051179]: https://oeis.org/A051179
+//! [leventhal-blog]: http://dtrace.org/blogs/ahl/2009/07/21/triple-parity-raid-z
+//! [plank]: http://web.eecs.utk.edu/~jplank/plank/papers/CS-03-504.pdf
+//! [raid-example]:
 
 
 // macro for creating RAID-parity implementations

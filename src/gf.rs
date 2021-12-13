@@ -564,9 +564,9 @@
 //!   This mode is especially effective when hardware carry-less multiplication
 //!   instructions are available.
 //!
-//! Galois-fields with `<=8` bits default to the `table` mode, which is the fastest,
+//! Galois-fields with <=8 bits default to the `table` mode, which is the fastest,
 //! but requires two tables the size of the number of elements in the field.
-//! Galois-fields `>8` bits default to `barret` mode, which, perhaps surprisingly,
+//! Galois-fields >8 bits default to `barret` mode, which, perhaps surprisingly,
 //! is the fastest even when hardware carry-less multiplication is not available.
 //!
 //! If the features `small-tables` or `no-tables` are enabled, `barret` mode is used
