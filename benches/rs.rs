@@ -9,6 +9,7 @@ use std::iter;
 use std::collections::HashSet;
 
 #[allow(dead_code)]
+#[allow(unused_attributes)]
 #[path = "../examples/rs.rs"]
 mod rs;
 

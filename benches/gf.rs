@@ -6,7 +6,7 @@ use criterion::Criterion;
 use criterion::BatchSize;
 use std::iter;
 use std::convert::TryFrom;
-use ::gf256::macros::gf;
+use ::gf256::gf::gf;
 
 
 // generate explicit naive barret and table implementations
