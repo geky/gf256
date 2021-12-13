@@ -8,14 +8,13 @@
 )]
 
 // We don't really need std
-// TODO
-//#![no_std]
+#![no_std]
 
 // Other assertions
 #![deny(missing_debug_implementations)]
 
 
-/// Common traits
+/// Extra traits
 pub mod traits;
 
 /// Macros for generating customized types
@@ -50,7 +49,7 @@ pub mod raid;
 pub mod rs;
 
 
-/// re-exported for proc_macros
+/// Re-exports for proc_macros
 #[path="."]
 pub mod internal {
     pub mod xmul;
@@ -59,5 +58,7 @@ pub mod internal {
     pub use rand;
 }
 
+/// A flag indicating if hardware carry-less multiplication instructions
+/// are available
 pub use internal::xmul::HAS_XMUL;
 

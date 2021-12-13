@@ -246,6 +246,9 @@ mod test {
     use rand::rngs::ThreadRng;
     use core::convert::TryFrom;
 
+    extern crate alloc;
+    use alloc::vec::Vec;
+
     #[cfg(feature="thread-rng")]
     #[test]
     fn shamir5w4() {

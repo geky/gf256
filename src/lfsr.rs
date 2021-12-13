@@ -361,6 +361,7 @@ mod test {
 
     extern crate alloc;
     use alloc::vec::Vec;
+    use alloc::vec;
     use alloc::collections::BTreeSet;
 
     extern crate std;
