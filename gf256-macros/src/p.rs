@@ -70,11 +70,11 @@ pub fn p(
             //
             let input = TokenStream::from(input);
             let output = quote! {
-                #[cfg_attr(target_pointer_width="8",   #__crate::macros::p(width=8,   #(#raw_args),*))]
-                #[cfg_attr(target_pointer_width="16",  #__crate::macros::p(width=16,  #(#raw_args),*))]
-                #[cfg_attr(target_pointer_width="32",  #__crate::macros::p(width=32,  #(#raw_args),*))]
-                #[cfg_attr(target_pointer_width="64",  #__crate::macros::p(width=64,  #(#raw_args),*))]
-                #[cfg_attr(target_pointer_width="128", #__crate::macros::p(width=128, #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="8",   #__crate::p::p(width=8,   #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="16",  #__crate::p::p(width=16,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="32",  #__crate::p::p(width=32,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="64",  #__crate::p::p(width=64,  #(#raw_args),*))]
+                #[cfg_attr(target_pointer_width="128", #__crate::p::p(width=128, #(#raw_args),*))]
                 #input
             };
             return output.into();
@@ -96,8 +96,8 @@ pub fn p(
             let input = TokenStream::from(input);
             let xmul = xmul_predicate();
             let output = quote! {
-                #[cfg_attr(#xmul,      #__crate::macros::p(xmul,  #(#raw_args),*))]
-                #[cfg_attr(not(#xmul), #__crate::macros::p(naive, #(#raw_args),*))]
+                #[cfg_attr(#xmul,      #__crate::p::p(xmul,  #(#raw_args),*))]
+                #[cfg_attr(not(#xmul), #__crate::p::p(naive, #(#raw_args),*))]
                 #input
             };
             return output.into();

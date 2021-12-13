@@ -165,11 +165,11 @@
 //! value. Though we can at least share the same x-coordinate for all generated
 //! points in a given share.
 //!
-//! ```
+//! ``` rust
 //! # // using a fixed-rng (bad!) so this example is reproducible/testable
-//! # pub use ::gf256::*;
-//! # use gf256::macros;
-//! # #[macros::shamir(rng=gf256::lfsr::Lfsr64::new(0x123456789abcdef1))]
+//! # pub use ::gf256::*; // these imports are a hack around doctest namespacing issues
+//! # pub use ::gf256::gf;
+//! # #[::gf256::shamir::shamir(rng=gf256::lfsr::Lfsr64::new(0x123456789abcdef1))]
 //! # mod shamir {}
 //! #
 //! # fn main() {
@@ -223,8 +223,8 @@
 //!
 
 
-#[allow(unused)]
-use crate::macros::shamir;
+// macro for creating Shamir secret-sharing implementations
+pub use gf256_macros::shamir;
 
 
 // Shamir secret-sharing functions
@@ -241,7 +241,7 @@ pub mod shamir {}
 #[cfg(test)]
 mod test {
     use super::shamir as gf256_shamir;
-    use crate::macros::*;
+    use super::*;
     use crate::gf::*;
     use rand::rngs::ThreadRng;
     use core::convert::TryFrom;

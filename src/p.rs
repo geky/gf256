@@ -148,7 +148,8 @@
 //!
 
 
-use crate::macros::p;
+// macro for creating polynomial implementations
+pub use gf256_macros::p;
 
 // polynomial types
 #[p(u=u8)]    pub type p8;

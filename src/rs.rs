@@ -1119,7 +1119,10 @@
 //! https://users.ece.cmu.edu/~koopman/crc/ 
 //! https://en.wikipedia.org/wiki/Voyager_program
 
-use crate::macros::rs;
+
+// macro for creating Reed-Solomon error-correction implementations
+pub use gf256_macros::rs;
+
 
 // Reed-Solomon error-correction functions
 //
@@ -1131,7 +1134,6 @@ pub mod rs255w223 {}
 mod test {
     use super::*;
     use crate::gf::*;
-    use crate::macros::*;
 
     extern crate alloc;
     use alloc::vec::Vec;

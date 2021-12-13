@@ -97,8 +97,8 @@ pub fn crc(
             let input = TokenStream::from(input);
             let xmul = xmul_predicate();
             let output = quote! {
-                #[cfg_attr(#xmul,      #__crate::macros::crc(barret, #(#raw_args),*))]
-                #[cfg_attr(not(#xmul), #__crate::macros::crc(table,  #(#raw_args),*))]
+                #[cfg_attr(#xmul,      #__crate::crc::crc(barret, #(#raw_args),*))]
+                #[cfg_attr(not(#xmul), #__crate::crc::crc(table,  #(#raw_args),*))]
                 #input
             };
             return output.into();

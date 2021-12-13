@@ -477,7 +477,7 @@
 //! 
 //! ``` rust
 //! # use ::gf256::*;
-//! use ::gf256::macros::gf;
+//! use ::gf256::gf::gf;
 //! 
 //! #[gf(polynomial=0b10011, generator=0b0010)]
 //! type gf16;
@@ -656,7 +656,7 @@
 //!
 //! ``` rust
 //! # use ::gf256::*;
-//! use gf256::macros::gf;
+//! use gf256::gf::gf;
 //! 
 //! #[gf(polynomial=0x11b, generator=0x3, barret)]
 //! type gf256_rijndael;
@@ -665,7 +665,10 @@
 //! ```
 //! 
 
-use crate::macros::gf;
+
+// macro for creating Galois-field implementations
+pub use gf256_macros::gf;
+
 
 /// An 8-bit binary-extension finite-field
 #[gf(polynomial=0x11d, generator=0x2)]

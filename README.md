@@ -245,7 +245,7 @@ defaults, and as a highly configurable proc_macro:
 
 ``` rust
 # pub use ::gf256::*;
-use gf256::macros::gf;
+use gf256::gf::gf;
 
 #[gf(polynomial=0x11b, generator=0x3)]
 type gf256_rijndael;
@@ -387,7 +387,7 @@ evaluated before use, and you use this library at your own risk.
 
   ``` rust
   # pub use ::gf256::*;
-  use gf256::macros::gf;
+  use gf256::gf::gf;
 
   #[gf(polynomial=0x11b, generator=0x3, barret)]
   type gf256_rijndael;

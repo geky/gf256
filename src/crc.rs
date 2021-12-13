@@ -156,10 +156,9 @@
 //!
 //! ``` rust
 //! # pub use ::gf256::*;
-//! // TODO move crc macro to gf256::crc::crc;
-//! use ::gf256::macros;
+//! use ::gf256::crc;
 //!
-//! #[macros::crc(polynomial=0b100000111, reflected=false, xor=0)]
+//! #[crc::crc(polynomial=0b100000111, reflected=false, xor=0)]
 //! fn crc8() {}
 //!
 //! # fn main() {
@@ -263,8 +262,9 @@
 //!
 
 
+// macro for creating CRC implementations
+pub use gf256_macros::crc;
 
-use crate::macros::crc;
 
 // CRC functions
 //

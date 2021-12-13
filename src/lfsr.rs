@@ -138,7 +138,7 @@
 //!
 //! ``` rust
 //! # pub use ::gf256::*;
-//! use ::gf256::macros::gf;
+//! use ::gf256::gf::gf;
 //!
 //! #[gf(polynomial=0x11d, generator=2)]
 //! type gf256_lfsr;
@@ -209,7 +209,7 @@
 //! TODO test these!
 //! ``` rust
 //! # pub use ::gf256::*;
-//! use ::gf256::macros::lfsr;
+//! use ::gf256::lfsr::lfsr;
 //!
 //! #[lfsr(polynomial=0x11d)]
 //! struct Lfsr {}
@@ -333,12 +333,13 @@
 //! TODO link to xorshift rng?
 //!
 
-use crate::macros::lfsr;
+
+// macro for creating LFSR implementations
+pub use gf256_macros::lfsr;
 
 
 // Default LFSR structs
 //
-
 #[lfsr(polynomial=0x11d)]
 pub struct Lfsr8 {}
 #[lfsr(polynomial=0x1002d)]

@@ -880,7 +880,9 @@
 //! 
 //! 
 
-use crate::macros::raid;
+
+// macro for creating RAID-parity implementations
+pub use gf256_macros::raid;
 
 
 // RAID-parity functions
@@ -900,7 +902,6 @@ pub mod raid7 {}
 mod test {
     use super::*;
     use crate::gf::*;
-    use crate::macros::*;
 
     extern crate alloc;
     use alloc::vec::Vec;

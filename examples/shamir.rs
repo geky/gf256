@@ -20,7 +20,7 @@
 use rand;
 use rand::Rng;
 use std::convert::TryFrom;
-use ::gf256::macros::gf;
+use ::gf256::gf;
 
 
 // We could use the default gf256 type available in the gf256 crate, but

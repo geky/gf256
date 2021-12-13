@@ -63,7 +63,7 @@ pub fn shamir(
             overrides.push(quote! {
                 // If not overridden, we need to create our own type in Barret mode here
                 // in order to ensure the finite-field operations are constant-time
-                #[#__crate::macros::gf(polynomial=0x11d, generator=0x02, barret)]
+                #[#__crate::gf::gf(polynomial=0x11d, generator=0x02, barret)]
                 type #__gf;
             })
         }
