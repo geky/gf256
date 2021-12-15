@@ -11,7 +11,7 @@
 //! ``` rust
 //! # use std::iter;
 //! use gf256::lfsr::Lfsr16;
-//! 
+//!
 //! let mut lfsr = Lfsr16::new(1);
 //! assert_eq!(lfsr.next(16), 0x0001);
 //! assert_eq!(lfsr.next(16), 0x002d);
@@ -67,7 +67,7 @@
 //! lfsr64_barret+9000-9000             => 0000000000000001000000000000001b00000000000001450000000000001db7
 //! lfsr64_table_barret+9000-9000       => 0000000000000001000000000000001b00000000000001450000000000001db7
 //! lfsr64_small_table_barret+9000-9000 => 0000000000000001000000000000001b00000000000001450000000000001db7
-//! 
+//!
 //! 2048 lfsr64 samples:
 //!                                           .      .                       .
 //!                  .     '  .    .  .'       .                             :
@@ -85,10 +85,10 @@
 //!                 '.         .     '  '' .      '    .  ': .'.             :
 //!                    '    .. .  '.'   .             '                      :
 //!     '         '    '.'.'  .    ''   :         .  .              '       ':
-//! 
+//!
 //!                                 :   :.     .
 //!     .  ...........:::...::::::.:::::::::.:::..:..::........... ..
-//! 
+//!
 //! 64513/131072 ones (49.22%), 0.27% compressability
 //! ```
 //!
@@ -99,7 +99,7 @@
 //!
 //! We can step through some states by hand to see what the output would be:
 //!
-//! ``` text                                                   
+//! ``` text
 //! output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
 //!          '-----------------------'-----'-----'------------'
 //! output      internal state
@@ -235,7 +235,7 @@
 //!
 //! We also know that every finite-field contains "primitive elements", which are
 //! numbers in the field whose multiplicative cycle contains every element of the
-//! field. 
+//! field.
 //!
 //! So what we want, is an irreducible polynomial, where 2 is a primitive element
 //! of the finite-field defined by said polynomial. If these conditions are met,
@@ -284,57 +284,121 @@
 //!
 //! ## Stepping backwards
 //!
-//! TODO actually run this backwards
-//!
 //! Fascinating to me was learning that you can actually run an LFSR _backwards_.
 //! All you need to do is invert the taps and shift in the other direction:
 //!
-//! ``` text                                                   
-//! output <-.- 1 <-- 1 <-- 0 <-- 0 <x- 1 <x- 1 <x- 0 <-- 0 <-.
-//!          '-----------------------'-----'-----'------------'
-//! output      internal state
-//!      1      1     0     0     0     0     1     0     1
-//!      1      0     0     0     1     0     1     1     1
-//!      0      0     0     1     0     1     1     1     0
-//!      0      0     1     0     1     1     1     0     0
-//!      0      1     0     1     1     1     0     0     0
-//!      1      0     1     1     0     1     1     0     1
-//!      0      1     1     0     1     1     0     1     0
-//!      1      1     0     1     0     1     0     0     1
-//!      ...
+//! ``` text
+//! assert_eq!(step(8), 0b11000101);
+//!         .-> 1 --> 0 --> 1 --> 0 -x> 1 -x> 0 -x> 0 --> 1 -.-> output
+//!         '------------------------'-----'-----'-----------'
+//!             internal state
+//!             1     1     0     1     1     0     1     0       1
+//!             0     1     1     0     1     1     0     1       0
+//!             1     0     1     1     1     0     0     0       1
+//!             0     1     0     1     1     1     0     0       0
+//!             0     0     1     0     1     1     1     0       0
+//!             0     0     0     1     0     1     1     1       0
+//!             1     0     0     0     0     1     0     1       1
+//!             1     1     0     0     1     1     0     0       1
+//!             ...
 //! ```
 //!
 //! This works perfectly fine with powers-of-two, allowing multiple bits to be
 //! stepped through at a time:
 //!
-//! TODO example
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let mut state: p32 = p32(0b10101001);
+//! let mut step = |n: u32| {
+//!     state = (state.reverse_bits() >> 32u32-8) * p32(2).pow(n);
+//!     let output = (state / (p32(0x11d).reverse_bits() >> 32u32-9))
+//!         .reverse_bits() >> 32u32-8;
+//!     state = (state % (p32(0x11d).reverse_bits() >> 32u32-9))
+//!         .reverse_bits() >> 32u32-8;
+//!     u32::from(output)
+//! };
+//! assert_eq!(step(8), 0b11000101);
+//! ```
 //!
 //! And is supported by the LFSR structs:
 //!
-//! TODO example
+//! ``` rust
+//! # pub use ::gf256::*;
+//! use ::gf256::lfsr::lfsr;
+//!
+//! #[lfsr(polynomial=0x11d)]
+//! struct Lfsr {}
+//!
+//! # fn main() {
+//! let mut lfsr = Lfsr::new(0b10101001);
+//! assert_eq!(lfsr.prev(8), 0b11000101);
+//! # }
+//! ```
 //!
 //! However, as far as I can tell, this doesn't generalize to non-power-of-two
 //! multiplicands, which is a real shame since it would provide a much more
 //! efficient division implementation for general Galois-fields.
-//! 
+//!
 //! ## Seeking
 //!
 //! Perhaps the most useful feature of modeling LFSRs as Galois-fields, is that we
 //! can step through multiple bits at a time. In fact, if we don't care about the
-//! output, we can skip to any position in the LFSR state by multiplying by a
-//! power-of-two, which we can find by exponentiation.
+//! output, we can skip to any position in the LFSR state by exponentiation.
 //!
-//! ``` text
-//! state' = state * 2^n
+//! If we use an efficient exponentation algorithm, such as [exponentiation by
+//! squaring][exp-by-squaring], we can seek to any position in the LFSR state with
+//! only `O(log log n)` multiplications:
 //!
-//! where n is the amount we want to skip, and all operation are performed in
-//! our finite-field
+//! ``` rust
+//! # use ::gf256::*;
+//! #
+//! let mut state: p32 = p32(0b11001100);
+//! let mut skip = |mut n: u32| {
+//!     // Binary exponentiation
+//!     let mut a = p32(2);
+//!     let mut g = p32(1);
+//!     loop {
+//!         if n & 1 != 0 {
+//!             g = (g * a) % p32(0x11d);
+//!         }
+//!
+//!         n >>= 1;
+//!         if n == 0 {
+//!             break;
+//!         }
+//!         a = (a * a) % p32(0x11d);
+//!     };
+//!
+//!     // Final multiplication
+//!     state = (state * g) % p32(0x11d);
+//! };
+//! skip(100);
+//!
+//! let mut step = |n: u32| {
+//!     state = state * p32(2).pow(n);
+//!     let output = state / p32(0x11d);
+//!     state = state % p32(0x11d);
+//!     u32::from(output)
+//! };
+//! assert_eq!(step(8), 0b10011111);
 //! ```
 //!
-//! This means we can seek to any position in the LFSR state with only `O(log log n)`
-//! operations.
+//! And with our LFSR structs:
 //!
-//! TODO example
+//! ``` rust
+//! # pub use ::gf256::*;
+//! use ::gf256::lfsr::lfsr;
+//!
+//! #[lfsr(polynomial=0x11d)]
+//! struct Lfsr {}
+//!
+//! # fn main() {
+//! let mut lfsr = Lfsr::new(0b11001100);
+//! lfsr.skip(100);
+//! assert_eq!(lfsr.next(8), 0b10011111);
+//! # }
+//! ```
 //!
 //! ## Optimizations
 //!
@@ -378,7 +442,7 @@
 //!
 //! See also [BENCHMARKS.md][benchmarks]
 //!
-//! ## The `Rng` trait 
+//! ## The `Rng` trait
 //!
 //! In addition to the above APIs, the LFSR structs in this module satisfy the
 //! [`RngCore`](rand::RngCore) and [`SeedableRng`](rand::SeedableRng) traits found
@@ -394,6 +458,7 @@
 //!
 //!
 //! [lfsr-wiki]: https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+//! [exp-by-squaring]: https://en.wikipedia.org/wiki/Exponentiation_by_squaring
 //! [barret-reduction]: https://en.wikipedia.org/wiki/Barrett_reduction
 //! [xorshift]: https://en.wikipedia.org/wiki/Xorshift
 //! [lfsr-example]:
