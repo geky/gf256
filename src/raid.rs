@@ -2,7 +2,7 @@
 //!
 //! [RAID][raid-wiki], short for a "Redundant Array of Independent Disks", is a
 //! set of schemes commonly found in storage systems, with the purpose of using
-//! an array of multiple disks to providing data redundancy and/or performance
+//! an array of multiple disks to provide data redundancy and/or performance
 //! improvements.
 //!
 //! The most interesting part for us is the higher-numbered RAID levels, which

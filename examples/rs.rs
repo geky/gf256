@@ -1,34 +1,19 @@
-//! Reed-Solomon error-correction codes using the Galois-field types
+//! Reed-Solomon error-correction codes (BCH-view), using our Galois-field types
 //!
-//! The main idea behind error-correct is to create a set of codewords,
-//! usually a message + extra redundant bits, where each codeword looks
-//! quite different from each other.
+//! Reed-Solomon error-correction is a scheme for creating error-correction
+//! codes (ECC) capable of detecting and correcting multiple byte-level errors.
+//! By adding `n` extra bytes to a message, Reed-Solomon is able to correct up
+//! to `n` byte-errors in known locations, called "erasures", and `n/2`
+//! byte-errors in unknown locations, called "errors".
 //!
-//! In the case of Reed-Solomon, codewords are choosen such that, when
-//! viewed as a polynomial, every codeword is a multiple of some
-//! polynomial G(x).
+//! Reed-Solomon accomplishes this by viewing the entire codeword (message + ecc)
+//! as a polynomial in `GF(256)`, and limiting valid codewords to polynomials
+//! that are a multiple of a special "generator polynomial" `G(x)`.
 //!
-//! Galois-fields come into play here as a method to represent our message,
-//! a sequence of bytes, as a polynomial in gf(256).
+//! More information on how Reed-Solomon error-correction codes work can be
+//! found in [`rs`'s module-level documentation][rs-mod].
 //!
-//! Note! This example may be a bit confusing for a couple reasons:
-//!
-//! 1. The math is complicated, with more names than equations, which to
-//!    be honest my understanding is rough.
-//!
-//! 2. We're dealing with two nested systems of polynomials. Reed-Solomon
-//!    is built on algebra of polynomials where the _coefficients_ are in
-//!    gf(256), which is usually also viewed as an algebra of polynomials.
-//!
-//!    Try to not worry about the representation of gf(256) here, treat it
-//!    a just a set of symbols closed over a conveniently byte-sized
-//!    finite-field.
-//!
-//! Based on description/implementation from:
-//! https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
-//! https://en.wikipedia.org/wiki/Forney_algorithm
-//! https://en.wikipedia.org/wiki/Reed–Solomon_error_correction
-//!
+//! rs-mod: https://docs.rs/gf256/latest/gf256/rs
 
 #![allow(non_snake_case)]
 #![allow(mixed_script_confusables)]

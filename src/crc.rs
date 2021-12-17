@@ -1,6 +1,6 @@
 //! ## CRC functions and macros
 //!
-//! A [Cyclic redundancy check (CRC)][crc-wiki], is a common checksum algorithm
+//! A [cyclic redundancy check (CRC)][crc-wiki], is a common checksum algorithm
 //! that is simple to implement in circuitry, and effective at detecting bit-level
 //! errors.
 //!

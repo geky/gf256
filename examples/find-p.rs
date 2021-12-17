@@ -15,10 +15,24 @@
 //! algorithms depend on a known generator in the field.
 //!
 //! For example, to find all irreducible polynomials and their minimum
-//! generators for GF(2^16):
+//! generators for GF(2^32) (recall that a 2^n finite-field requires an
+//! irreducible polynomial of width n+1):
 //!
-//! RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=17 -m=1
+//! ``` bash
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=33 -m=1
+//! polynomial=0x10000008d, generator=0x3
+//! polynomial=0x1000000af, generator=0x2
+//! polynomial=0x1000000c5, generator=0x2
+//! polynomial=0x1000000f5, generator=0x2
+//! polynomial=0x100000125, generator=0x2
+//! ...
+//! ```
 //!
+//! More information about irreducible polynomials, generators, and their
+//! use in constructing finite-fields can be found in [`gf`'s module-level
+//! documentation][gf-mod].
+//!
+//! gf-mod: https://docs.rs/gf256/latest/gf256/gf
 
 use std::iter;
 use std::process;

@@ -1,17 +1,18 @@
-//! 32-bit CRC implementations using the polynomial types
+//! 32-bit CRC implementations using our polynomial types
 //!
-//! CRC is defined as the polynomial remainder in gf(2) of
-//! the input over a constant primitive polynomial. The constant
-//! polynomial used in these examples is 0x104c11db7 (also written
-//! 0x04c11db7), which defines the common CRC32 32-bit CRC.
+//! A cyclic redundancy check (CRC), is a common checksum algorithm
+//! that is simple to implement in circuitry, and effective at detecting
+//! bit-level errors.
 //!
-//! Note that the common CRC32 32-bit CRC operates on polynomials
-//! in big-endian bit order, requiring that we bit-reverse the
-//! input and output to work without our polynomial types.
+//! Looking at CRCs mathematically, they are nothing more than the remainder
+//! after polynomial division by a constant, allowing for efficient
+//! implementations that leverage our polynomial types and hardware-accelerated
+//! carry-less multiplication.
 //!
-//! We also bit-invert the CRC before and after calculating the remainder
-//! to match CRC32, this is to prevent unchecked leading zeros.
+//! More information on how CRCs work can be found in [`crc`'s module-level
+//! documentation][crc-mod].
 //!
+//! [crc-mod]: https://docs.rs/gf256/latest/gf256/crc
 
 use std::iter;
 use std::convert::TryFrom;

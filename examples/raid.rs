@@ -1,55 +1,19 @@
-//! RAID 5 and RAID 6, aka single and dual parity blocks
+//! RAID-parity functions and macros, implemented using our Galois-field types
 //!
-//! RAID 5 and RAID 6, short for Redundant Arrays of Independent Disks,
-//! are schemes for uses redundant disks to store parity information
-//! capable of reconstructing any one (for RAID 5) or two (for RAID 6)
-//! failed disks.
+//! RAID, short for a "Redundant Array of Independent Disks", is a set of
+//! schemes commonly found in storage systems, with the purpose of using an
+//! array of multiple disks to provide data redundancy and/or performance
+//! improvements.
 //!
-//! These schemes be applied to anything organized by blocks, and "disk
-//! failure" can be determined by attaching a CRC or other checksum to each
-//! block.
+//! The most interesting part for us is the higher-numbered RAID-levels, which
+//! use extra disks to store parity information, capable of reconstructing any
+//! one (for RAID 5), two (for RAID 6), and even three (for RAID 7, though this
+//! name is not standardized) failed disks.
 //!
-//! RAID 5 uses a simple parity calculated by xoring all data blocks
-//! together, which is technically addition over gf256:
+//! More information on how RAID-parity works can be found in [`raid`'s
+//! module-level documentation][raid-mod].
 //!
-//!     p = d0 + d1 + d2 + ...
-//!
-//! We can find/repair any single block by reversing this formula:
-//!
-//!     d1 = p - (d0 + d2 + ...)
-//!
-//! RAID 6 adds an additional parity calculated by summing the data
-//! blocks multiplied at the byte-level by a primitive element, g, in
-//! gf256 raise to a unique power for each block:
-//!
-//!     q = d0*g^0 + d1*g^1 + d2*g^2 + ...
-//!
-//! One property that g has as a primitive element is that g^i forms a
-//! cycle, eventually iterating through every non-zero element of gf256.
-//! As a side-effect, RAID 6 is limited to 255 blocks of data.
-//!
-//! We now have two formulas that let us solve for any data block,
-//! allowing recover if both a data block and a parity block die:
-//!
-//!          q - (d0*g^0 + d2*g^2 + ...)
-//!     d1 = ---------------------------
-//!                    g^1
-//!
-//! With these two formulas we can also solve for any two data blocks:
-//!
-//!     d0     + d1     = p - (d2 + d3 + ...)
-//!     d0*g^0 + d1*g^1 = q - (d2*g^2 + d3*g^3 + ...)
-//!
-//!          (p - (d2 + d3 + ...))*g^1 + (q - (d2*g^2 + d3*g^3 + ...))
-//!     d0 = ---------------------------------------------------------
-//!                              g^0 + g^1
-//!
-//!     d1 = p - (d2 + d3 + ...) - d0
-//!
-//! Which ends up covering all cases for 2 block failures.
-//!
-//! TODO document triple parity?
-//!
+//! raid-mod: https://docs.rs/gf256/latest/gf256/raid
 
 use std::convert::TryFrom;
 use std::fmt;

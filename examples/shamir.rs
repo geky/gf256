@@ -1,21 +1,13 @@
-//! Shamir's secret sharing using the Galois-field types
+//! Shamir's secret-sharing scheme using our Galois-field types
 //!
-//! The main idea behind Shamir's secret sharing is to represent a secret
-//! as a point in an unknown polynomial, where each participant holds a
-//! different point on the polynomial. By adjusting the degree of the
-//! polynomial, you can change how many participant's points are required in
-//! order to find the original polynomial, and the original point.
+//! Shamir's secret-sharing scheme is an algorithm for splitting a secret into
+//! some number of shares `n`, such that you need at minimum some number of
+//! shares `k`, to reconstruct the original secret.
 //!
-//! To make this scheme usable with arbitrary bytes, we can represent the
-//! polynomial in a Galois-field using our gf256 type. This way all points
-//! in our polynomial "wrap around" the field, remaining representable in a
-//! byte.
+//! More information on how Shamir's secret-sharing scheme works can be found
+//! in [`shamir`'s module-level documentation][shamir-mod].
 //!
-//! We repeat this scheme for each byte in the data, finding a different
-//! polynomial for each byte. Each participant gets a share, prefixed with
-//! an arbitrary x-coordinate, with each following byte being the y-coordinate
-//! of that byte's polynomial
-//!
+//! shamir-mod: https://docs.rs/gf256/latest/gf256/shamir
 
 use rand;
 use rand::Rng;
