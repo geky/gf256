@@ -3,7 +3,7 @@ name = "gf256"
 description = "A Rust library containing Galois-field types and utilities"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
 repository = "https://github.com/geky/gf256"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 license = "BSD-3-Clause"
 
@@ -77,7 +77,7 @@ structopt = "0.3.25"
 flate2 = "1.0.22"
 
 [dependencies]
-gf256-macros = {path="gf256-macros", version="0.1.0"}
+gf256-macros = {path="gf256-macros", version="=0.2.0"}
 cfg-if = "1.0.0"
 rand = {version="0.8.3", default-features=false, optional=true}
 
