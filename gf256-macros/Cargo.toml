@@ -5,7 +5,7 @@ authors = ["Christopher Haster <chaster@utexas.edu>"]
 repository = "https://github.com/geky/gf256"
 version = "0.1.0"
 edition = "2018"
-license = "MIT"
+license = "BSD-3-Clause"
 
 [lib]
 proc-macro = true
