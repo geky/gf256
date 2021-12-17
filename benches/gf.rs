@@ -18,7 +18,7 @@ type gf256_table;
 type gf256_rem_table;
 #[gf(polynomial=0x11d, generator=0x02, small_rem_table)]
 type gf256_small_rem_table;
-#[gf(polynomial=0x11d, generator=0x02, rem_table)]
+#[gf(polynomial=0x11d, generator=0x02, barret)]
 type gf256_barret;
 
 #[gf(polynomial=0x13, generator=0x2, naive)]

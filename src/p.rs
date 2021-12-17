@@ -91,7 +91,7 @@
 //!
 //! ## Hardware support
 //!
-//! The polynomial types leverage [carry-less multiplication][clmul] instructions
+//! The polynomial types leverage [carry-less multiplication][xmul] instructions
 //! when available, otherwise falling back to a more expensive, branch-less naive
 //! implementation.
 //!
