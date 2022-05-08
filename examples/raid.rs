@@ -13,7 +13,7 @@
 //! More information on how RAID-parity works can be found in [`raid`'s
 //! module-level documentation][raid-mod].
 //!
-//! raid-mod: https://docs.rs/gf256/latest/gf256/raid
+//! [raid-mod]: https://docs.rs/gf256/latest/gf256/raid
 
 use std::convert::TryFrom;
 use std::fmt;

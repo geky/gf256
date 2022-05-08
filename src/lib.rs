@@ -41,6 +41,8 @@ pub mod rs;
 
 
 /// Re-exports for proc_macros
+///
+/// Don't use these!
 #[path="."]
 pub mod internal {
     pub mod xmul;
@@ -49,7 +51,7 @@ pub mod internal {
     pub use rand;
 }
 
-/// A flag indicating if hardware carry-less multiplication instructions
-/// are available
+/// A flag indicating if hardware carry-less multiplication
+/// instructions are available
 pub use internal::xmul::HAS_XMUL;
 

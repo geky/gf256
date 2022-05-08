@@ -1260,8 +1260,8 @@
 //! codewords.
 //!
 //! The most common scheme is 32 bytes of ECC with up to 223 bytes of message,
-//! provided by this crate as [`rs255w223`]. This was the scheme famously used
-//! on the [Voyager missions][voyager].
+//! provided by this crate as [`rs255w223`](rs255w223/index.html). This was the
+//! scheme famously used on the [Voyager missions][voyager].
 //!
 //! ## Further reading
 //!
@@ -1290,7 +1290,7 @@
 //! [rs-wikiversity]: https://en.wikiversity.org/wiki/Reed%E2%80%93Solomon_codes_for_coders
 //! [rs-gill]: https://web.archive.org/web/20140630172526/http://web.stanford.edu/class/ee387/handouts/notes7.pdf
 //! [rs-pfister]: http://pfister.ee.duke.edu/courses/ecen604/rsdecode.pdf
-//! [rs-example]:
+//! [rs-example]: https://github.com/geky/gf256/blob/master/examples/rs.rs
 
 
 // macro for creating Reed-Solomon error-correction implementations

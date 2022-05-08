@@ -187,7 +187,7 @@
 //! 
 //! gf256 comes with a set of polynomial types to perform these operations
 //! directly, and there is more info on these types [`p`'s module-level
-//! documentation](p):
+//! documentation](mod@p):
 //! 
 //! ``` rust
 //! # use ::gf256::*;
@@ -668,8 +668,8 @@
 //! [log-tables]: https://en.wikipedia.org/wiki/Finite_field_arithmetic#Generator_based_tables
 //! [barret-reduction]: https://en.wikipedia.org/wiki/Barrett_reduction
 //! [const-fn]: https://doc.rust-lang.org/reference/const_eval.html
-//! [find-p]:
-//! [benchmarks]:
+//! [find-p]: https://github.com/geky/gf256/blob/master/examples/find-p.rs
+//! [benchmarks]: https://github.com/geky/gf256/blob/master/BENCHMARKS.md
 
 
 // macro for creating Galois-field implementations

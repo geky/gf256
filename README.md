@@ -25,13 +25,13 @@ I also want to point out that the Rust examples in each module are completely
 functional and tested in CI thanks to Rust's [doctest runner][doctest-runner].
 Feel free to copy and tweak them to see what happens.
 
-- [p - Polynomial types](p)
-- [gf - Galois-field types](gf)
-- [lfsr - LFSR structs](lfsr)
-- [crc - CRC functions](crc)
-- [shamir - Shamir secret-sharing functions](shamir)
-- [raid - RAID-parity functions](raid)
-- [rs - Reed-Solomon error-correction functions](rs)
+- [p - Polynomial types][p]
+- [gf - Galois-field types][gf]
+- [lfsr - LFSR structs][lfsr]
+- [crc - CRC functions][crc]
+- [shamir - Shamir secret-sharing functions][shamir]
+- [raid - RAID-parity functions][raid]
+- [rs - Reed-Solomon error-correction functions][rs]
 
 ## Reed-Solomon error-correction using gf256
 
@@ -165,14 +165,14 @@ let b = gf256(u8::MAX) + gf256(1); // does not overflow  :)
 ```
 
 For more information on Galois-fields and how we construct them, see the
-relevant documentation in [`gf`'s module-level documentation](gf).
+relevant documentation in [`gf`'s module-level documentation][gf].
 
 ## Included in gf256
 
 gf256 contains a bit more than the Galois-field types. It also contains a
 number of other utilities that rely on the math around finite-fields:
 
-- [**Polynomial types**](p)
+- [**Polynomial types**][p]
 
   ``` rust
   use ::gf256::*;
@@ -183,7 +183,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(a*b, p32(0x05c58160));
   ```
 
-- [**Galois-field types**](gf)
+- [**Galois-field types**][gf]
 
   ``` rust
   use ::gf256::*;
@@ -194,7 +194,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(a*(b+c), a*b + a*c);
   ```
 
-- [**LFSR structs**](lfsr) (requires feature `lfsr`)
+- [**LFSR structs**][lfsr] (requires feature `lfsr`)
 
   ``` rust
   use gf256::lfsr::Lfsr16;
@@ -210,7 +210,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(lfsr.prev(16), 0x0001);
   ```
 
-- [**CRC functions**](crc) (requires feature `crc`)
+- [**CRC functions**][crc] (requires feature `crc`)
 
   ``` rust
   use gf256::crc::crc32c;
@@ -218,7 +218,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(crc32c(b"Hello World!", 0), 0xfe6cf1dc);
   ```
 
-- [**Shamir secret-sharing functions**](shamir) (requires features `shamir` and `thread-rng`)
+- [**Shamir secret-sharing functions**][shamir] (requires features `shamir` and `thread-rng`)
 
   ``` rust
   use gf256::shamir::shamir;
@@ -236,7 +236,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(shamir::reconstruct(&shares[..5]), b"secret secret secret!");
   ```
 
-- [**RAID-parity functions**](raid) (requires feature `raid`)
+- [**RAID-parity functions**][raid] (requires feature `raid`)
 
   ``` rust
   use gf256::raid::raid7;
@@ -258,7 +258,7 @@ number of other utilities that rely on the math around finite-fields:
   assert_eq!(&buf, b"Hello World!");
   ```
 
-- [**Reed-Solomon error-correction functions**](rs) (requires feature `rs`)
+- [**Reed-Solomon error-correction functions**][rs] (requires feature `rs`)
 
   ``` rust
   use gf256::rs::rs255w223;
@@ -512,6 +512,13 @@ make bench
 A full summary of the benchmark results can be found in [BENCHMARKS.md][benchmarks].
 
 
+[p]: https://docs.rs/gf256/latest/gf256/p
+[gf]: https://docs.rs/gf256/latest/gf256/gf
+[lfsr]: https://docs.rs/gf256/latest/gf256/lfsr
+[crc]: https://docs.rs/gf256/latest/gf256/crc
+[shamir]: https://docs.rs/gf256/latest/gf256/shamir
+[raid]: https://docs.rs/gf256/latest/gf256/raid
+[rs]: https://docs.rs/gf256/latest/gf256/rs
 [finite-field]: https://en.wikipedia.org/wiki/Finite_field
 [field-axioms]: https://en.wikipedia.org/wiki/Field_(mathematics)
 [proc-macros]: https://doc.rust-lang.org/reference/procedural-macros.html
@@ -525,5 +532,5 @@ A full summary of the benchmark results can be found in [BENCHMARKS.md][benchmar
 [test-runner]: https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html
 [doctest-runner]: https://doc.rust-lang.org/rustdoc/documentation-tests.html
 [criterion]: https://docs.rs/criterion/latest/criterion
-[benchmarks]:
+[benchmarks]: https://github.com/geky/gf256/blob/master/BENCHMARKS.md
 

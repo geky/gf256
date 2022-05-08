@@ -987,7 +987,7 @@
 //! [A051179]: https://oeis.org/A051179
 //! [leventhal-blog]: http://dtrace.org/blogs/ahl/2009/07/21/triple-parity-raid-z
 //! [plank]: http://web.eecs.utk.edu/~jplank/plank/papers/CS-03-504.pdf
-//! [raid-example]:
+//! [raid-example]: https://github.com/geky/gf256/blob/master/examples/raid.rs
 
 
 // macro for creating RAID-parity implementations

@@ -13,7 +13,7 @@
 //! More information on how Reed-Solomon error-correction codes work can be
 //! found in [`rs`'s module-level documentation][rs-mod].
 //!
-//! rs-mod: https://docs.rs/gf256/latest/gf256/rs
+//! [rs-mod]: https://docs.rs/gf256/latest/gf256/rs
 
 #![allow(non_snake_case)]
 #![allow(mixed_script_confusables)]

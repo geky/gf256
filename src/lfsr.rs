@@ -461,8 +461,8 @@
 //! [exp-by-squaring]: https://en.wikipedia.org/wiki/Exponentiation_by_squaring
 //! [barret-reduction]: https://en.wikipedia.org/wiki/Barrett_reduction
 //! [xorshift]: https://en.wikipedia.org/wiki/Xorshift
-//! [lfsr-example]:
-//! [benchmarks]:
+//! [lfsr-example]: https://github.com/geky/gf256/blob/master/examples/lfsr.rs
+//! [benchmarks]: https://github.com/geky/gf256/blob/master/BENCHMARKS.md
 
 
 // macro for creating LFSR implementations

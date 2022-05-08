@@ -304,7 +304,7 @@
 //! [xkcd-4]: https://xkcd.com/221/
 //! [lagrange-interpolation]: https://en.wikipedia.org/wiki/Lagrange_polynomial
 //! [one-time-pad]: https://en.wikipedia.org/wiki/One-time_pad
-//! [shamir-example]:
+//! [shamir-example]: https://github.com/geky/gf256/blob/master/examples/shamir.rs
 
 
 // macro for creating Shamir secret-sharing implementations

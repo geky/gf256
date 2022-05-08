@@ -32,7 +32,7 @@
 //! use in constructing finite-fields can be found in [`gf`'s module-level
 //! documentation][gf-mod].
 //!
-//! gf-mod: https://docs.rs/gf256/latest/gf256/gf
+//! [gf-mod]: https://docs.rs/gf256/latest/gf256/gf
 
 use std::iter;
 use std::process;

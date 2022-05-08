@@ -266,8 +266,9 @@
 //! error detection for a wider range of bit errors without any change to the
 //! underlying algorithm.
 //!
-//! But CRC32 is still in heavy use today, so gf256 provides both [`crc32`] and
-//! [`crc32c`]. It's suggested to use [`crc32c`] for new applications.
+//! But CRC32 is still in heavy use today, so gf256 provides both [`crc32`](fn.crc32.html)
+//! and [`crc32c`](fn.crc32c.html). It's suggested to use [`crc32c`](fn.crc32c.html)
+//! for new applications.
 //!
 //!
 //! [crc-wiki]: https://en.wikipedia.org/wiki/Cyclic_redundancy_check
@@ -276,7 +277,7 @@
 //! [hamming-distance]: https://en.wikipedia.org/wiki/Hamming_distance
 //! [koopman]: http://users.ece.cmu.edu/~koopman/roses/dsn04/koopman04_crc_poly_embedded.pdf
 //! [crc-polynomials]: https://users.ece.cmu.edu/~koopman/crc
-//! [crc-example]:
+//! [crc-example]: https://github.com/geky/gf256/blob/master/examples/crc.rs
 
 
 // macro for creating CRC implementations

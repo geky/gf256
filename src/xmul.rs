@@ -3,7 +3,7 @@
 //! These are declared here in order to be able to leverage unstable
 //! features on nightly (if the feature nightly-features is provided).
 //! Most of gf256 is provided as proc_macros, and those can't use unstable
-//! features unless the feature is enabled with #[feature!] at the crate
+//! features unless the feature is enabled with `#[feature!]` at the crate
 //! level.
 //!
 //! These functions are intended to only be used by gf256's proc_macros,
@@ -14,7 +14,8 @@
 use cfg_if::cfg_if;
 
 
-/// True if carry-less multiplication instructions are available
+/// A flag indicating if hardware carry-less multiplication
+/// instructions are available.
 ///
 /// If this is false, any carry-less multiplication operations
 /// will use a more expensive bitwise implementation.

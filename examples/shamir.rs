@@ -7,7 +7,7 @@
 //! More information on how Shamir's secret-sharing scheme works can be found
 //! in [`shamir`'s module-level documentation][shamir-mod].
 //!
-//! shamir-mod: https://docs.rs/gf256/latest/gf256/shamir
+//! [shamir-mod]: https://docs.rs/gf256/latest/gf256/shamir
 
 use rand;
 use rand::Rng;
