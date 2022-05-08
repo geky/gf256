@@ -511,7 +511,7 @@
 //! bit-width. Note you need a 5-bit irreducible polynomial for a 4-bit field:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=5 -m=1
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --release --example find-p -- --width=5 -m=1
 //! polynomial=0x13, generator=0x2
 //! polynomial=0x19, generator=0x2
 //! polynomial=0x1f, generator=0x3
@@ -521,7 +521,7 @@
 //! their generators up to 65-bits:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=65 -m=1 -n=1
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo --release --example find-p -- --width=65 -m=1 -n=1
 //! polynomial=0x1000000000000001b, generator=0x2
 //! ```
 //!

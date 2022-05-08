@@ -96,8 +96,7 @@
 //! implementation.
 //!
 //! Note that at the time of writing, aarch64 [`pmull`][pmull] support is only
-//! available on a [nightly][nightly] compiler, and requires gf256's `nightly`
-//! feature to be enabled ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
+//! available on a [nightly][nightly] compiler.
 //!
 //! gf256 also exposes the flag [`HAS_XMUL`], which can be used to choose
 //! algorithms based on whether or not hardware accelerated carry-less

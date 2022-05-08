@@ -27,7 +27,7 @@
 //! [`examples/shamir.rs`][shamir-example]:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example shamir
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --features thread-rng,lfsr,crc,shamir,raid,rs --example shamir
 //!
 //! testing shamir("Hello World!")
 //! generate share1 => .....uT4.z.O.  019ddb829d755434f77ae84ffd

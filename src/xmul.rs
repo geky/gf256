@@ -34,7 +34,6 @@ pub const HAS_XMUL: bool = {
             ),
             all(
                 not(feature="no-xmul"),
-                feature="nightly",
                 target_arch="aarch64",
                 target_feature="neon"
             )
@@ -59,7 +58,6 @@ pub const HAS_XMUL: bool = {
     ),
     all(
         not(feature="no-xmul"),
-        feature="nightly",
         target_arch="aarch64",
         target_feature="neon"
     )
@@ -83,7 +81,6 @@ pub fn xmul8(a: u8, b: u8) -> (u8, u8) {
             }
         } else if #[cfg(all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         ))] {
@@ -109,7 +106,6 @@ pub fn xmul8(a: u8, b: u8) -> (u8, u8) {
     ),
     all(
         not(feature="no-xmul"),
-        feature="nightly",
         target_arch="aarch64",
         target_feature="neon"
     )
@@ -133,7 +129,6 @@ pub fn xmul16(a: u16, b: u16) -> (u16, u16) {
             }
         } else if #[cfg(all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         ))] {
@@ -159,7 +154,6 @@ pub fn xmul16(a: u16, b: u16) -> (u16, u16) {
     ),
     all(
         not(feature="no-xmul"),
-        feature="nightly",
         target_arch="aarch64",
         target_feature="neon"
     )
@@ -183,7 +177,6 @@ pub fn xmul32(a: u32, b: u32) -> (u32, u32) {
             }
         } else if #[cfg(all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         ))] {
@@ -209,7 +202,6 @@ pub fn xmul32(a: u32, b: u32) -> (u32, u32) {
     ),
     all(
         not(feature="no-xmul"),
-        feature="nightly",
         target_arch="aarch64",
         target_feature="neon"
     )
@@ -234,7 +226,6 @@ pub fn xmul64(a: u64, b: u64) -> (u64, u64) {
             }
         } else if #[cfg(all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         ))] {
@@ -260,7 +251,6 @@ pub fn xmul64(a: u64, b: u64) -> (u64, u64) {
     ),
     all(
         not(feature="no-xmul"),
-        feature="nightly",
         target_arch="aarch64",
         target_feature="neon"
     )
@@ -296,7 +286,6 @@ pub fn xmul128(a: u128, b: u128) -> (u128, u128) {
             }
         } else if #[cfg(all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         ))] {
@@ -327,7 +316,6 @@ mod test {
         ),
         all(
             not(feature="no-xmul"),
-            feature="nightly",
             target_arch="aarch64",
             target_feature="neon"
         )

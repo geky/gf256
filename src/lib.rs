@@ -1,12 +1,6 @@
 #![doc=include_str!("../README.md")]
 
 
-// Enable stdsimd for pmull on aarch64
-#![cfg_attr(
-    all(not(feature="no-xmul"), feature="nightly", target_arch="aarch64"),
-    feature(stdsimd)
-)]
-
 // We don't really need std
 #![no_std]
 

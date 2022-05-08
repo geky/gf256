@@ -21,7 +21,7 @@
 //! [`examples/crc.rs`][crc-example]:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example crc
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --features thread-rng,lfsr,crc,shamir,raid,rs --example crc
 //!
 //! testing crc("Hello World!")
 //! naive_crc                => 0x1c291ca3

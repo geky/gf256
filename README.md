@@ -151,7 +151,7 @@ assert_ne!(a + a, gf256(2)*a);
 Finite-fields can be very useful for applying high-level math onto machine
 words, since machine words (`u8`, `u16`, `u32`, etc) are inherently finite.
 Normally we just ignore this until an integer overflow occurs and then we just
-waive our hands around wailing that math has failed us.
+wave our hands around wailing that math has failed us.
 
 In Rust this has the fun side-effect that the Galois-field types are incapable
 of overflowing, so Galois-field types don't need the set of overflowing
@@ -331,8 +331,6 @@ Carry-less multiplication:
 
 gf256 takes advantage of these instructions when possible. However, at the time
 of writing, `pmull` support in Rust is only available on [nightly][nightly].
-To take advantage of `pmull` on aarch64 you will need to use a nightly compiler
-and enable gf256's `nightly` feature ([tracking issue](https://github.com/rust-lang/rust/issues/48556)).
 
 ``` rust
 # use ::gf256::*;
@@ -358,7 +356,7 @@ let b = if gf256::HAS_XMUL {
 };
 ```
 
-gf256 also leverages the hardware accelrated [carry-less addition][xor]
+gf256 also leverages the hardware accelerated [carry-less addition][xor]
 instructions, sometimes called polynomial addition, or simply xor. But this
 is much less notable.
 
@@ -445,10 +443,6 @@ evaluated before use, and you use this library at your own risk.
 
 ## Features
 
-- `nightly` - Enable features only found on a nightly compiler
-
-  This is required to leverage `pmull` on aarch64 ([tracking issue](https://github.com/rust-lang/rust/issues/48556))
-
 - `no-xmul` - Disables carry-less multiplication instructions, forcing the use
   of naive bitwise implementations
 
@@ -459,7 +453,7 @@ evaluated before use, and you use this library at your own risk.
 
   This may be useful on memory constrained devices
 
-- `small-tables` - Limits lookup tables to "small tables", tables with <16
+- `small-tables` - Limits lookup tables to "small tables", tables with <=16
   elements
 
   This provides a compromise between full 256-byte tables and no-tables,

@@ -33,7 +33,7 @@
 //! [`examples/rs.rs`][rs-example]:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example rs
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --features thread-rng,lfsr,crc,shamir,raid,rs --example rs
 //!
 //! testing rs("Hello World!")
 //! dimension = (255,223), 16 errors, 32 erasures

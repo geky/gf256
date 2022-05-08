@@ -44,7 +44,7 @@
 //! [`examples/raid.rs`][raid-example]:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example raid
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --features thread-rng,lfsr,crc,shamir,raid,rs --example raid
 //!
 //! testing raid5("Hello World?")
 //! format  => Hello World?U)_<  48656c6c6f20576f726c643f55295f3c

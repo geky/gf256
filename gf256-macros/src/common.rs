@@ -36,7 +36,6 @@ pub(crate) fn xmul_predicate() -> TokenStream {
                     target_feature="pclmulqdq"
                 ),
                 all(
-                    feature="nightly",
                     target_arch="aarch64",
                     target_feature="neon"
                 )

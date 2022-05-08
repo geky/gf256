@@ -2,59 +2,58 @@
 override RUSTFLAGS += -Ctarget-cpu=native
 
 # this indirection is so commands with env are easily copied on the terminal
-override ENV += RUSTFLAGS="$(RUSTFLAGS)"
+CARGO ?= RUSTFLAGS="$(RUSTFLAGS)" cargo +nightly
 
 .PHONY: all build
 all build:
-	$(ENV) cargo +nightly build --features nightly,thread-rng,lfsr,crc,shamir,raid,rs
+	$(CARGO) build --features thread-rng,lfsr,crc,shamir,raid,rs
 
 .PHONY: test
 test:
-	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1 -q
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example crc
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example shamir
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example raid
-	$(ENV) cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example rs
+	$(CARGO) test --features thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(CARGO) test --features thread-rng,lfsr,crc,shamir,raid,rs --example find-p
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example find-p -- -w9 -n4 -m1 -q
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example crc
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example shamir
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example raid
+	$(CARGO) run --features thread-rng,lfsr,crc,shamir,raid,rs --example rs
 
 .PHONY: test-configs
 test-configs:
-	$(ENV) cargo test --lib
-	$(ENV) cargo test --features thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo test --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo test --features no-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo test --features small-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
-	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(CARGO) test --lib
+	$(CARGO) test --features thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(CARGO) test --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(CARGO) test --features no-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
+	$(CARGO) test --features small-tables,thread-rng,lfsr,crc,shamir,raid,rs --lib
 
 .PHONY: docs
 docs:
-	$(ENV) cargo +nightly doc --no-deps --features nightly,thread-rng,lfsr,crc,shamir,raid,rs
-	$(ENV) cargo +nightly test --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --doc
+	$(CARGO) doc --no-deps --features thread-rng,lfsr,crc,shamir,raid,rs
+	$(CARGO) test --features thread-rng,lfsr,crc,shamir,raid,rs --doc
 
 .PHONY: bench
 bench:
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench xmul   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench gf     -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench find-p -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench lfsr   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench crc    -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench shamir -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench raid   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --bench rs     -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench xmul   -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench gf     -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench find-p -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench lfsr   -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench crc    -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench shamir -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench raid   -- --noplot
+	$(CARGO) bench --features thread-rng,lfsr,crc,shamir,raid,rs --bench rs     -- --noplot
 
 .PHONY: bench-no-xmul
 bench-no-xmul:
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench xmul   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench gf     -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench find-p -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench lfsr   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench crc    -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench shamir -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench raid   -- --noplot
-	$(ENV) cargo +nightly bench --features nightly,no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench rs     -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench xmul   -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench gf     -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench find-p -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench lfsr   -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench crc    -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench shamir -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench raid   -- --noplot
+	$(CARGO) bench --features no-xmul,thread-rng,lfsr,crc,shamir,raid,rs --bench rs     -- --noplot
 
 .PHONY: clean
 clean:
-	$(ENV) cargo clean
+	$(CARGO) clean

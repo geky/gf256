@@ -4,17 +4,10 @@ description = "A Rust library containing Galois-field types and utilities"
 authors = ["Christopher Haster <chaster@utexas.edu>"]
 repository = "https://github.com/geky/gf256"
 version = "0.2.0"
-edition = "2018"
+edition = "2021"
 license = "BSD-3-Clause"
 
 [features]
-# Enables features only found on a nightly compiler
-#
-# This is required to leverage pmull on aarch64, tracking issue:
-# https://github.com/rust-lang/rust/issues/48556
-#
-nightly = []
-
 # Disable carry-less multiplication instructions, forcing the use
 # of naive bitwise implementations
 #

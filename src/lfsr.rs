@@ -29,7 +29,7 @@
 //! [`examples/lfsr.rs`][lfsr-example]:
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --features nightly,thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo run --features thread-rng,lfsr,crc,shamir,raid,rs --example lfsr
 //!
 //! testing lfsr64
 //! lfsr64_naive                        => 0000000000000001000000000000001b00000000000001450000000000001db7
