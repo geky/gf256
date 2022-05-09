@@ -288,7 +288,6 @@
 //! All you need to do is invert the taps and shift in the other direction:
 //!
 //! ``` text
-//! assert_eq!(step(8), 0b11000101);
 //!         .-> 1 --> 0 --> 1 --> 0 -x> 1 -x> 0 -x> 0 --> 1 -.-> output
 //!         '------------------------'-----'-----'-----------'
 //!             internal state
@@ -465,7 +464,98 @@
 //! [benchmarks]: https://github.com/geky/gf256/blob/master/BENCHMARKS.md
 
 
-// macro for creating LFSR implementations
+/// A macro for generating custom LFSR structs.
+///
+/// ``` rust
+/// # use ::gf256::*;
+/// # use ::gf256::lfsr::lfsr;
+/// #[lfsr(polynomial=0x1002d)]
+/// pub struct MyLfsr16 {}
+///
+/// # fn main() {
+/// let mut lfsr = MyLfsr16::new(1);
+/// assert_eq!(lfsr.next(16), 0x0001);
+/// assert_eq!(lfsr.next(16), 0x002d);
+/// assert_eq!(lfsr.next(16), 0x0451);
+/// assert_eq!(lfsr.next(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0x0451);
+/// assert_eq!(lfsr.prev(16), 0x002d);
+/// assert_eq!(lfsr.prev(16), 0x0001);
+/// # }
+/// ```
+///
+/// The `lfsr` macro accepts a number of configuration options:
+///
+/// - `polynomial` - The irreducible polynomial that defines the LFSR.
+/// - `u` - The underlying unsigned type, defaults to the minimum sized
+///   unsigned type that fits the LFSR state space.
+/// - `u2` - An unsigned type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `u`.
+/// - `nzu` - The non-zero unsigned type, used to store the LFSR state with
+///   niches, defaults to the non-zero unsigned version of `u`.
+/// - `nzu2` - A non-zero unsigned type with twice the width, used as an
+///   intermediary type for computations, defaults to the correct type based
+///   on `nzu`.
+/// - `p` - The polynomial type used for computation, defaults to the
+///   polynomial version of `u`.
+/// - `p2` - A polynomial type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `p`.
+/// - `reflected` - Indicate if the LFSR should have its bits reversed,
+///   defaults to false.
+/// - `naive` - Use a naive bitwise implementation.
+/// - `table` - Use precomputed quotient and remainder tables. This is the default.
+/// - `small_table` - Use small, 16-element division and remainder tables.
+/// - `barret` - Use Barret-reduction with polynomial multiplication.
+/// - `table_barret` - Use Barret-reduction for the remainder, and a
+///   precomputed division table for the quotient.
+/// - `small_table_barret` - Use Barret-reduction for the remainder, and a small,
+///   16-element division table for the quotient.
+/// - `naive_skip` - Use a naive bitwise implementation to calculate skips.
+/// - `table_skip` - Use a precomputed remainder table to calculate skips.
+/// - `small_table_skip` - Use a small, 16-element remainder table to calculate skips.
+/// - `barret_skip` - Use Barret-reduction with polynomial multiplication to
+///   calculate skips. This is the default.
+///
+/// ``` rust
+/// # use ::gf256::*;
+/// # use ::gf256::lfsr::lfsr;
+/// # use std::num::*;
+/// #[lfsr(
+///     polynomial=0x1002d,
+///     u=u16,
+///     u2=u32,
+///     nzu=NonZeroU16,
+///     nzu2=NonZeroU32,
+///     p=p16,
+///     p2=p32,
+///     reflected=false,
+///     // naive,
+///     // table,
+///     // small_table,
+///     // barret,
+///     // table_barret,
+///     // small_table_barret,
+///     // naive_skip,
+///     // table_skip,
+///     // small_table_skip,
+///     // barret_skip,
+/// )]
+/// pub struct MyLfsr16 {}
+///
+/// # fn main() {
+/// let mut lfsr = MyLfsr16::new(1);
+/// assert_eq!(lfsr.next(16), 0x0001);
+/// assert_eq!(lfsr.next(16), 0x002d);
+/// assert_eq!(lfsr.next(16), 0x0451);
+/// assert_eq!(lfsr.next(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0x0451);
+/// assert_eq!(lfsr.prev(16), 0x002d);
+/// assert_eq!(lfsr.prev(16), 0x0001);
+/// # }
+/// ```
+///
 pub use gf256_macros::lfsr;
 
 

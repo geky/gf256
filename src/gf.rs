@@ -672,23 +672,87 @@
 //! [benchmarks]: https://github.com/geky/gf256/blob/master/BENCHMARKS.md
 
 
-// macro for creating Galois-field implementations
+/// A macro for generating custom Galois-field types.
+///
+/// ``` rust
+/// # use ::gf256::*;
+/// # use ::gf256::gf::gf;
+/// #[gf(polynomial=0x11d, generator=0x2)]
+/// pub type my_gf256;
+///
+/// # fn main() {
+/// let a = my_gf256(0xfd);
+/// let b = my_gf256(0xfe);
+/// let c = my_gf256(0xff);
+/// assert_eq!(a*(b+c), a*b + a*c);
+/// # }
+/// ```
+///
+/// The `gf` macro accepts a number of configuration options:
+///
+/// - `polynomial` - The irreducible polynomial that defines the field.
+/// - `generator` - A generator, aka primitive element, of the field.
+/// - `usize` - Indicate if the width is dependent on the usize width,
+///   defaults to true if the `u` type is `usize`.
+/// - `u` - The underlying unsigned type, defaults to the minimum sized unsigned
+///   type that fits the field.
+/// - `u2` - An unsigned type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `u`.
+/// - `p` - The polynomial type used for computation, defaults to the
+///   polynomial version of `u`.
+/// - `p2` - A polynomial type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `p`.
+/// - `naive` - Use a naive bitwise implementation.
+/// - `table` - Use precomputed log and anti-log tables. This is the default for
+///   types <= 8-bits.
+/// - `rem_table` - Use a precomputed remainder table.
+/// - `small_rem_table` - Use a small, 16-element remainder table.
+/// - `barret` - Use Barret-reduction with polynomial multiplication. This is the
+///   default for types > 8-bits.
+///
+/// ``` rust
+/// # use ::gf256::*;
+/// # use ::gf256::gf::gf;
+/// #[gf(
+///     polynomial=0x11d,
+///     generator=0x2,
+///     usize=false,
+///     u=u8,
+///     u2=u16,
+///     p=p8,
+///     p2=p16,
+///     // naive,
+///     // table,
+///     // rem_table,
+///     // small_rem_table,
+///     // barret,
+/// )]
+/// type my_gf256;
+///
+/// # fn main() {
+/// let a = my_gf256(0xfd);
+/// let b = my_gf256(0xfe);
+/// let c = my_gf256(0xff);
+/// assert_eq!(a*(b+c), a*b + a*c);
+/// # }
+/// ```
+///
 pub use gf256_macros::gf;
 
 
-/// An 8-bit binary-extension finite-field
+// An 8-bit binary-extension finite-field
 #[gf(polynomial=0x11d, generator=0x2)]
 pub type gf256;
 
-/// A 16-bit binary-extension finite-field
+// A 16-bit binary-extension finite-field
 #[gf(polynomial=0x1002d, generator=0x2)]
 pub type gf2p16;
 
-/// A 32-bit binary-extension finite-field
+// A 32-bit binary-extension finite-field
 #[gf(polynomial=0x1000000af, generator=0x2)]
 pub type gf2p32;
 
-/// A 64-bit binary-extension finite-field
+// A 64-bit binary-extension finite-field
 #[gf(polynomial=0x1000000000000001b, generator=0x2)]
 pub type gf2p64;
 

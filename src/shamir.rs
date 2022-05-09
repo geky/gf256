@@ -307,7 +307,66 @@
 //! [shamir-example]: https://github.com/geky/gf256/blob/master/examples/shamir.rs
 
 
-// macro for creating Shamir secret-sharing implementations
+/// A macro for generating custom Shamir secret-sharing modules.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::shamir::shamir;
+/// #[shamir]
+/// pub mod my_shamir {}
+///
+/// # fn main() {
+/// // generate shares                                                      
+/// let shares = my_shamir::generate(b"secret secret secret!", 5, 4);          
+///                                                                         
+/// // <4 can't reconstruct secret                                          
+/// assert_ne!(my_shamir::reconstruct(&shares[..1]), b"secret secret secret!");
+/// assert_ne!(my_shamir::reconstruct(&shares[..2]), b"secret secret secret!");
+/// assert_ne!(my_shamir::reconstruct(&shares[..3]), b"secret secret secret!");
+///                                                                         
+/// // >=4 can reconstruct secret                                           
+/// assert_eq!(my_shamir::reconstruct(&shares[..4]), b"secret secret secret!");
+/// assert_eq!(my_shamir::reconstruct(&shares[..5]), b"secret secret secret!");
+/// # }
+/// ```
+///
+/// The `shamir` macro accepts a number of configuration options:
+///
+/// - `gf` - The finite-field we are implemented over, defaults to
+///   [`gf256`](crate::gf256) in Barret mode.
+/// - `u` - The unsigned type to operate on, defaults to [`u8`].
+/// - `rng` - The random-number generator to use for generating shares, defaults
+///   to [`ThreadRng`][thread-rng].
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::shamir::shamir;
+/// use rand::rngs::ThreadRng;
+///
+/// #[shamir(
+///     gf=gf256,
+///     u=u8,
+///     rng=ThreadRng::default(),
+/// )]
+/// pub mod my_shamir {}
+///
+/// # fn main() {
+/// // generate shares                                                      
+/// let shares = my_shamir::generate(b"secret secret secret!", 5, 4);          
+///                                                                         
+/// // <4 can't reconstruct secret                                          
+/// assert_ne!(my_shamir::reconstruct(&shares[..1]), b"secret secret secret!");
+/// assert_ne!(my_shamir::reconstruct(&shares[..2]), b"secret secret secret!");
+/// assert_ne!(my_shamir::reconstruct(&shares[..3]), b"secret secret secret!");
+///                                                                         
+/// // >=4 can reconstruct secret                                           
+/// assert_eq!(my_shamir::reconstruct(&shares[..4]), b"secret secret secret!");
+/// assert_eq!(my_shamir::reconstruct(&shares[..5]), b"secret secret secret!");
+/// # }
+/// ```
+///
+/// [thread-rng]: https://docs.rs/rand/latest/rand/rngs/struct.ThreadRng.html
+///
 pub use gf256_macros::shamir;
 
 

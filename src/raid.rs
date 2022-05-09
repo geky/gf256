@@ -12,7 +12,7 @@
 //!
 //! ``` rust
 //! use gf256::raid::raid7;
-//! 
+//!
 //! // format
 //! let mut buf = b"Hello World!".to_vec();
 //! let mut parity1 = vec![0u8; 4];
@@ -20,10 +20,10 @@
 //! let mut parity3 = vec![0u8; 4];
 //! let slices = buf.chunks(4).collect::<Vec<_>>();
 //! raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
-//! 
+//!
 //! // corrupt
 //! buf[0..8].fill(b'x');
-//! 
+//!
 //! // repair
 //! let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
 //! raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
@@ -51,7 +51,7 @@
 //! update  => Hello World!U)_"  48656c6c6f20576f726c642155295f22
 //! corrupt => Hellxxxxrld!U)_"  48656c6c78787878726c642155295f22
 //! repair  => Hello World!U)_"  48656c6c6f20576f726c642155295f22
-//! 
+//!
 //! testing raid6("Hello World?")
 //! format  => Hello World?U)_<C.ON  48656c6c6f20576f726c643f55295f3c43884f4e
 //! update  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
@@ -59,7 +59,7 @@
 //! repair  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
 //! corrupt => HellxxxxxxxxU)_"C.O6  48656c6c787878787878787855295f2243884f36
 //! repair  => Hello World!U)_"C.O6  48656c6c6f20576f726c642155295f2243884f36
-//! 
+//!
 //! testing raid7("Hello World?")
 //! format  => Hello World?U)_<C.ON.k#.  48656c6c6f20576f726c643f55295f3c43884f4e9a6b231a
 //! update  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
@@ -69,9 +69,9 @@
 //! repair  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
 //! corrupt => Hello WoxxxxU)_"xxxxxxxx  48656c6c6f20576f7878787855295f227878787878787878
 //! repair  => Hello World!U)_"C.O6.k#.  48656c6c6f20576f726c642155295f2243884f369a6b23e7
-//! 
+//!
 //! block corrupted image (errors = 3/7, 42.86%):
-//! 
+//!
 //!                     ::::::::::::::::::::::::::::::::    .:::....:::.....'   ''''    ..:.': .:'..'  .::::::::::::::::
 //!                    .::::::::::::::::::::::::::::::::    ::::::::::::   '.          . :: ': .' . ' ..::::::::::::::::
 //!                  .::::::::::::::::::::::::::::::::::    ::::::::::'     ::.      .'  :. . ::' .  :::::::::::::::::::
@@ -89,9 +89,9 @@
 //!     '::::::::'''    ::::::::::::::::::::::::::::::::                '::''    ...::::' ::   ' :'.:. :::::::::::::::::
 //!                     ::::::::::::::::::::::::::::::::                '''':::::::::::''''::. ::. ::.':::::::::::::::::
 //!     ':..:. ..:' ':. ::::::::::::::::::::::::::::::::.'. . ': ': :: :  ': :. :::' ::.  ' :'.' :. '':.::::::::::::::::
-//! 
+//!
 //! corrected:
-//! 
+//!
 //!                       ..:::::::::::...                  .:::....:::.....'   ''''    ..:.': .:'..'  .::.. .':  :...:.
 //!                    .:::::::::::::::::::..               ::::::::::::   '.          . :: ': .' . ' ...      .:...:..
 //!                  .::::::::::::::::::::::::.             ::::::::::'     ::.      .'  :. . ::' .  :::.'  :' ':... :::
@@ -192,7 +192,7 @@
 //!         i!=x
 //! ```
 //!
-//! And since subtraction is also xor in a finite-field, this is the equivalent 
+//! And since subtraction is also xor in a finite-field, this is the equivalent
 //! to xoring the parity block and data blocks together.
 //!
 //! ---
@@ -262,7 +262,7 @@
 //! ``` text
 //! dx + dy = p - Σ di
 //!             i!=x,y
-//! 
+//!
 //! dy = p - Σ di - dx
 //!        i!=x,y
 //! ```
@@ -423,9 +423,9 @@
 //! ``` text
 //! p = Σ di*g^0i  =>  dx*g^0x + dy*g^0y = p - Σ di*g^0i
 //!     i                                    i!=x,y
-//!                    
+//!
 //! q = Σ di*g^1i  =>  dx*g^1x + dy*g^1y = q - Σ di*g^1i
-//!     i                                    i!=x,y    
+//!     i                                    i!=x,y
 //! ```
 //!
 //! Which raises an interesting question, can we keep going?
@@ -433,10 +433,10 @@
 //! ``` text
 //! p = Σ di*g^0i  =>  dx*g^0x + dy*g^0y + dz*g^0z + dw*g^0w + ... = p - Σ di*g^0i
 //!     i                                                            i!=x,y,z,w,...
-//!                
+//!
 //! q = Σ di*g^1i  =>  dx*g^1x + dy*g^1y + dz*g^1z + dw*g^1w + ... = q - Σ di*g^1i
 //!     i                                                            i!=x,y,z,w,...
-//!                    
+//!
 //! r = Σ di*g^2i  =>  dx*g^2x + dy*g^2y + dz*g^2z + dw*g^2w + ... = r - Σ di*g^2i
 //!     i                                                            i!=x,y,z,w,...
 //!
@@ -455,9 +455,9 @@
 //! ``` text
 //! dx*g^(j*x) + dy*g^(j*y) = q - Σ di*g^(j*i)
 //!                             i!=x,y
-//! 
+//!
 //! dx*g^(k*x) + dy*g^(k*y) = r - Σ di*g^(k*i)
-//!                             i!=x,y    
+//!                             i!=x,y
 //! ```
 //!
 //! We can solve a system of linear equations if they are "[linearly independent
@@ -990,7 +990,71 @@
 //! [raid-example]: https://github.com/geky/gf256/blob/master/examples/raid.rs
 
 
-// macro for creating RAID-parity implementations
+/// A macro for generating custom RAID-parity modules.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::raid::raid;
+/// #[raid(parity=3)]
+/// pub mod my_raid7 {}
+///
+/// # fn main() {
+/// // format
+/// let mut buf = b"Hello World!".to_vec();
+/// let mut parity1 = vec![0u8; 4];
+/// let mut parity2 = vec![0u8; 4];
+/// let mut parity3 = vec![0u8; 4];
+/// let slices = buf.chunks(4).collect::<Vec<_>>();
+/// my_raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
+///
+/// // corrupt
+/// buf[0..8].fill(b'x');
+///
+/// // repair
+/// let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
+/// my_raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
+/// assert_eq!(&buf, b"Hello World!");
+/// # }
+/// ```
+///
+/// The `raid` macro accepts a number of configuration options:
+///
+/// - `parity` - The number of parity blocks to use for redundancy.
+/// - `gf` - The finite-field we are implemented over, defaults to
+///   [`gf256`](crate::gf256).
+/// - `u` - The unsigned type to operate on, defaults to [`u8`].
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::raid::raid;
+/// use rand::rngs::ThreadRng;
+///
+/// #[raid(
+///     parity=3,
+///     gf=gf256,
+///     u=u8,
+/// )]
+/// pub mod my_raid {}
+///
+/// # fn main() {
+/// // format
+/// let mut buf = b"Hello World!".to_vec();
+/// let mut parity1 = vec![0u8; 4];
+/// let mut parity2 = vec![0u8; 4];
+/// let mut parity3 = vec![0u8; 4];
+/// let slices = buf.chunks(4).collect::<Vec<_>>();
+/// my_raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
+///
+/// // corrupt
+/// buf[0..8].fill(b'x');
+///
+/// // repair
+/// let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
+/// my_raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
+/// assert_eq!(&buf, b"Hello World!");
+/// # }
+/// ```
+///
 pub use gf256_macros::raid;
 
 
@@ -1068,7 +1132,7 @@ mod test {
             blocks[i].fill(b'x');
             // repair
             raid5::repair(&mut blocks, &mut p, &[i]).unwrap();
-            
+
             for i in 0..255 {
                 assert_eq!(&blocks[i], &((i+1)*10..(i+2)*10).map(|x| x as u8).collect::<Vec<u8>>());
             }

@@ -1,7 +1,33 @@
-//! Template for RAID-parity structs
+// Template for RAID-parity functions
+//
+// See examples/raid.rs for a more detailed explanation of
+// where these implementations come from
+
+//! RAID-parity functions.
 //!
-//! See examples/raid.rs for a more detailed explanation of
-//! where these implementations come from
+//! ``` rust
+//! # use gf256::raid::raid7;
+//! #
+//! // format
+//! let mut buf = b"Hello World!".to_vec();
+//! let mut parity1 = vec![0u8; 4];
+//! let mut parity2 = vec![0u8; 4];
+//! let mut parity3 = vec![0u8; 4];
+//! let slices = buf.chunks(4).collect::<Vec<_>>();
+//! raid7::format(&slices, &mut parity1, &mut parity2, &mut parity3);
+//!
+//! // corrupt
+//! buf[0..8].fill(b'x');
+//!
+//! // repair
+//! let mut slices = buf.chunks_mut(4).collect::<Vec<_>>();
+//! raid7::repair(&mut slices, &mut parity1, &mut parity2, &mut parity3, &[0, 1]);
+//! assert_eq!(&buf, b"Hello World!");
+//! ```
+//!
+//! See the [module-level documentation](../../raid) for more info.
+//!
+
 
 use __crate::internal::cfg_if::cfg_if;
 use __crate::traits::TryFrom;
@@ -13,7 +39,7 @@ use core::fmt;
 
 
 /// Error codes for RAID arrays
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
     /// RAID-parity can fail to decode if there are more bad-blocks
     /// than there are parity blocks
@@ -30,9 +56,28 @@ impl fmt::Display for Error {
 }
 
 
-// TODO
-// /// Format blocks with RAID4, aka single block of parity
-/// Format blocks with RAID6, aka two blocks of parity
+/// Format blocks as a RAID array.
+///
+/// This writes the parity data to the provided parity blocks based on the
+/// provided data blocks.
+///
+/// ``` rust
+/// # use ::gf256::raid::*;
+/// let mut data = b"Hello World!".to_vec();
+/// let datas = data.chunks(4).collect::<Vec<_>>();
+/// let mut parity1 = vec![0u8; 4];
+/// let mut parity2 = vec![0u8; 4];
+/// let mut parity3 = vec![0u8; 4];
+/// raid7::format(&datas, &mut parity1, &mut parity2, &mut parity3);
+///
+/// assert_eq!(&datas[0], b"Hell");
+/// assert_eq!(&datas[1], b"o Wo");
+/// assert_eq!(&datas[2], b"rld!");
+/// assert_eq!(&parity1,  b"\x55\x29\x5f\x22");
+/// assert_eq!(&parity2,  b"\x43\x88\x4f\x36");
+/// assert_eq!(&parity3,  b"\x9a\x6b\x23\xe7");
+/// ```
+///
 pub fn format<B: AsRef<[__u]>>(
     blocks: &[B],
     #[cfg(__if(__parity >= 1))] p: &mut [__u],
@@ -68,9 +113,25 @@ pub fn format<B: AsRef<[__u]>>(
     }
 }
 
-// TODO
-// /// Repair up to one block of failure
-/// Repair up to two blocks of failure
+/// Repair up to `n` bad blocks.
+///
+/// Where `n` <= the number of parity blocks. This can include the parity
+/// blocks themselves. `bad_blocks` must be an array of indices indicating
+/// which blocks are bad.
+///
+/// ``` rust
+/// # use ::gf256::raid::*;
+/// let mut data = b"Hellxxxxxxxx".to_vec();
+/// let mut datas = data.chunks_mut(4).collect::<Vec<_>>();
+/// let mut parity1 = b"xxxx".to_vec();
+/// let mut parity2 = b"\x43\x88\x4f\x36".to_vec();
+/// let mut parity3 = b"\x9a\x6b\x23\xe7".to_vec();
+///
+/// // repair
+/// raid7::repair(&mut datas, &mut parity1, &mut parity2, &mut parity3, &[1, 2, 3]);
+/// assert_eq!(&data, b"Hello World!");
+/// ```
+///
 pub fn repair<B: AsMut<[__u]>>(
     blocks: &mut [B],
     #[cfg(__if(__parity >= 1))] p: &mut [__u],
@@ -87,9 +148,6 @@ pub fn repair<B: AsMut<[__u]>>(
         // can't repair
         return Err(Error::TooManyBadBlocks);
     }
-
-
-// TODO try removing with cfg_if if parity < 2?
 
     // sort the data blocks without alloc, this is only so we can split
     // the mut blocks array safely
@@ -481,10 +539,31 @@ pub fn repair<B: AsMut<[__u]>>(
     Ok(())
 }
 
-/// Add a block to a RAID array
+/// Add a block to a RAID array.
 ///
-/// Note the block index must be unique in the array! This does not
-/// update other block indices.
+/// Note the block index must be unique in the array, otherwise the array will
+/// become corrupted. This does not update other block indices.
+///
+/// ``` rust
+/// # use ::gf256::raid::*;
+/// let mut data = b"xxxxo World!".to_vec();
+/// let mut datas = data.chunks_mut(4).collect::<Vec<_>>();
+/// let mut parity1 = b"\x1d\x4c\x33\x4e".to_vec();
+/// let mut parity2 = b"\x0b\xed\x23\x5a".to_vec();
+/// let mut parity3 = b"\xd2\x0e\x4f\x8b".to_vec();
+///
+/// // add
+/// let new_data = b"Jell";
+/// raid7::add(0, new_data, &mut parity1, &mut parity2, &mut parity3);
+/// datas[0].copy_from_slice(new_data);
+///
+/// assert_eq!(&datas[0], b"Jell");
+/// assert_eq!(&datas[1], b"o Wo");
+/// assert_eq!(&datas[2], b"rld!");
+/// assert_eq!(&parity1,  b"\x57\x29\x5f\x22");
+/// assert_eq!(&parity2,  b"\x41\x88\x4f\x36");
+/// assert_eq!(&parity3,  b"\x98\x6b\x23\xe7");
+/// ```
 ///
 pub fn add(
     j: usize,
@@ -508,10 +587,28 @@ pub fn add(
     }
 }
 
-/// Add a block from a RAID array
+/// Remove a block from a RAID array.
 ///
-/// Note the block index must already exit in the array, otherwise the
+/// Note the block index must already exist in the array, otherwise the
 /// array will become corrupted. This does not update other block indices.
+///
+/// ``` rust
+/// # use ::gf256::raid::*;
+/// let mut data = b"Hello World!".to_vec();
+/// let mut datas = data.chunks_mut(4).collect::<Vec<_>>();
+/// let mut parity1 = b"\x55\x29\x5f\x22".to_vec();
+/// let mut parity2 = b"\x43\x88\x4f\x36".to_vec();
+/// let mut parity3 = b"\x9a\x6b\x23\xe7".to_vec();
+///
+/// // remove 
+/// raid7::remove(0, datas[0], &mut parity1, &mut parity2, &mut parity3);
+///
+/// assert_eq!(&datas[1], b"o Wo");
+/// assert_eq!(&datas[2], b"rld!");
+/// assert_eq!(&parity1,  b"\x1d\x4c\x33\x4e");
+/// assert_eq!(&parity2,  b"\x0b\xed\x23\x5a");
+/// assert_eq!(&parity3,  b"\xd2\x0e\x4f\x8b");
+/// ```
 ///
 pub fn remove(
     j: usize,
@@ -535,9 +632,28 @@ pub fn remove(
     }
 }
 
-/// Update a block in a RAID array
+/// Update a block in a RAID array.
 ///
-/// This is functionally equivalent to remove(i)+add(i), but more efficient.
+/// ``` rust
+/// # use ::gf256::raid::*;
+/// let mut data = b"Hello World!".to_vec();
+/// let mut datas = data.chunks_mut(4).collect::<Vec<_>>();
+/// let mut parity1 = b"\x55\x29\x5f\x22".to_vec();
+/// let mut parity2 = b"\x43\x88\x4f\x36".to_vec();
+/// let mut parity3 = b"\x9a\x6b\x23\xe7".to_vec();
+///
+/// // update
+/// let new_data = b"Jell";
+/// raid7::update(0, datas[0], new_data, &mut parity1, &mut parity2, &mut parity3);
+/// datas[0].copy_from_slice(new_data);
+///
+/// assert_eq!(&datas[0], b"Jell");
+/// assert_eq!(&datas[1], b"o Wo");
+/// assert_eq!(&datas[2], b"rld!");
+/// assert_eq!(&parity1,  b"\x57\x29\x5f\x22");
+/// assert_eq!(&parity2,  b"\x41\x88\x4f\x36");
+/// assert_eq!(&parity3,  b"\x98\x6b\x23\xe7");
+/// ```
 ///
 pub fn update(
     j: usize,

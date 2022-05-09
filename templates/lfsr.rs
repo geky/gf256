@@ -13,17 +13,34 @@ use core::mem::size_of;
 use core::cmp::min;
 
 
-/// TODO doc
-/// TODO tables use unchecked gets
+/// A linear-feedback shift register.
+///
+/// ``` rust
+/// # use std::iter;
+/// use gf256::lfsr::Lfsr16;
+///
+/// let mut lfsr = Lfsr16::new(1);
+/// assert_eq!(lfsr.next(16), 0x0001);
+/// assert_eq!(lfsr.next(16), 0x002d);
+/// assert_eq!(lfsr.next(16), 0x0451);
+/// assert_eq!(lfsr.next(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0xbdad);
+/// assert_eq!(lfsr.prev(16), 0x0451);
+/// assert_eq!(lfsr.prev(16), 0x002d);
+/// assert_eq!(lfsr.prev(16), 0x0001);
+/// ```
+///
+/// See the [module-level documentation](../lfsr) for more info.
+///
 #[derive(Debug, Clone)]
 pub struct __lfsr(__nzu);
 
 impl __lfsr {
-    /// The irreducible polynomial that defines the LFSR
+    /// The irreducible polynomial that defines the LFSR.
     pub const POLYNOMIAL: __p2 = __p2(__polynomial);
 
     /// Number of non-zero elements in the field, this which is also
-    /// the cycl-length of the LFSR if well-formed
+    /// the maximum cycle-length of the LFSR.
     pub const NONZEROS: __u = __nonzeros;
 
     // div/rem tables, if required
@@ -171,6 +188,11 @@ impl __lfsr {
         )
     };
 
+    /// Create an LFSR with the given seed.
+    ///
+    /// The seed can't be `0`, so if `0` is provided, the seed `1` is used
+    /// instead.
+    ///
     #[inline]
     pub const fn new(mut seed: __u) -> Self {
         seed = seed & __nonzeros;
@@ -190,6 +212,17 @@ impl __lfsr {
         Self(unsafe { __nzu::new_unchecked(seed) })
     }
 
+    /// Generate the next n-bits of pseudo-random data.
+    ///
+    /// ``` rust
+    /// # use ::gf256::lfsr::*;
+    /// let mut lfsr = Lfsr16::new(1);
+    /// assert_eq!(lfsr.next(16), 0x0001);
+    /// assert_eq!(lfsr.next(16), 0x002d);
+    /// assert_eq!(lfsr.next(16), 0x0451);
+    /// assert_eq!(lfsr.next(16), 0xbdad);
+    /// ```
+    /// 
     #[inline]
     pub fn next(&mut self, bits: __u) -> __u {
         debug_assert!(bits <= __width);
@@ -314,6 +347,18 @@ impl __lfsr {
         }
     }
 
+    /// Generate the previous n-bits of pseudo-random data.
+    ///
+    /// ``` rust
+    /// # use ::gf256::lfsr::*;
+    /// let mut lfsr = Lfsr16::new(1);
+    /// lfsr.skip(64);
+    /// assert_eq!(lfsr.prev(16), 0xbdad);
+    /// assert_eq!(lfsr.prev(16), 0x0451);
+    /// assert_eq!(lfsr.prev(16), 0x002d);
+    /// assert_eq!(lfsr.prev(16), 0x0001);
+    /// ```
+    /// 
     #[inline]
     pub fn prev(&mut self, bits: __u) -> __u {
         debug_assert!(bits <= __width);
@@ -441,6 +486,24 @@ impl __lfsr {
         }
     }
 
+    /// Skip n-bits of pseudo-random data.
+    ///
+    /// This takes advantage of the Galois-field representation of the LFSR to
+    /// compute the new state in only `O(log log n)` multiplications.
+    ///
+    /// ``` rust
+    /// # use ::gf256::lfsr::*;
+    /// let mut lfsr = Lfsr16::new(1);
+    /// lfsr.skip(48);
+    /// assert_eq!(lfsr.next(16), 0xbdad);
+    ///
+    /// let mut lfsr = Lfsr16::new(1);
+    /// assert_eq!(lfsr.next(16), 0x0001);
+    /// assert_eq!(lfsr.next(16), 0x002d);
+    /// assert_eq!(lfsr.next(16), 0x0451);
+    /// assert_eq!(lfsr.next(16), 0xbdad);
+    /// ```
+    /// 
     #[inline]
     pub fn skip(&mut self, bits: __u) {
         // Each step of the lfsr is equivalent to multiplication in a finite
@@ -515,6 +578,23 @@ impl __lfsr {
         self.0 = __nzu::try_from(__u::from(mul(__p::from(__u::from(self.0)), g))).unwrap();
     }
 
+    /// Skip n-bits of pseudo-random data backwards.
+    ///
+    /// This takes advantage of the Galois-field representation of the LFSR to
+    /// compute the new state in only `O(log log n)` multiplications.
+    ///
+    /// ``` rust
+    /// # use ::gf256::lfsr::*;
+    /// let mut lfsr = Lfsr16::new(1);
+    /// assert_eq!(lfsr.next(16), 0x0001);
+    /// assert_eq!(lfsr.next(16), 0x002d);
+    /// assert_eq!(lfsr.next(16), 0x0451);
+    /// assert_eq!(lfsr.next(16), 0xbdad);
+    /// lfsr.skip_backwards(32);
+    /// assert_eq!(lfsr.next(16), 0x0451);
+    /// assert_eq!(lfsr.next(16), 0xbdad);
+    /// ```
+    /// 
     #[inline]
     pub fn skip_backwards(&mut self, bits: __u) {
         // Assuming our lfsr is well constructed, we're in a multiplicative

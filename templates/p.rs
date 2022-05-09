@@ -13,55 +13,107 @@ use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
 
 
-/// A type representing a gf(2) polynomial
+/// A type representing a gf(2) polynomial.
+///
+/// ``` rust
+/// use ::gf256::*;
+///
+/// let a = p32(0x1234);
+/// let b = p32(0x5678);
+/// assert_eq!(a+b, p32(0x444c));
+/// assert_eq!(a*b, p32(0x05c58160));
+/// ```
+///
+/// See the [module-level documentation](../p) for more info.
+///
 #[allow(non_camel_case_types)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct __p(pub __u);
 
 impl __p {
-    /// Create a gf(2) polynomial
+    /// Create a gf(2) polynomial.
     #[inline]
     pub const fn new(x: __u) -> __p {
         __p(x)
     }
 
-    /// Get the underlying primitive type
+    /// Get the underlying primitive type.
     #[inline]
     pub const fn get(self) -> __u {
         self.0
     }
 
-    /// Polynomial addition, aka xor
+    /// Polynomial addition, aka xor.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x12).naive_add(p8(0x34));
+    /// assert_eq!(X, p8(0x26));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_add(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 
-    /// Polynomial addition, aka xor
+    /// Polynomial addition, aka xor.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x12) + p8(0x34), p8(0x26));
+    /// ```
+    ///
     #[inline]
     pub fn add(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 
-    /// Polynomial subtraction, aka xor
+    /// Polynomial subtraction, aka xor.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x12).naive_sub(p8(0x34));
+    /// assert_eq!(X, p8(0x26));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_sub(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 
-    /// Polynomial subtraction, aka xor
+    /// Polynomial subtraction, aka xor.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x12) - p8(0x34), p8(0x26));
+    /// ```
+    ///
     #[inline]
     pub fn sub(self, other: __p) -> __p {
         __p(self.0 ^ other.0)
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// This return a tuple containing the low and high parts in that order
+    /// This returns a tuple containing the low and high parts in that order.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: (p8, p8) = p8(0x02).naive_widening_mul(p8(0x34));
+    /// const Y: (p8, p8) = p8(0x12).naive_widening_mul(p8(0x34));
+    /// assert_eq!(X, (p8(0x68), p8(0x00)));
+    /// assert_eq!(Y, (p8(0x28), p8(0x03)));
+    /// ```
     ///
     #[inline]
     pub const fn naive_widening_mul(self, other: __p) -> (__p, __p) {
@@ -81,13 +133,21 @@ impl __p {
         (__p(lo), __p(hi >> 1))
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
     /// Note this wraps around the boundary of the type, and returns
-    /// a flag indicating of overflow occured
+    /// a flag indicating of overflow occured.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: (p8, bool) = p8(0x02).naive_overflowing_mul(p8(0x34));
+    /// const Y: (p8, bool) = p8(0x12).naive_overflowing_mul(p8(0x34));
+    /// assert_eq!(X, (p8(0x68), false));
+    /// assert_eq!(Y, (p8(0x28), true));
+    /// ```
     ///
     #[inline]
     pub const fn naive_overflowing_mul(self, other: __p) -> (__p, bool) {
@@ -95,12 +155,20 @@ impl __p {
         (lo, hi.0 != 0)
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// Note this returns None if an overflow occured
+    /// Note this returns [`None`] if an overflow occured.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<p8> = p8(0x02).naive_checked_mul(p8(0x34));
+    /// const Y: Option<p8> = p8(0x12).naive_checked_mul(p8(0x34));
+    /// assert_eq!(X, Some(p8(0x68)));
+    /// assert_eq!(Y, None);
+    /// ```
     ///
     #[inline]
     pub const fn naive_checked_mul(self, other: __p) -> Option<__p> {
@@ -110,12 +178,20 @@ impl __p {
         }
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// Note this wraps around the boundary of the type
+    /// Note this wraps around the boundary of the type.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x02).naive_wrapping_mul(p8(0x34));
+    /// const Y: p8 = p8(0x12).naive_wrapping_mul(p8(0x34));
+    /// assert_eq!(X, p8(0x68));
+    /// assert_eq!(Y, p8(0x28));
+    /// ```
     ///
     #[inline]
     pub const fn naive_wrapping_mul(self, other: __p) -> __p {
@@ -131,13 +207,19 @@ impl __p {
         __p(x)
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
     /// Note this panics if an overflow occured and debug_assertions
-    /// are enabled
+    /// are enabled.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x02).naive_wrapping_mul(p8(0x34));
+    /// assert_eq!(X, p8(0x68));
+    /// ```
     ///
     #[inline]
     pub const fn naive_mul(self, other: __p) -> __p {
@@ -154,14 +236,19 @@ impl __p {
         }
     }
 
-    /// Naive polynomial multiplication
+    /// Naive polynomial multiplication.
     ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
+    /// This attempts to use carry-less multiplication instructions when
+    /// available (`pclmulqdq` on x86_64, `pmull` on aarch64), otherwise falls
+    /// back to the expensive naive implementation.
     ///
-    /// This return a tuple containing the low and high parts in that order
+    /// This return a tuple containing the low and high parts in that order.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).widening_mul(p8(0x34)), (p8(0x68), p8(0x00)));
+    /// assert_eq!(p8(0x12).widening_mul(p8(0x34)), (p8(0x28), p8(0x03)));
+    /// ```
     ///
     #[inline]
     pub fn widening_mul(self, other: __p) -> (__p, __p) {
@@ -175,15 +262,20 @@ impl __p {
         }
     }
 
-    /// Polynomial multiplication
+    /// Polynomial multiplication.
     ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
+    /// This attempts to use carry-less multiplication instructions when
+    /// available (`pclmulqdq` on x86_64, `pmull` on aarch64), otherwise falls
+    /// back to the expensive naive implementation.
     ///
     /// Note this wraps around the boundary of the type, and returns
-    /// a flag indicating of overflow occured
+    /// a flag indicating of overflow occured.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).overflowing_mul(p8(0x34)), (p8(0x68), false));
+    /// assert_eq!(p8(0x12).overflowing_mul(p8(0x34)), (p8(0x28), true));
+    /// ```
     ///
     #[inline]
     pub fn overflowing_mul(self, other: __p) -> (__p, bool) {
@@ -191,14 +283,19 @@ impl __p {
         (lo, hi.0 != 0)
     }
 
-    /// Polynomial multiplication
+    /// Polynomial multiplication.
     ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
+    /// This attempts to use carry-less multiplication instructions when
+    /// available (`pclmulqdq` on x86_64, `pmull` on aarch64), otherwise falls
+    /// back to the expensive naive implementation.
     ///
-    /// Note this returns None if an overflow occured
+    /// Note this returns [`None`] if an overflow occured.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).checked_mul(p8(0x34)), Some(p8(0x68)));
+    /// assert_eq!(p8(0x12).checked_mul(p8(0x34)), None);
+    /// ```
     ///
     #[inline]
     pub fn checked_mul(self, other: __p) -> Option<__p> {
@@ -208,14 +305,19 @@ impl __p {
         }
     }
 
-    /// Polynomial multiplication
+    /// Polynomial multiplication.
     ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
+    /// This attempts to use carry-less multiplication instructions when
+    /// available (`pclmulqdq` on x86_64, `pmull` on aarch64), otherwise falls
+    /// back to the expensive naive implementation.
     ///
-    /// Note this wraps around the boundary of the type
+    /// Note this wraps around the boundary of the type.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).wrapping_mul(p8(0x34)), p8(0x68));
+    /// assert_eq!(p8(0x12).wrapping_mul(p8(0x34)), p8(0x28));
+    /// ```
     ///
     #[inline]
     pub fn wrapping_mul(self, other: __p) -> __p {
@@ -228,15 +330,19 @@ impl __p {
         }
     }
 
-    /// Polynomial multiplication
+    /// Polynomial multiplication.
     ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
+    /// This attempts to use carry-less multiplication instructions when
+    /// available (`pclmulqdq` on x86_64, `pmull` on aarch64), otherwise falls
+    /// back to the expensive naive implementation.
     ///
     /// Note this panics if an overflow occured and debug_assertions
-    /// are enabled
+    /// are enabled.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02) * p8(0x34), p8(0x68));
+    /// ```
     ///
     #[inline]
     pub fn mul(self, other: __p) -> __p {
@@ -251,7 +357,26 @@ impl __p {
         }
     }
 
-    /// Naive polynomial exponentiation
+    /// Naive polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this wraps around the boundary of the type, and returns
+    /// a flag indicating of overflow occured.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: (p8, bool) = p8(0x02).naive_overflowing_pow(3);
+    /// const Y: (p8, bool) = p8(0x12).naive_overflowing_pow(3);
+    /// assert_eq!(X, (p8(0x02)*p8(0x02)*p8(0x02), false));
+    /// assert_eq!(X, (p8(0x08), false));
+    /// assert_eq!(Y, (p8(0x48), true));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_overflowing_pow(self, exp: u32) -> (__p, bool) {
         let mut a = self;
@@ -275,7 +400,25 @@ impl __p {
         }
     }
 
-    /// Naive polynomial exponentiation
+    /// Naive polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this returns [`None`] if an overflow occured.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<p8> = p8(0x02).naive_checked_pow(3);
+    /// const Y: Option<p8> = p8(0x12).naive_checked_pow(3);
+    /// assert_eq!(X, Some(p8(0x02)*p8(0x02)*p8(0x02)));
+    /// assert_eq!(X, Some(p8(0x08)));
+    /// assert_eq!(Y, None);
+    /// ```
+    ///
     #[inline]
     pub const fn naive_checked_pow(self, exp: u32) -> Option<__p> {
         let mut a = self;
@@ -300,7 +443,25 @@ impl __p {
         }
     }
 
-    /// Naive polynomial exponentiation
+    /// Naive polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this wraps around the boundary of the type.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x02).naive_wrapping_pow(3);
+    /// const Y: p8 = p8(0x12).naive_wrapping_pow(3);
+    /// assert_eq!(X, p8(0x02)*p8(0x02)*p8(0x02));
+    /// assert_eq!(X, p8(0x08));
+    /// assert_eq!(Y, p8(0x48));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_wrapping_pow(self, exp: u32) -> __p {
         let mut a = self;
@@ -319,7 +480,24 @@ impl __p {
         }
     }
 
-    /// Naive polynomial exponentiation
+    /// Naive polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this panics if an overflow occured and debug_assertions
+    /// are enabled.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x02).naive_pow(3);
+    /// assert_eq!(X, p8(0x02)*p8(0x02)*p8(0x02));
+    /// assert_eq!(X, p8(0x08));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_pow(self, exp: u32) -> __p {
         let mut a = self;
@@ -338,7 +516,21 @@ impl __p {
         }
     }
 
-    /// Polynomial exponentiation
+    /// Polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this wraps around the boundary of the type, and returns
+    /// a flag indicating of overflow occured.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).overflowing_pow(3), (p8(0x02)*p8(0x02)*p8(0x02), false));
+    /// assert_eq!(p8(0x02).overflowing_pow(3), (p8(0x08), false));
+    /// assert_eq!(p8(0x12).overflowing_pow(3), (p8(0x48), true));
+    /// ```
+    ///
     #[inline]
     pub fn overflowing_pow(self, exp: u32) -> (__p, bool) {
         let mut a = self;
@@ -362,7 +554,20 @@ impl __p {
         }
     }
 
-    /// Polynomial exponentiation
+    /// Polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this returns [`None`] if an overflow occured.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).checked_pow(3), Some(p8(0x02)*p8(0x02)*p8(0x02)));
+    /// assert_eq!(p8(0x02).checked_pow(3), Some(p8(0x08)));
+    /// assert_eq!(p8(0x12).checked_pow(3), None);
+    /// ```
+    ///
     #[inline]
     pub fn checked_pow(self, exp: u32) -> Option<__p> {
         let mut a = self;
@@ -387,7 +592,20 @@ impl __p {
         }
     }
 
-    /// Polynomial exponentiation
+    /// Polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this wraps around the boundary of the type.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).wrapping_pow(3), p8(0x02)*p8(0x02)*p8(0x02));
+    /// assert_eq!(p8(0x02).wrapping_pow(3), p8(0x08));
+    /// assert_eq!(p8(0x12).wrapping_pow(3), p8(0x48));
+    /// ```
+    ///
     #[inline]
     pub fn wrapping_pow(self, exp: u32) -> __p {
         let mut a = self;
@@ -406,7 +624,20 @@ impl __p {
         }
     }
 
-    /// Polynomial exponentiation
+    /// Polynomial exponentiation.
+    ///
+    /// Performs exponentiation by squaring, where polynomial exponentiation
+    /// is the same as repeated multiplication.
+    ///
+    /// Note this panics if an overflow occured and debug_assertions
+    /// are enabled.
+    /// 
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(p8(0x02).pow(3), p8(0x02)*p8(0x02)*p8(0x02));
+    /// assert_eq!(p8(0x02).pow(3), p8(0x08));
+    /// ```
+    ///
     #[inline]
     pub fn pow(self, exp: u32) -> __p {
         let mut a = self;
@@ -425,17 +656,29 @@ impl __p {
         }
     }
 
-    /// Naive polynomial division
+    /// Naive polynomial division.
+    ///
+    /// Note there is rarely hardware support for polynomial division,
+    /// so these always use relatively expensive bitwise operations.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<p8> = p8(0x68).naive_checked_div(p8(0x34));
+    /// const Y: Option<p8> = p8(0x68).naive_checked_div(p8(0x00));
+    /// assert_eq!(X, Some(p8(0x02)));
+    /// assert_eq!(Y, None);
+    /// ```
     ///
     #[inline]
     pub const fn naive_checked_div(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
-            // TODO should this be constant-time?
             let mut a = self.0;
             let b = other.0;
             let mut x = 0;
@@ -447,12 +690,21 @@ impl __p {
         }
     }
 
-    /// Naive polynomial division
+    /// Naive polynomial division.
+    ///
+    /// Note there is rarely hardware support for polynomial division,
+    /// so these always use relatively expensive bitwise operations.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// This will panis if b == 0
+    /// This will panic if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x68).naive_div(p8(0x34));
+    /// assert_eq!(X, p8(0x02));
+    /// ```
     ///
     #[inline]
     pub const fn naive_div(self, other: __p) -> __p {
@@ -462,17 +714,29 @@ impl __p {
         }
     }
 
-    /// Naive polynomial remainder
+    /// Naive polynomial remainder.
+    ///
+    /// Note there is rarely hardware support for polynomial remainder,
+    /// so these always use relatively expensive bitwise operations.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<p8> = p8(0x69).naive_checked_rem(p8(0x34));
+    /// const Y: Option<p8> = p8(0x69).naive_checked_rem(p8(0x00));
+    /// assert_eq!(X, Some(p8(0x01)));
+    /// assert_eq!(Y, None);
+    /// ```
     ///
     #[inline]
     pub const fn naive_checked_rem(self, other: __p) -> Option<__p> {
         if other.0 == 0 {
             None
         } else {
-            // TODO should this be constant-time?
             let mut a = self.0;
             let b = other.0;
             while a.leading_zeros() <= b.leading_zeros() {
@@ -482,12 +746,21 @@ impl __p {
         }
     }
 
-    /// Naive polynomial remainder
+    /// Naive polynomial remainder.
+    ///
+    /// Note there is rarely hardware support for polynomial remainder,
+    /// so these always use relatively expensive bitwise operations.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// This will panis if b == 0
+    /// This will panic if `other == 0`
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: p8 = p8(0x69).naive_rem(p8(0x34));
+    /// assert_eq!(X, p8(0x01));
+    /// ```
     ///
     #[inline]
     pub const fn naive_rem(self, other: __p) -> __p {
@@ -497,7 +770,19 @@ impl __p {
         }
     }
 
-    /// Convert slice of unsigned-types to slice of polynomial-types
+    /// Cast slice of unsigned-types to slice of polynomial-types.
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of polynomials without an additional memory allocation
+    /// or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// let x: &[u8] = &[0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &[p8] = p8::slice_from_slice(x);
+    /// assert_eq!(y, &[p8(0x01), p8(0x02), p8(0x03), p8(0x04), p8(0x05)]);
+    /// ```
+    ///
     #[inline]
     pub fn slice_from_slice(slice: &[__u]) -> &[__p] {
         unsafe {
@@ -508,7 +793,22 @@ impl __p {
         }
     }
 
-    /// Convert mut slice of unsigned-types to slice of polynomial-types
+    /// Cast mut slice of unsigned-types to mut slice of polynomial-types
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of polynomials without an additional memory allocation
+    /// or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// let x: &mut [u8] = &mut [0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &mut [p8] = p8::slice_from_slice_mut(x);
+    /// for i in 0..y.len() {
+    ///     y[i] *= p8(0x05);
+    /// }
+    /// assert_eq!(x, &[0x05, 0x0a, 0x0f, 0x14, 0x11]);
+    /// ```
+    ///
     #[inline]
     pub fn slice_from_slice_mut(slice: &mut [__u]) -> &mut [__p] {
         unsafe {
@@ -1201,8 +1501,7 @@ impl FromLossy<__p> for isize {
 
 impl Neg for __p {
     type Output = __p;
-
-    /// Negate is a noop for polynomials
+    // Negate is a noop for polynomials
     #[inline]
     fn neg(self) -> __p {
         self
@@ -1211,8 +1510,7 @@ impl Neg for __p {
 
 impl Neg for &__p {
     type Output = __p;
-
-    /// Negate is a noop for polynomials
+    // Negate is a noop for polynomials
     #[inline]
     fn neg(self) -> __p {
         *self
@@ -1224,8 +1522,6 @@ impl Neg for &__p {
 
 impl Add<__p> for __p {
     type Output = __p;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: __p) -> __p {
         __p::add(self, other)
@@ -1234,8 +1530,6 @@ impl Add<__p> for __p {
 
 impl Add<__p> for &__p {
     type Output = __p;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: __p) -> __p {
         __p::add(*self, other)
@@ -1244,8 +1538,6 @@ impl Add<__p> for &__p {
 
 impl Add<&__p> for __p {
     type Output = __p;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: &__p) -> __p {
         __p::add(self, *other)
@@ -1254,8 +1546,6 @@ impl Add<&__p> for __p {
 
 impl Add<&__p> for &__p {
     type Output = __p;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: &__p) -> __p {
         __p::add(*self, *other)
@@ -1301,8 +1591,6 @@ impl<'a> Sum<&'a __p> for __p {
 
 impl Sub for __p {
     type Output = __p;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: __p) -> __p {
         __p::sub(self, other)
@@ -1311,8 +1599,6 @@ impl Sub for __p {
 
 impl Sub<__p> for &__p {
     type Output = __p;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: __p) -> __p {
         __p::sub(*self, other)
@@ -1321,8 +1607,6 @@ impl Sub<__p> for &__p {
 
 impl Sub<&__p> for __p {
     type Output = __p;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: &__p) -> __p {
         __p::sub(self, *other)
@@ -1331,8 +1615,6 @@ impl Sub<&__p> for __p {
 
 impl Sub<&__p> for &__p {
     type Output = __p;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: &__p) -> __p {
         __p::sub(*self, *other)
@@ -1358,14 +1640,6 @@ impl SubAssign<&__p> for __p {
 
 impl Mul for __p {
     type Output = __p;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: __p) -> __p {
         __p::mul(self, other)
@@ -1374,14 +1648,6 @@ impl Mul for __p {
 
 impl Mul<__p> for &__p {
     type Output = __p;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: __p) -> __p {
         __p::mul(*self, other)
@@ -1390,14 +1656,6 @@ impl Mul<__p> for &__p {
 
 impl Mul<&__p> for __p {
     type Output = __p;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: &__p) -> __p {
         __p::mul(self, *other)
@@ -1406,14 +1664,6 @@ impl Mul<&__p> for __p {
 
 impl Mul<&__p> for &__p {
     type Output = __p;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: &__p) -> __p {
         __p::mul(*self, *other)
@@ -1459,14 +1709,6 @@ impl<'a> Product<&'a __p> for __p {
 
 impl Div for __p {
     type Output = __p;
-
-    /// Polynomial division
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn div(self, other: __p) -> __p {
         __p::naive_div(self, other)
@@ -1475,14 +1717,6 @@ impl Div for __p {
 
 impl Div<__p> for &__p {
     type Output = __p;
-
-    /// Polynomial division
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn div(self, other: __p) -> __p {
         __p::naive_div(*self, other)
@@ -1491,14 +1725,6 @@ impl Div<__p> for &__p {
 
 impl Div<&__p> for __p {
     type Output = __p;
-
-    /// Polynomial division
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn div(self, other: &__p) -> __p {
         __p::naive_div(self, *other)
@@ -1507,14 +1733,6 @@ impl Div<&__p> for __p {
 
 impl Div<&__p> for &__p {
     type Output = __p;
-
-    /// Polynomial division
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn div(self, other: &__p) -> __p {
         __p::naive_div(*self, *other)
@@ -1540,14 +1758,6 @@ impl DivAssign<&__p> for __p {
 
 impl Rem for __p {
     type Output = __p;
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn rem(self, other: __p) -> __p {
         __p::naive_rem(self, other)
@@ -1556,14 +1766,6 @@ impl Rem for __p {
 
 impl Rem<__p> for &__p {
     type Output = __p;
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn rem(self, other: __p) -> __p {
         __p::naive_rem(*self, other)
@@ -1572,14 +1774,6 @@ impl Rem<__p> for &__p {
 
 impl Rem<&__p> for __p {
     type Output = __p;
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn rem(self, other: &__p) -> __p {
         __p::naive_rem(self, *other)
@@ -1588,14 +1782,6 @@ impl Rem<&__p> for __p {
 
 impl Rem<&__p> for &__p {
     type Output = __p;
-
-    /// Polynomial remainder
-    ///
-    /// Note, this is always expensive. There isn't much hardware for
-    /// polynomial division, so we need to always use the naive implementation
-    ///
-    /// This will panis if b == 0
-    ///
     #[inline]
     fn rem(self, other: &__p) -> __p {
         __p::naive_rem(*self, *other)
@@ -2162,6 +2348,7 @@ impl __p {
 
 impl Shl<u8> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u8) -> __p {
         __p(self.0 << other)
     }
@@ -2169,6 +2356,7 @@ impl Shl<u8> for __p {
 
 impl Shl<u8> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u8) -> __p {
         __p(self.0 << other)
     }
@@ -2176,6 +2364,7 @@ impl Shl<u8> for &__p {
 
 impl Shl<&u8> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u8) -> __p {
         __p(self.0 << other)
     }
@@ -2183,6 +2372,7 @@ impl Shl<&u8> for __p {
 
 impl Shl<&u8> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u8) -> __p {
         __p(self.0 << other)
     }
@@ -2190,6 +2380,7 @@ impl Shl<&u8> for &__p {
 
 impl Shl<u16> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u16) -> __p {
         __p(self.0 << other)
     }
@@ -2197,6 +2388,7 @@ impl Shl<u16> for __p {
 
 impl Shl<u16> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u16) -> __p {
         __p(self.0 << other)
     }
@@ -2204,6 +2396,7 @@ impl Shl<u16> for &__p {
 
 impl Shl<&u16> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u16) -> __p {
         __p(self.0 << other)
     }
@@ -2211,6 +2404,7 @@ impl Shl<&u16> for __p {
 
 impl Shl<&u16> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u16) -> __p {
         __p(self.0 << other)
     }
@@ -2218,6 +2412,7 @@ impl Shl<&u16> for &__p {
 
 impl Shl<u32> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u32) -> __p {
         __p(self.0 << other)
     }
@@ -2225,6 +2420,7 @@ impl Shl<u32> for __p {
 
 impl Shl<u32> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u32) -> __p {
         __p(self.0 << other)
     }
@@ -2232,6 +2428,7 @@ impl Shl<u32> for &__p {
 
 impl Shl<&u32> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u32) -> __p {
         __p(self.0 << other)
     }
@@ -2239,6 +2436,7 @@ impl Shl<&u32> for __p {
 
 impl Shl<&u32> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u32) -> __p {
         __p(self.0 << other)
     }
@@ -2246,6 +2444,7 @@ impl Shl<&u32> for &__p {
 
 impl Shl<u64> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u64) -> __p {
         __p(self.0 << other)
     }
@@ -2253,6 +2452,7 @@ impl Shl<u64> for __p {
 
 impl Shl<u64> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u64) -> __p {
         __p(self.0 << other)
     }
@@ -2260,6 +2460,7 @@ impl Shl<u64> for &__p {
 
 impl Shl<&u64> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u64) -> __p {
         __p(self.0 << other)
     }
@@ -2267,6 +2468,7 @@ impl Shl<&u64> for __p {
 
 impl Shl<&u64> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u64) -> __p {
         __p(self.0 << other)
     }
@@ -2274,6 +2476,7 @@ impl Shl<&u64> for &__p {
 
 impl Shl<u128> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u128) -> __p {
         __p(self.0 << other)
     }
@@ -2281,6 +2484,7 @@ impl Shl<u128> for __p {
 
 impl Shl<u128> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: u128) -> __p {
         __p(self.0 << other)
     }
@@ -2288,6 +2492,7 @@ impl Shl<u128> for &__p {
 
 impl Shl<&u128> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u128) -> __p {
         __p(self.0 << other)
     }
@@ -2295,6 +2500,7 @@ impl Shl<&u128> for __p {
 
 impl Shl<&u128> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &u128) -> __p {
         __p(self.0 << other)
     }
@@ -2302,6 +2508,7 @@ impl Shl<&u128> for &__p {
 
 impl Shl<usize> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: usize) -> __p {
         __p(self.0 << other)
     }
@@ -2309,6 +2516,7 @@ impl Shl<usize> for __p {
 
 impl Shl<usize> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: usize) -> __p {
         __p(self.0 << other)
     }
@@ -2316,6 +2524,7 @@ impl Shl<usize> for &__p {
 
 impl Shl<&usize> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &usize) -> __p {
         __p(self.0 << other)
     }
@@ -2323,78 +2532,91 @@ impl Shl<&usize> for __p {
 
 impl Shl<&usize> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &usize) -> __p {
         __p(self.0 << other)
     }
 }
 
 impl ShlAssign<u8> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: u8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u8> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &u8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u16> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: u16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u16> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &u16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u32> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: u32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u32> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &u32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u64> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: u64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u64> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &u64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u128> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: u128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u128> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &u128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<usize> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: usize) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&usize> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &usize) {
         *self = *self << other;
     }
@@ -2402,6 +2624,7 @@ impl ShlAssign<&usize> for __p {
 
 impl Shr<u8> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u8) -> __p {
         __p(self.0 >> other)
     }
@@ -2409,6 +2632,7 @@ impl Shr<u8> for __p {
 
 impl Shr<u8> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u8) -> __p {
         __p(self.0 >> other)
     }
@@ -2416,6 +2640,7 @@ impl Shr<u8> for &__p {
 
 impl Shr<&u8> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u8) -> __p {
         __p(self.0 >> other)
     }
@@ -2423,6 +2648,7 @@ impl Shr<&u8> for __p {
 
 impl Shr<&u8> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u8) -> __p {
         __p(self.0 >> other)
     }
@@ -2430,6 +2656,7 @@ impl Shr<&u8> for &__p {
 
 impl Shr<u16> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u16) -> __p {
         __p(self.0 >> other)
     }
@@ -2437,6 +2664,7 @@ impl Shr<u16> for __p {
 
 impl Shr<u16> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u16) -> __p {
         __p(self.0 >> other)
     }
@@ -2444,6 +2672,7 @@ impl Shr<u16> for &__p {
 
 impl Shr<&u16> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u16) -> __p {
         __p(self.0 >> other)
     }
@@ -2451,6 +2680,7 @@ impl Shr<&u16> for __p {
 
 impl Shr<&u16> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u16) -> __p {
         __p(self.0 >> other)
     }
@@ -2458,6 +2688,7 @@ impl Shr<&u16> for &__p {
 
 impl Shr<u32> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u32) -> __p {
         __p(self.0 >> other)
     }
@@ -2465,6 +2696,7 @@ impl Shr<u32> for __p {
 
 impl Shr<u32> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u32) -> __p {
         __p(self.0 >> other)
     }
@@ -2472,6 +2704,7 @@ impl Shr<u32> for &__p {
 
 impl Shr<&u32> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u32) -> __p {
         __p(self.0 >> other)
     }
@@ -2479,6 +2712,7 @@ impl Shr<&u32> for __p {
 
 impl Shr<&u32> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u32) -> __p {
         __p(self.0 >> other)
     }
@@ -2486,6 +2720,7 @@ impl Shr<&u32> for &__p {
 
 impl Shr<u64> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u64) -> __p {
         __p(self.0 >> other)
     }
@@ -2493,6 +2728,7 @@ impl Shr<u64> for __p {
 
 impl Shr<u64> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u64) -> __p {
         __p(self.0 >> other)
     }
@@ -2500,6 +2736,7 @@ impl Shr<u64> for &__p {
 
 impl Shr<&u64> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u64) -> __p {
         __p(self.0 >> other)
     }
@@ -2507,6 +2744,7 @@ impl Shr<&u64> for __p {
 
 impl Shr<&u64> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u64) -> __p {
         __p(self.0 >> other)
     }
@@ -2514,6 +2752,7 @@ impl Shr<&u64> for &__p {
 
 impl Shr<u128> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u128) -> __p {
         __p(self.0 >> other)
     }
@@ -2521,6 +2760,7 @@ impl Shr<u128> for __p {
 
 impl Shr<u128> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: u128) -> __p {
         __p(self.0 >> other)
     }
@@ -2528,6 +2768,7 @@ impl Shr<u128> for &__p {
 
 impl Shr<&u128> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u128) -> __p {
         __p(self.0 >> other)
     }
@@ -2535,6 +2776,7 @@ impl Shr<&u128> for __p {
 
 impl Shr<&u128> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &u128) -> __p {
         __p(self.0 >> other)
     }
@@ -2542,6 +2784,7 @@ impl Shr<&u128> for &__p {
 
 impl Shr<usize> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: usize) -> __p {
         __p(self.0 >> other)
     }
@@ -2549,6 +2792,7 @@ impl Shr<usize> for __p {
 
 impl Shr<usize> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: usize) -> __p {
         __p(self.0 >> other)
     }
@@ -2556,6 +2800,7 @@ impl Shr<usize> for &__p {
 
 impl Shr<&usize> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &usize) -> __p {
         __p(self.0 >> other)
     }
@@ -2563,78 +2808,91 @@ impl Shr<&usize> for __p {
 
 impl Shr<&usize> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &usize) -> __p {
         __p(self.0 >> other)
     }
 }
 
 impl ShrAssign<u8> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: u8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u8> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &u8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u16> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: u16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u16> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &u16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u32> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: u32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u32> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &u32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u64> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: u64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u64> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &u64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u128> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: u128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u128> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &u128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<usize> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: usize) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&usize> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &usize) {
         *self = *self >> other;
     }
@@ -2642,6 +2900,7 @@ impl ShrAssign<&usize> for __p {
 
 impl Shl<i8> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i8) -> __p {
         __p(self.0 << other)
     }
@@ -2649,6 +2908,7 @@ impl Shl<i8> for __p {
 
 impl Shl<i8> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i8) -> __p {
         __p(self.0 << other)
     }
@@ -2656,6 +2916,7 @@ impl Shl<i8> for &__p {
 
 impl Shl<&i8> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i8) -> __p {
         __p(self.0 << other)
     }
@@ -2663,6 +2924,7 @@ impl Shl<&i8> for __p {
 
 impl Shl<&i8> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i8) -> __p {
         __p(self.0 << other)
     }
@@ -2670,6 +2932,7 @@ impl Shl<&i8> for &__p {
 
 impl Shl<i16> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i16) -> __p {
         __p(self.0 << other)
     }
@@ -2677,6 +2940,7 @@ impl Shl<i16> for __p {
 
 impl Shl<i16> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i16) -> __p {
         __p(self.0 << other)
     }
@@ -2684,6 +2948,7 @@ impl Shl<i16> for &__p {
 
 impl Shl<&i16> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i16) -> __p {
         __p(self.0 << other)
     }
@@ -2691,6 +2956,7 @@ impl Shl<&i16> for __p {
 
 impl Shl<&i16> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i16) -> __p {
         __p(self.0 << other)
     }
@@ -2698,6 +2964,7 @@ impl Shl<&i16> for &__p {
 
 impl Shl<i32> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i32) -> __p {
         __p(self.0 << other)
     }
@@ -2705,6 +2972,7 @@ impl Shl<i32> for __p {
 
 impl Shl<i32> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i32) -> __p {
         __p(self.0 << other)
     }
@@ -2712,6 +2980,7 @@ impl Shl<i32> for &__p {
 
 impl Shl<&i32> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i32) -> __p {
         __p(self.0 << other)
     }
@@ -2719,6 +2988,7 @@ impl Shl<&i32> for __p {
 
 impl Shl<&i32> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i32) -> __p {
         __p(self.0 << other)
     }
@@ -2726,6 +2996,7 @@ impl Shl<&i32> for &__p {
 
 impl Shl<i64> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i64) -> __p {
         __p(self.0 << other)
     }
@@ -2733,6 +3004,7 @@ impl Shl<i64> for __p {
 
 impl Shl<i64> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i64) -> __p {
         __p(self.0 << other)
     }
@@ -2740,6 +3012,7 @@ impl Shl<i64> for &__p {
 
 impl Shl<&i64> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i64) -> __p {
         __p(self.0 << other)
     }
@@ -2747,6 +3020,7 @@ impl Shl<&i64> for __p {
 
 impl Shl<&i64> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i64) -> __p {
         __p(self.0 << other)
     }
@@ -2754,6 +3028,7 @@ impl Shl<&i64> for &__p {
 
 impl Shl<i128> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i128) -> __p {
         __p(self.0 << other)
     }
@@ -2761,6 +3036,7 @@ impl Shl<i128> for __p {
 
 impl Shl<i128> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: i128) -> __p {
         __p(self.0 << other)
     }
@@ -2768,6 +3044,7 @@ impl Shl<i128> for &__p {
 
 impl Shl<&i128> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i128) -> __p {
         __p(self.0 << other)
     }
@@ -2775,6 +3052,7 @@ impl Shl<&i128> for __p {
 
 impl Shl<&i128> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &i128) -> __p {
         __p(self.0 << other)
     }
@@ -2782,6 +3060,7 @@ impl Shl<&i128> for &__p {
 
 impl Shl<isize> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: isize) -> __p {
         __p(self.0 << other)
     }
@@ -2789,6 +3068,7 @@ impl Shl<isize> for __p {
 
 impl Shl<isize> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: isize) -> __p {
         __p(self.0 << other)
     }
@@ -2796,6 +3076,7 @@ impl Shl<isize> for &__p {
 
 impl Shl<&isize> for __p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &isize) -> __p {
         __p(self.0 << other)
     }
@@ -2803,78 +3084,91 @@ impl Shl<&isize> for __p {
 
 impl Shl<&isize> for &__p {
     type Output = __p;
+    #[inline]
     fn shl(self, other: &isize) -> __p {
         __p(self.0 << other)
     }
 }
 
 impl ShlAssign<i8> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: i8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i8> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &i8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i16> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: i16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i16> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &i16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i32> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: i32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i32> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &i32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i64> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: i64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i64> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &i64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i128> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: i128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i128> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &i128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<isize> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: isize) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&isize> for __p {
+    #[inline]
     fn shl_assign(&mut self, other: &isize) {
         *self = *self << other;
     }
@@ -2882,6 +3176,7 @@ impl ShlAssign<&isize> for __p {
 
 impl Shr<i8> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i8) -> __p {
         __p(self.0 >> other)
     }
@@ -2889,6 +3184,7 @@ impl Shr<i8> for __p {
 
 impl Shr<i8> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i8) -> __p {
         __p(self.0 >> other)
     }
@@ -2896,6 +3192,7 @@ impl Shr<i8> for &__p {
 
 impl Shr<&i8> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i8) -> __p {
         __p(self.0 >> other)
     }
@@ -2903,6 +3200,7 @@ impl Shr<&i8> for __p {
 
 impl Shr<&i8> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i8) -> __p {
         __p(self.0 >> other)
     }
@@ -2910,6 +3208,7 @@ impl Shr<&i8> for &__p {
 
 impl Shr<i16> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i16) -> __p {
         __p(self.0 >> other)
     }
@@ -2917,6 +3216,7 @@ impl Shr<i16> for __p {
 
 impl Shr<i16> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i16) -> __p {
         __p(self.0 >> other)
     }
@@ -2924,6 +3224,7 @@ impl Shr<i16> for &__p {
 
 impl Shr<&i16> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i16) -> __p {
         __p(self.0 >> other)
     }
@@ -2931,6 +3232,7 @@ impl Shr<&i16> for __p {
 
 impl Shr<&i16> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i16) -> __p {
         __p(self.0 >> other)
     }
@@ -2938,6 +3240,7 @@ impl Shr<&i16> for &__p {
 
 impl Shr<i32> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i32) -> __p {
         __p(self.0 >> other)
     }
@@ -2945,6 +3248,7 @@ impl Shr<i32> for __p {
 
 impl Shr<i32> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i32) -> __p {
         __p(self.0 >> other)
     }
@@ -2952,6 +3256,7 @@ impl Shr<i32> for &__p {
 
 impl Shr<&i32> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i32) -> __p {
         __p(self.0 >> other)
     }
@@ -2959,6 +3264,7 @@ impl Shr<&i32> for __p {
 
 impl Shr<&i32> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i32) -> __p {
         __p(self.0 >> other)
     }
@@ -2966,6 +3272,7 @@ impl Shr<&i32> for &__p {
 
 impl Shr<i64> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i64) -> __p {
         __p(self.0 >> other)
     }
@@ -2973,6 +3280,7 @@ impl Shr<i64> for __p {
 
 impl Shr<i64> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i64) -> __p {
         __p(self.0 >> other)
     }
@@ -2980,6 +3288,7 @@ impl Shr<i64> for &__p {
 
 impl Shr<&i64> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i64) -> __p {
         __p(self.0 >> other)
     }
@@ -2987,6 +3296,7 @@ impl Shr<&i64> for __p {
 
 impl Shr<&i64> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i64) -> __p {
         __p(self.0 >> other)
     }
@@ -2994,6 +3304,7 @@ impl Shr<&i64> for &__p {
 
 impl Shr<i128> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i128) -> __p {
         __p(self.0 >> other)
     }
@@ -3001,6 +3312,7 @@ impl Shr<i128> for __p {
 
 impl Shr<i128> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: i128) -> __p {
         __p(self.0 >> other)
     }
@@ -3008,6 +3320,7 @@ impl Shr<i128> for &__p {
 
 impl Shr<&i128> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i128) -> __p {
         __p(self.0 >> other)
     }
@@ -3015,6 +3328,7 @@ impl Shr<&i128> for __p {
 
 impl Shr<&i128> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &i128) -> __p {
         __p(self.0 >> other)
     }
@@ -3022,6 +3336,7 @@ impl Shr<&i128> for &__p {
 
 impl Shr<isize> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: isize) -> __p {
         __p(self.0 >> other)
     }
@@ -3029,6 +3344,7 @@ impl Shr<isize> for __p {
 
 impl Shr<isize> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: isize) -> __p {
         __p(self.0 >> other)
     }
@@ -3036,6 +3352,7 @@ impl Shr<isize> for &__p {
 
 impl Shr<&isize> for __p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &isize) -> __p {
         __p(self.0 >> other)
     }
@@ -3043,78 +3360,91 @@ impl Shr<&isize> for __p {
 
 impl Shr<&isize> for &__p {
     type Output = __p;
+    #[inline]
     fn shr(self, other: &isize) -> __p {
         __p(self.0 >> other)
     }
 }
 
 impl ShrAssign<i8> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: i8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i8> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &i8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i16> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: i16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i16> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &i16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i32> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: i32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i32> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &i32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i64> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: i64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i64> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &i64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i128> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: i128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i128> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &i128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<isize> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: isize) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&isize> for __p {
+    #[inline]
     fn shr_assign(&mut self, other: &isize) {
         *self = *self >> other;
     }
@@ -3124,16 +3454,16 @@ impl ShrAssign<&isize> for __p {
 //// To/from strings ////
 
 impl fmt::Debug for __p {
-    /// Note, we use LowerHex for Debug, since this is a more useful
-    /// representation of binary polynomials
+    /// We use LowerHex for Debug, since this is a more useful representation
+    /// of binary polynomials.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}(0x{:x})", stringify!(__p), self.0)
     }
 }
 
 impl fmt::Display for __p {
-    /// Note, we use LowerHex for Display since this is a more useful
-    /// representation of binary polynomials
+    /// We use LowerHex for Display since this is a more useful representation
+    /// of binary polynomials.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "0x{:x}", self.0)
     }
@@ -3166,10 +3496,9 @@ impl fmt::UpperHex for __p {
 impl FromStr for __p {
     type Err = ParseIntError;
 
-    /// Note, in order to match Display, this from_str takes and only takes
-    /// hexadecimal strings starting with "0x". If you need a different radix
-    /// there is from_str_radix.
-    ///
+    /// In order to match Display, this `from_str` takes and only takes
+    /// hexadecimal strings starting with `0x`. If you need a different radix
+    /// there is [`from_str_radix`](#method.from_str_radix).
     fn from_str(s: &str) -> Result<__p, ParseIntError> {
         if s.starts_with("0x") {
             Ok(__p(__u::from_str_radix(&s[2..], 16)?))

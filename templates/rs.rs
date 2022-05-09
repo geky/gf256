@@ -1,7 +1,29 @@
-//! Template for Reed-Solomon error-correction functions
+// Template for Reed-Solomon error-correction functions
+//
+// See examples/rs.rs for a more detailed explanation of
+// where these implementations come from
+
+//! Reed-Solomon error-correction functions.
 //!
-//! See examples/rs.rs for a more detailed explanation of
-//! where these implementations come from
+//! ``` rust
+//! # use gf256::rs::rs255w223;
+//! #
+//! // encode
+//! let mut buf = b"Hello World!".to_vec();
+//! buf.resize(buf.len()+32, 0u8);
+//! rs255w223::encode(&mut buf);
+//! 
+//! // corrupt
+//! buf[0..16].fill(b'x');
+//! 
+//! // correct
+//! rs255w223::correct_errors(&mut buf)?;
+//! assert_eq!(&buf[0..12], b"Hello World!");
+//! # Ok::<(), rs255w223::Error>(())
+//! ```
+//!
+//! See the [module-level documentation](../../rs) for more info.
+
 
 use __crate::traits::TryFrom;
 use core::slice;
@@ -19,8 +41,14 @@ use alloc::borrow::Cow;
 // erasures. DATA_SIZE is arbitrary, however the total size is limited to
 // 255 bytes in a GF(256) field.
 //
+
+/// Maximum size of the original data in bytes.
 pub const DATA_SIZE:  usize = __data_size;
+
+/// Size of the appended error-correction in bytes.
 pub const ECC_SIZE:   usize = __ecc_size;
+
+/// Size of the codeword, [`DATA_SIZE`] + [`ECC_SIZE`], in bytes.
 pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 
 // The generator polynomial in Reed-Solomon is a polynomial with roots (f(x) = 0)
@@ -43,6 +71,8 @@ pub const BLOCK_SIZE: usize = DATA_SIZE + ECC_SIZE;
 // See:
 // https://github.com/rust-lang/rust/issues/67217
 //
+
+/// The generator polynomial for this error-correction code.
 pub const GENERATOR_POLY: [__gf; ECC_SIZE+1] = {
     let mut g = [__gf::new(0); ECC_SIZE+1];
     g[ECC_SIZE] = __gf::new(1);
@@ -84,7 +114,7 @@ pub const GENERATOR_POLY: [__gf; ECC_SIZE+1] = {
 
 
 /// Error codes for Reed-Solomon
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
     /// Reed-Solomon can fail to decode if:
     /// - errors > ECC_SIZE/2
@@ -176,18 +206,36 @@ fn poly_divrem(f: &mut [__gf], g: &[__gf]) {
     }
 }
 
-/// Encode using Reed-Solomon error correction
+// Encode using Reed-Solomon error correction
+//
+// Much like in CRC, we want to make the message a multiple of G(x),
+// our generator polynomial. We can do this by appending the remainder
+// of our message after division by G(x).
+//
+// ``` text
+// c(x) = m(x) - (m(x) % G(x))
+// ```
+//
+// Note we expect the message to only take up the first message.len()-ECC_SIZE
+// bytes, but this can be smaller than BLOCK_SIZE
+//
+
+/// Encode a message using Reed-Solomon error-correction.
 ///
-/// Much like in CRC, we want to make the message a multiple of G(x),
-/// our generator polynomial. We can do this by appending the remainder
-/// of our message after division by G(x).
+/// This writes [`ECC_SIZE`] bytes of error-correction information to the end
+/// of the provided slice, based on the data provided in the first
+/// `message.len()-ECC_SIZE` bytes. The entire codeword is limited to at most
+/// [`BLOCK_SIZE`] bytes, but can be smaller.
 ///
-/// ``` text
-/// c(x) = m(x) - (m(x) % G(x))
+/// ``` rust
+/// # use gf256::rs::rs255w223;
+/// let mut codeword = b"Hello World!".to_vec();
+/// codeword.resize(codeword.len()+32, 0u8);
+/// rs255w223::encode(&mut codeword);
+/// assert_eq!(&codeword, b"Hello World!\
+///     \x85\xa6\xad\xf8\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34\x14\xa7\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35");
 /// ```
-///
-/// Note we expect the message to only take up the first message.len()-ECC_SIZE
-/// bytes, but this can be smaller than BLOCK_SIZE
 ///
 pub fn encode(message: &mut [__u]) {
     assert!(message.len() <= BLOCK_SIZE);
@@ -420,9 +468,17 @@ fn find_error_magnitudes(
     error_magnitudes
 }
 
-/// Determine if message is correct
+/// Determine if codeword is correct and has no errors/erasures.
 ///
-/// Note this is quite a bit faster than correcting the errors
+/// This is quite a bit faster than actually finding the errors/erasures.
+///
+/// ``` rust
+/// # use gf256::rs::rs255w223;
+/// let codeword = b"Hello World!\
+///     \x85\xa6\xad\xf8\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34\x14\xa7\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35".to_vec();
+/// assert!(rs255w223::is_correct(&codeword));
+/// ```
 ///
 pub fn is_correct(codeword: &[__u]) -> bool {
     let codeword = unsafe { __gf::slice_from_slice_unchecked(codeword) };
@@ -432,7 +488,23 @@ pub fn is_correct(codeword: &[__u]) -> bool {
     syndromes.iter().all(|s| *s == __gf::new(0))
 }
 
-/// Correct up to ECC_SIZE erasures at known locations
+/// Correct up to [`ECC_SIZE`] erasures at known locations.
+///
+/// Returns the number of erasures, or [`Error::TooManyErrors`] if the codeword
+/// can not be corrected.
+///
+/// ``` rust
+/// # use gf256::rs::rs255w223;
+/// let mut codeword = b"xxxxxxxxxxxx\
+///     xxxxxxxxxxxxxxxx\
+///     xxxx\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35".to_vec();
+///
+/// let erasures = (0..32).collect::<Vec<_>>();
+/// assert_eq!(rs255w223::correct_erasures(&mut codeword, &erasures), Ok(32));
+/// assert_eq!(&codeword, b"Hello World!\
+///     \x85\xa6\xad\xf8\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34\x14\xa7\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35");
+/// ```
 ///
 pub fn correct_erasures(
     codeword: &mut [__u],
@@ -476,7 +548,22 @@ pub fn correct_erasures(
     Ok(erasures.len())
 }
 
-/// Correct up to ECC_SIZE/2 errors at unknown locations
+/// Correct up to [`ECC_SIZE/2`](ECC_SIZE) errors at unknown locations.
+///
+/// Returns the number of errors, or [`Error::TooManyErrors`] if the codeword
+/// can not be corrected.
+///
+/// ``` rust
+/// # use gf256::rs::rs255w223;
+/// let mut codeword = b"xexlx xoxlx!\
+///     x\xa6x\xf8x\x15x\x6ex\xb6x\x12x\xbdx\xd3\
+///     x\x14x\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35".to_vec();
+///
+/// assert_eq!(rs255w223::correct_errors(&mut codeword), Ok(16));
+/// assert_eq!(&codeword, b"Hello World!\
+///     \x85\xa6\xad\xf8\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34\x14\xa7\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35");
+/// ```
 ///
 pub fn correct_errors(codeword: &mut [__u]) -> Result<usize, Error> {
     let codeword = unsafe { __gf::slice_from_slice_mut_unchecked(codeword) };
@@ -521,8 +608,27 @@ pub fn correct_errors(codeword: &mut [__u]) -> Result<usize, Error> {
     Ok(error_locations.len())
 }
 
-/// Correct a mixture of erasures at unknown locations and erasures
-/// as known locations, can correct up to 2*errors+erasures <= ECC_SIZE
+/// Correct a mixture of errors and erasures, up to `2*errors+erasures <= ECC_SIZE`.
+///
+/// Where erasures are at known locations and errors are at unknown locations.
+/// Errors must be <= [`ECC_SIZE`], erasures must be <= [`ECC_SIZE/2`](ECC_SIZE),
+/// and `2*errors+erasures` must be <= [`ECC_SIZE`].
+///
+/// Returns the number of errors and erasures, or [`Error::TooManyErrors`] if the
+/// codeword can not be corrected.
+///
+/// ``` rust
+/// # use gf256::rs::rs255w223;
+/// let mut codeword = b"xxxxxxxxxxxx\
+///     xxxx\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34x\xa7x\xd6x\xfdx\xc2x\x81x\x8ax\xc9x".to_vec();
+///
+/// let erasures = (0..16).collect::<Vec<_>>();
+/// assert_eq!(rs255w223::correct(&mut codeword, &erasures), Ok(24));
+/// assert_eq!(&codeword, b"Hello World!\
+///     \x85\xa6\xad\xf8\xbd\x15\x94\x6e\x5f\xb6\x07\x12\x4b\xbd\x11\xd3\
+///     \x34\x14\xa7\x06\xd6\x25\xfd\x84\xc2\x61\x81\xa7\x8a\x15\xc9\x35");
+/// ```
 ///
 pub fn correct(
     codeword: &mut [__u],

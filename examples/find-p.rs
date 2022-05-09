@@ -19,7 +19,7 @@
 //! irreducible polynomial of width n+1):
 //!
 //! ``` bash
-//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --features nightly --example find-p -- --width=33 -m=1
+//! $ RUSTFLAGS="-Ctarget-cpu=native" cargo +nightly run --release --example find-p -- --width=33 -m=1
 //! polynomial=0x10000008d, generator=0x3
 //! polynomial=0x1000000af, generator=0x2
 //! polynomial=0x1000000c5, generator=0x2

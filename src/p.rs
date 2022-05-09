@@ -166,7 +166,61 @@
 //! [const-fn]: https://doc.rust-lang.org/reference/const_eval.html
 
 
-// macro for creating polynomial implementations
+/// A macro for generating custom polynomial types.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::p::p;
+/// #[p(u=u32)] pub type my_p32;
+///
+/// # fn main() {
+/// let a = my_p32(0x1234);
+/// let b = my_p32(0x5678);
+/// assert_eq!(a+b, my_p32(0x444c));
+/// assert_eq!(a*b, my_p32(0x05c58160));
+/// # }
+/// ```
+///
+/// The `p` macro accepts a number of configuration options:
+///
+///
+/// - `width` - Width of the polynomial type in bits, defaults to the
+///   width of the `u` type.
+/// - `usize` - Indicate if the width is dependent on the usize width,
+///   defaults to true if the `u` type is `usize`.
+/// - `u` - The underlying unsigned type.
+/// - `i` - The underlying signed type, defaults to the signed version
+///   of the `u` type.
+/// - `naive` - Use a naive bitwise implementation.
+/// - `xmul` - Optionally provide a custom implementation of polynomial
+///   multiplication.
+///
+/// ``` rust
+/// # use ::gf256::*;
+/// # use ::gf256::p::p;
+/// fn custom_xmul(a: u32, b: u32) -> (u32, u32) {
+///     let (lo, hi) = p32(a).widening_mul(p32(b));
+///     (u32::from(lo), u32::from(hi))
+/// }
+///
+/// #[p(
+///     width=32,
+///     usize=false,
+///     u=u32,
+///     i=i32,
+///     // naive,
+///     xmul=custom_xmul,
+/// )]
+/// type my_p32;
+///
+/// # fn main() {
+/// let a = my_p32(0x1234);
+/// let b = my_p32(0x5678);
+/// assert_eq!(a+b, my_p32(0x444c));
+/// assert_eq!(a*b, my_p32(0x05c58160));
+/// # }
+/// ```
+///
 pub use gf256_macros::p;
 
 // polynomial types

@@ -9,7 +9,26 @@ use __crate::traits::FromLossy;
 use core::mem::size_of;
 
 
-// TODO doc?
+/// Calculate the CRC for a piece of data.
+///
+/// ``` rust
+/// # use ::gf256::crc::*;
+/// assert_eq!(crc32c(b"Hello World!", 0), 0xfe6cf1dc);
+/// ```
+///
+/// Note that this takes the previous state of the CRC as an argument,
+/// allowing the CRC to be computed incrementally:
+///
+/// ``` rust
+/// # use ::gf256::crc::*;
+/// assert_eq!(crc32c(b"Hell", 0x00000000), 0x77bce1bf);
+/// assert_eq!(crc32c(b"o Wo", 0x77bce1bf), 0xf92d22b8);
+/// assert_eq!(crc32c(b"rld!", 0xf92d22b8), 0xfe6cf1dc);
+/// assert_eq!(crc32c(b"Hello World!", 0), 0xfe6cf1dc);
+/// ```
+///
+/// See the [module-level documentation](../crc) for more info.
+///
 pub fn __crc(data: &[u8], crc: __u) -> __u {
     cfg_if! {
         if #[cfg(__if(__naive))] {

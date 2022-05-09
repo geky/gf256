@@ -14,7 +14,19 @@ use __crate::traits::FromLossy;
 use __crate::internal::cfg_if::cfg_if;
 
 
-/// A binary-extension finite-field
+/// A binary-extension finite-field type.
+///
+/// ``` rust
+/// use ::gf256::*;
+///
+/// let a = gf256(0xfd);
+/// let b = gf256(0xfe);
+/// let c = gf256(0xff);
+/// assert_eq!(a*(b+c), a*b + a*c);
+/// ```
+///
+/// See the [module-level documentation](../gf) for more info.
+///
 #[allow(non_camel_case_types)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
@@ -24,22 +36,22 @@ pub struct __gf(
 );
 
 impl __gf {
-    /// Primitive polynomial that defines the field
+    /// The irreducible polynomial that defines the field.
     ///
     /// In order to keep polynomial multiplication closed over a
-    /// finite field, all multiplications are performed modulo this
+    /// finite-field, all multiplications are performed modulo this
     /// polynomial.
     ///
     pub const POLYNOMIAL: __p2 = __p2(__polynomial);
 
-    /// Generator polynomial in the field
+    /// A generator, aka primitive element, in the field.
     ///
     /// Repeated multiplications of the generator will eventually
-    /// iterate through ever non-zero element of the field
+    /// iterate through ever non-zero element of the field.
     ///
     pub const GENERATOR: __gf = __gf(__generator);
 
-    /// Number of non-zero elements in the finite-field
+    /// Number of non-zero elements in the field.
     pub const NONZEROS: __u = __nonzeros;
 
     // Generate log/antilog tables using our generator if we're in table mode
@@ -134,8 +146,8 @@ impl __gf {
         )
     };
 
-    /// Create a finite-field element, panicking if the argument
-    /// could not be represented in the field
+    /// Create a finite-field element, panicking if the argument can't be
+    /// represented in the field.
     #[inline]
     pub const fn new(x: __u) -> __gf {
         cfg_if! {
@@ -151,46 +163,112 @@ impl __gf {
         }
     }
 
-    /// Create a finite-field element
+    /// Create a finite-field element.
     #[inline]
     pub const unsafe fn new_unchecked(x: __u) -> __gf {
         __gf(x)
     }
 
-    /// Get the finite-field element as a primitive type
+    /// Get the underlying primitive type.
     #[inline]
     pub const fn get(self) -> __u {
         self.0
     }
 
-    /// Addition over the finite-field, aka xor
+    /// Addition over the finite-field, aka xor.
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x12).naive_add(gf256(0x34));
+    /// assert_eq!(X, gf256(0x26));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_add(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Addition over the finite-field, aka xor
+    /// Addition over the finite-field, aka xor.
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12) + gf256(0x34), gf256(0x26));
+    /// ```
+    ///
     #[inline]
     pub fn add(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Subtraction over the finite-field, aka xor
+    /// Subtraction over the finite-field, aka xor.
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// Naive versions are built out of simple bitwise operations,
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x12).naive_sub(gf256(0x34));
+    /// assert_eq!(X, gf256(0x26));
+    /// ```
+    ///
     #[inline]
     pub const fn naive_sub(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Subtraction over the finite-field, aka xor
+    /// Subtraction over the finite-field, aka xor.
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12) - gf256(0x34), gf256(0x26));
+    /// ```
+    ///
     #[inline]
     pub fn sub(self, other: __gf) -> __gf {
         __gf(self.0 ^ other.0)
     }
 
-    /// Naive multiplication over the finite-field
+    /// Naive multiplication over the finite-field.
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x12).naive_mul(gf256(0x34));
+    /// assert_eq!(X, gf256(0x0f));
+    /// ```
+    ///
+    /// One important property of finite-fields, multiplication is distributive
+    /// over addition:
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const A: gf256 = gf256(0x12);
+    /// const B: gf256 = gf256(0x34);
+    /// const C: gf256 = gf256(0x56);
+    /// const X: gf256 = A.naive_mul(B.naive_add(C));
+    /// const Y: gf256 = A.naive_mul(B).naive_add(A.naive_mul(C));
+    /// assert_eq!(X, Y);
+    /// ```
     ///
     #[inline]
     pub const fn naive_mul(self, other: __gf) -> __gf {
@@ -202,10 +280,24 @@ impl __gf {
         )
     }
 
-    /// Naive exponentiation over the finite-field
+    /// Naive exponentiation over the finite-field.
+    ///
+    /// Performs exponentiation by squaring, where exponentiation in a
+    /// finite-field is defined as repeated multiplication. Note that this
+    /// is not constant-time even when used in Barret mode!
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x12).naive_pow(3);
+    /// assert_eq!(X, gf256(0x12)*gf256(0x12)*gf256(0x12));
+    /// assert_eq!(X, gf256(0xbf));
+    /// ```
     ///
     #[inline]
     pub const fn naive_pow(self, exp: __u) -> __gf {
@@ -225,10 +317,21 @@ impl __gf {
         }
     }
 
-    /// Naive multiplicative inverse over the finite-field
+    /// Naive multiplicative inverse over the finite-field.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<gf256> = gf256(0x12).naive_checked_recip();
+    /// const Y: Option<gf256> = gf256(0x00).naive_checked_recip();
+    /// assert_eq!(X, Some(gf256(0xc0)));
+    /// assert_eq!(X.unwrap()*gf256(0x12), gf256(0x01));
+    /// assert_eq!(Y, None);
+    /// ```
     ///
     #[inline]
     pub const fn naive_checked_recip(self) -> Option<__gf> {
@@ -240,12 +343,19 @@ impl __gf {
         Some(self.naive_pow(__nonzeros-1))
     }
 
-    /// Naive multiplicative inverse over the finite-field
+    /// Naive multiplicative inverse over the finite-field.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// This will panic if b == 0
+    /// This will panic if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x12).naive_recip();
+    /// assert_eq!(X, gf256(0xc0));
+    /// assert_eq!(X*gf256(0x12), gf256(0x01));
+    /// ```
     ///
     #[inline]
     pub const fn naive_recip(self) -> __gf {
@@ -255,10 +365,21 @@ impl __gf {
         }
     }
 
-    /// Naive division over the finite-field
+    /// Naive division over the finite-field.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
+    ///
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: Option<gf256> = gf256(0x0f).naive_checked_div(gf256(0x34));
+    /// const Y: Option<gf256> = gf256(0x0f).naive_checked_div(gf256(0x00));
+    /// assert_eq!(X, Some(gf256(0x12)));
+    /// assert_eq!(X.unwrap()*gf256(0x34), gf256(0x0f));
+    /// assert_eq!(Y, None);
+    /// ```
     ///
     #[inline]
     pub const fn naive_checked_div(self, other: __gf) -> Option<__gf> {
@@ -268,12 +389,19 @@ impl __gf {
         }
     }
 
-    /// Naive division over the finite-field
+    /// Naive division over the finite-field.
     ///
     /// Naive versions are built out of simple bitwise operations,
-    /// these are more expensive, but also allowed in const contexts
+    /// these are more expensive, but also allowed in const contexts.
     ///
-    /// This will panic if b == 0
+    /// This will panic if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// const X: gf256 = gf256(0x0f).naive_div(gf256(0x34));
+    /// assert_eq!(X, gf256(0x12));
+    /// assert_eq!(X*gf256(0x34), gf256(0x0f));
+    /// ```
     ///
     #[inline]
     pub const fn naive_div(self, other: __gf) -> __gf {
@@ -283,9 +411,26 @@ impl __gf {
         }
     }
 
-    /// Multiplication over the finite-field
+    /// Multiplication over the finite-field.
     ///
-    /// TODO doc more?
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12) * gf256(0x34), gf256(0x0f));
+    /// ```
+    ///
+    /// One important property of finite-fields, multiplication is distributive
+    /// over addition:
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// let a = gf256(0x12);
+    /// let b = gf256(0x34);
+    /// let c = gf256(0x56);
+    /// assert_eq!(a*(b+c), a*b + a*c);
+    /// ```
     ///
     #[inline]
     pub fn mul(self, other: __gf) -> __gf {
@@ -372,9 +517,20 @@ impl __gf {
         }
     }
 
-    /// Exponentiation over the finite-field
+    /// Exponentiation over the finite-field.
     ///
-    /// TODO doc more?
+    /// Performs exponentiation by squaring, where exponentiation in a
+    /// finite-field is defined as repeated multiplication. Note that this
+    /// is not constant-time even when used in Barret mode!
+    ///
+    /// Note that since this is defined over a finite-field, it's not actually
+    /// possible for this operation to overflow.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12).pow(3), gf256(0x12)*gf256(0x12)*gf256(0x12));
+    /// assert_eq!(gf256(0x12).pow(3), gf256(0xbf));
+    /// ```
     ///
     #[inline]
     pub fn pow(self, exp: __u) -> __gf {
@@ -413,9 +569,16 @@ impl __gf {
         }
     }
 
-    /// Multiplicative inverse over the finite-field
+    /// Multiplicative inverse over the finite-field.
     ///
-    /// TODO doc more?
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12).checked_recip(), Some(gf256(0xc0)));
+    /// assert_eq!(gf256(0x12).checked_recip().unwrap()*gf256(0x12), gf256(0x01));
+    /// assert_eq!(gf256(0x00).checked_recip(), None);
+    /// ```
     ///
     #[inline]
     pub fn checked_recip(self) -> Option<__gf> {
@@ -440,11 +603,15 @@ impl __gf {
         }
     }
 
-    /// Multiplicative inverse over the finite-field
+    /// Naive multiplicative inverse over the finite-field.
     ///
-    /// TODO doc more?
+    /// This will panic if `other == 0`.
     ///
-    /// This will panic if b == 0
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x12).recip(), gf256(0xc0));
+    /// assert_eq!(gf256(0x12).recip()*gf256(0x12), gf256(0x01));
+    /// ```
     ///
     #[inline]
     pub fn recip(self) -> __gf {
@@ -452,9 +619,16 @@ impl __gf {
             .expect("gf division by zero")
     }
 
-    /// Division over the finite-field
+    /// Division over the finite-field.
     ///
-    /// TODO doc more?
+    /// Returns [`None`] if `other == 0`.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x0f).checked_div(gf256(0x34)), Some(gf256(0x12)));
+    /// assert_eq!(gf256(0x0f).checked_div(gf256(0x34)).unwrap()*gf256(0x34), gf256(0x0f));
+    /// assert_eq!(gf256(0x0f).checked_div(gf256(0x00)), None);
+    /// ```
     ///
     #[inline]
     pub fn checked_div(self, other: __gf) -> Option<__gf> {
@@ -489,11 +663,15 @@ impl __gf {
         }
     }
 
-    /// Division over the finite-field
+    /// Division over the finite-field.
     ///
-    /// TODO doc more?
+    /// This will panic if `other == 0`.
     ///
-    /// This will panic if b == 0
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// assert_eq!(gf256(0x0f) / gf256(0x34), gf256(0x12));
+    /// assert_eq!((gf256(0x0f) / gf256(0x34))*gf256(0x34), gf256(0x0f));
+    /// ```
     ///
     #[inline]
     pub fn div(self, other: __gf) -> __gf {
@@ -501,7 +679,19 @@ impl __gf {
             .expect("gf division by zero")
     }
 
-    /// Convert slice of unsigned-types to slice of gf-types
+    /// Cast slice of unsigned-types to slice of finite-field types.
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of finite-field elements without an additional memory
+    /// allocation or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// let x: &[u8] = &[0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &[gf256] = gf256::slice_from_slice(x);
+    /// assert_eq!(y, &[gf256(0x01), gf256(0x02), gf256(0x03), gf256(0x04), gf256(0x05)]);
+    /// ```
+    ///
     #[cfg(__if(__is_pw2ge8))]
     #[inline]
     pub fn slice_from_slice(slice: &[__u]) -> &[__gf] {
@@ -513,7 +703,22 @@ impl __gf {
         }
     }
 
-    /// Convert mut slice of unsigned-types to slice of gf-types
+    /// Cast mut slice of unsigned-types to mut slice of finite-field types.
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of finite-field elements without an additional memory
+    /// allocation or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// let x: &mut [u8] = &mut [0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &mut [gf256] = gf256::slice_from_slice_mut(x);
+    /// for i in 0..y.len() {
+    ///     y[i] *= gf256(0x05);
+    /// }
+    /// assert_eq!(x, &[0x05, 0x0a, 0x0f, 0x14, 0x11]);
+    /// ```
+    ///
     #[cfg(__if(__is_pw2ge8))]
     #[inline]
     pub fn slice_from_slice_mut(slice: &mut [__u]) -> &mut [__gf] {
@@ -525,7 +730,24 @@ impl __gf {
         }
     }
 
-    /// Convert slice of unsigned-types to slice of gf-types unsafely
+    /// Cast slice of unsigned-types to slice of finite-field types unsafely.
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of finite-field elements without an additional memory
+    /// allocation or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// #[gf(polynomial=0x13, generator=0x2)]
+    /// type gf16;
+    ///
+    /// # fn main() {
+    /// let x: &[u8] = &[0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &[gf16] = unsafe { gf16::slice_from_slice_unchecked(x) };
+    /// assert_eq!(y, &[gf16::new(0x1), gf16::new(0x2), gf16::new(0x3), gf16::new(0x4), gf16::new(0x5)]);
+    /// # }
+    /// ```
+    ///
     #[inline]
     pub unsafe fn slice_from_slice_unchecked(slice: &[__u]) -> &[__gf] {
         unsafe {
@@ -536,7 +758,28 @@ impl __gf {
         }
     }
 
-    /// Convert mut slice of unsigned-types to slice of gf-types unsafely
+    /// Cast mut slice of unsigned-types to mut slice of finite-field types unsafely.
+    ///
+    /// This is useful for when you want to view an array of bytes
+    /// as an array of finite-field elements without an additional memory
+    /// allocation or unsafe code.
+    ///
+    /// ``` rust
+    /// # use ::gf256::*;
+    /// # use ::gf256::gf::gf;
+    /// #[gf(polynomial=0x13, generator=0x2)]
+    /// type gf16;
+    ///
+    /// # fn main() {
+    /// let x: &mut [u8] = &mut [0x01, 0x02, 0x03, 0x04, 0x05];
+    /// let y: &mut [gf16] = unsafe { gf16::slice_from_slice_mut_unchecked(x) };
+    /// for i in 0..y.len() {
+    ///     y[i] *= gf16::new(0x5);
+    /// }
+    /// assert_eq!(x, &[0x05, 0x0a, 0x0f, 0x07, 0x02]);
+    /// # }
+    /// ```
+    ///
     #[inline]
     pub unsafe fn slice_from_slice_mut_unchecked(slice: &mut [__u]) -> &mut [__gf] {
         unsafe {
@@ -1686,8 +1929,7 @@ impl FromLossy<__gf> for isize {
 
 impl Neg for __gf {
     type Output = __gf;
-
-    /// Negate is a noop for polynomials
+    // Negate is a noop for polynomials
     #[inline]
     fn neg(self) -> __gf {
         self
@@ -1696,8 +1938,7 @@ impl Neg for __gf {
 
 impl Neg for &__gf {
     type Output = __gf;
-
-    /// Negate is a noop for polynomials
+    // Negate is a noop for polynomials
     #[inline]
     fn neg(self) -> __gf {
         *self
@@ -1709,8 +1950,6 @@ impl Neg for &__gf {
 
 impl Add<__gf> for __gf {
     type Output = __gf;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: __gf) -> __gf {
         __gf::add(self, other)
@@ -1719,8 +1958,6 @@ impl Add<__gf> for __gf {
 
 impl Add<__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: __gf) -> __gf {
         __gf::add(*self, other)
@@ -1729,8 +1966,6 @@ impl Add<__gf> for &__gf {
 
 impl Add<&__gf> for __gf {
     type Output = __gf;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: &__gf) -> __gf {
         __gf::add(self, *other)
@@ -1739,8 +1974,6 @@ impl Add<&__gf> for __gf {
 
 impl Add<&__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial addition, aka xor
     #[inline]
     fn add(self, other: &__gf) -> __gf {
         __gf::add(*self, *other)
@@ -1786,8 +2019,6 @@ impl<'a> Sum<&'a __gf> for __gf {
 
 impl Sub for __gf {
     type Output = __gf;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: __gf) -> __gf {
         __gf::sub(self, other)
@@ -1796,8 +2027,6 @@ impl Sub for __gf {
 
 impl Sub<__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: __gf) -> __gf {
         __gf::sub(*self, other)
@@ -1806,8 +2035,6 @@ impl Sub<__gf> for &__gf {
 
 impl Sub<&__gf> for __gf {
     type Output = __gf;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: &__gf) -> __gf {
         __gf::sub(self, *other)
@@ -1816,8 +2043,6 @@ impl Sub<&__gf> for __gf {
 
 impl Sub<&__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial subtraction, aka xor
     #[inline]
     fn sub(self, other: &__gf) -> __gf {
         __gf::sub(*self, *other)
@@ -1843,14 +2068,6 @@ impl SubAssign<&__gf> for __gf {
 
 impl Mul for __gf {
     type Output = __gf;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: __gf) -> __gf {
         __gf::mul(self, other)
@@ -1859,14 +2076,6 @@ impl Mul for __gf {
 
 impl Mul<__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: __gf) -> __gf {
         __gf::mul(*self, other)
@@ -1875,14 +2084,6 @@ impl Mul<__gf> for &__gf {
 
 impl Mul<&__gf> for __gf {
     type Output = __gf;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: &__gf) -> __gf {
         __gf::mul(self, *other)
@@ -1891,14 +2092,6 @@ impl Mul<&__gf> for __gf {
 
 impl Mul<&__gf> for &__gf {
     type Output = __gf;
-
-    /// Polynomial multiplication
-    ///
-    /// This attempts to use carry-less multiplication
-    /// instructions when available (pclmulqdq on x86_64,
-    /// pmull on aarch64), otherwise falls back to the expensive
-    /// naive implementation
-    ///
     #[inline]
     fn mul(self, other: &__gf) -> __gf {
         __gf::mul(*self, *other)
@@ -1944,7 +2137,6 @@ impl<'a> Product<&'a __gf> for __gf {
 
 impl Div for __gf {
     type Output = __gf;
-
     #[inline]
     fn div(self, other: __gf) -> __gf {
         __gf::div(self, other)
@@ -1953,7 +2145,6 @@ impl Div for __gf {
 
 impl Div<__gf> for &__gf {
     type Output = __gf;
-
     #[inline]
     fn div(self, other: __gf) -> __gf {
         __gf::div(*self, other)
@@ -1962,7 +2153,6 @@ impl Div<__gf> for &__gf {
 
 impl Div<&__gf> for __gf {
     type Output = __gf;
-
     #[inline]
     fn div(self, other: &__gf) -> __gf {
         __gf::div(self, *other)
@@ -1971,7 +2161,6 @@ impl Div<&__gf> for __gf {
 
 impl Div<&__gf> for &__gf {
     type Output = __gf;
-
     #[inline]
     fn div(self, other: &__gf) -> __gf {
         __gf::div(*self, *other)
@@ -2538,6 +2727,7 @@ impl __gf {
 
 impl Shl<u8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u8) -> __gf {
         __gf(self.0 << other)
     }
@@ -2545,6 +2735,7 @@ impl Shl<u8> for __gf {
 
 impl Shl<u8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u8) -> __gf {
         __gf(self.0 << other)
     }
@@ -2552,6 +2743,7 @@ impl Shl<u8> for &__gf {
 
 impl Shl<&u8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u8) -> __gf {
         __gf(self.0 << other)
     }
@@ -2559,6 +2751,7 @@ impl Shl<&u8> for __gf {
 
 impl Shl<&u8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u8) -> __gf {
         __gf(self.0 << other)
     }
@@ -2566,6 +2759,7 @@ impl Shl<&u8> for &__gf {
 
 impl Shl<u16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u16) -> __gf {
         __gf(self.0 << other)
     }
@@ -2573,6 +2767,7 @@ impl Shl<u16> for __gf {
 
 impl Shl<u16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u16) -> __gf {
         __gf(self.0 << other)
     }
@@ -2580,6 +2775,7 @@ impl Shl<u16> for &__gf {
 
 impl Shl<&u16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u16) -> __gf {
         __gf(self.0 << other)
     }
@@ -2587,6 +2783,7 @@ impl Shl<&u16> for __gf {
 
 impl Shl<&u16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u16) -> __gf {
         __gf(self.0 << other)
     }
@@ -2594,6 +2791,7 @@ impl Shl<&u16> for &__gf {
 
 impl Shl<u32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u32) -> __gf {
         __gf(self.0 << other)
     }
@@ -2601,6 +2799,7 @@ impl Shl<u32> for __gf {
 
 impl Shl<u32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u32) -> __gf {
         __gf(self.0 << other)
     }
@@ -2608,6 +2807,7 @@ impl Shl<u32> for &__gf {
 
 impl Shl<&u32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u32) -> __gf {
         __gf(self.0 << other)
     }
@@ -2615,6 +2815,7 @@ impl Shl<&u32> for __gf {
 
 impl Shl<&u32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u32) -> __gf {
         __gf(self.0 << other)
     }
@@ -2622,6 +2823,7 @@ impl Shl<&u32> for &__gf {
 
 impl Shl<u64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u64) -> __gf {
         __gf(self.0 << other)
     }
@@ -2629,6 +2831,7 @@ impl Shl<u64> for __gf {
 
 impl Shl<u64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u64) -> __gf {
         __gf(self.0 << other)
     }
@@ -2636,6 +2839,7 @@ impl Shl<u64> for &__gf {
 
 impl Shl<&u64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u64) -> __gf {
         __gf(self.0 << other)
     }
@@ -2643,6 +2847,7 @@ impl Shl<&u64> for __gf {
 
 impl Shl<&u64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u64) -> __gf {
         __gf(self.0 << other)
     }
@@ -2650,6 +2855,7 @@ impl Shl<&u64> for &__gf {
 
 impl Shl<u128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u128) -> __gf {
         __gf(self.0 << other)
     }
@@ -2657,6 +2863,7 @@ impl Shl<u128> for __gf {
 
 impl Shl<u128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: u128) -> __gf {
         __gf(self.0 << other)
     }
@@ -2664,6 +2871,7 @@ impl Shl<u128> for &__gf {
 
 impl Shl<&u128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u128) -> __gf {
         __gf(self.0 << other)
     }
@@ -2671,6 +2879,7 @@ impl Shl<&u128> for __gf {
 
 impl Shl<&u128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &u128) -> __gf {
         __gf(self.0 << other)
     }
@@ -2678,6 +2887,7 @@ impl Shl<&u128> for &__gf {
 
 impl Shl<usize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: usize) -> __gf {
         __gf(self.0 << other)
     }
@@ -2685,6 +2895,7 @@ impl Shl<usize> for __gf {
 
 impl Shl<usize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: usize) -> __gf {
         __gf(self.0 << other)
     }
@@ -2692,6 +2903,7 @@ impl Shl<usize> for &__gf {
 
 impl Shl<&usize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &usize) -> __gf {
         __gf(self.0 << other)
     }
@@ -2699,78 +2911,91 @@ impl Shl<&usize> for __gf {
 
 impl Shl<&usize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &usize) -> __gf {
         __gf(self.0 << other)
     }
 }
 
 impl ShlAssign<u8> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: u8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u8> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &u8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u16> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: u16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u16> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &u16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u32> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: u32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u32> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &u32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u64> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: u64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u64> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &u64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<u128> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: u128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&u128> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &u128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<usize> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: usize) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&usize> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &usize) {
         *self = *self << other;
     }
@@ -2778,6 +3003,7 @@ impl ShlAssign<&usize> for __gf {
 
 impl Shr<u8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2785,6 +3011,7 @@ impl Shr<u8> for __gf {
 
 impl Shr<u8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2792,6 +3019,7 @@ impl Shr<u8> for &__gf {
 
 impl Shr<&u8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2799,6 +3027,7 @@ impl Shr<&u8> for __gf {
 
 impl Shr<&u8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2806,6 +3035,7 @@ impl Shr<&u8> for &__gf {
 
 impl Shr<u16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2813,6 +3043,7 @@ impl Shr<u16> for __gf {
 
 impl Shr<u16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2820,6 +3051,7 @@ impl Shr<u16> for &__gf {
 
 impl Shr<&u16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2827,6 +3059,7 @@ impl Shr<&u16> for __gf {
 
 impl Shr<&u16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2834,6 +3067,7 @@ impl Shr<&u16> for &__gf {
 
 impl Shr<u32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2841,6 +3075,7 @@ impl Shr<u32> for __gf {
 
 impl Shr<u32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2848,6 +3083,7 @@ impl Shr<u32> for &__gf {
 
 impl Shr<&u32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2855,6 +3091,7 @@ impl Shr<&u32> for __gf {
 
 impl Shr<&u32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2862,6 +3099,7 @@ impl Shr<&u32> for &__gf {
 
 impl Shr<u64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2869,6 +3107,7 @@ impl Shr<u64> for __gf {
 
 impl Shr<u64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2876,6 +3115,7 @@ impl Shr<u64> for &__gf {
 
 impl Shr<&u64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2883,6 +3123,7 @@ impl Shr<&u64> for __gf {
 
 impl Shr<&u64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2890,6 +3131,7 @@ impl Shr<&u64> for &__gf {
 
 impl Shr<u128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2897,6 +3139,7 @@ impl Shr<u128> for __gf {
 
 impl Shr<u128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: u128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2904,6 +3147,7 @@ impl Shr<u128> for &__gf {
 
 impl Shr<&u128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2911,6 +3155,7 @@ impl Shr<&u128> for __gf {
 
 impl Shr<&u128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &u128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2918,6 +3163,7 @@ impl Shr<&u128> for &__gf {
 
 impl Shr<usize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: usize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2925,6 +3171,7 @@ impl Shr<usize> for __gf {
 
 impl Shr<usize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: usize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2932,6 +3179,7 @@ impl Shr<usize> for &__gf {
 
 impl Shr<&usize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &usize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -2939,78 +3187,91 @@ impl Shr<&usize> for __gf {
 
 impl Shr<&usize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &usize) -> __gf {
         __gf(self.0 >> other)
     }
 }
 
 impl ShrAssign<u8> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: u8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u8> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &u8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u16> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: u16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u16> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &u16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u32> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: u32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u32> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &u32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u64> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: u64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u64> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &u64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<u128> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: u128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&u128> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &u128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<usize> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: usize) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&usize> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &usize) {
         *self = *self >> other;
     }
@@ -3018,6 +3279,7 @@ impl ShrAssign<&usize> for __gf {
 
 impl Shl<i8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i8) -> __gf {
         __gf(self.0 << other)
     }
@@ -3025,6 +3287,7 @@ impl Shl<i8> for __gf {
 
 impl Shl<i8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i8) -> __gf {
         __gf(self.0 << other)
     }
@@ -3032,6 +3295,7 @@ impl Shl<i8> for &__gf {
 
 impl Shl<&i8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i8) -> __gf {
         __gf(self.0 << other)
     }
@@ -3039,6 +3303,7 @@ impl Shl<&i8> for __gf {
 
 impl Shl<&i8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i8) -> __gf {
         __gf(self.0 << other)
     }
@@ -3046,6 +3311,7 @@ impl Shl<&i8> for &__gf {
 
 impl Shl<i16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i16) -> __gf {
         __gf(self.0 << other)
     }
@@ -3053,6 +3319,7 @@ impl Shl<i16> for __gf {
 
 impl Shl<i16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i16) -> __gf {
         __gf(self.0 << other)
     }
@@ -3060,6 +3327,7 @@ impl Shl<i16> for &__gf {
 
 impl Shl<&i16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i16) -> __gf {
         __gf(self.0 << other)
     }
@@ -3067,6 +3335,7 @@ impl Shl<&i16> for __gf {
 
 impl Shl<&i16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i16) -> __gf {
         __gf(self.0 << other)
     }
@@ -3074,6 +3343,7 @@ impl Shl<&i16> for &__gf {
 
 impl Shl<i32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i32) -> __gf {
         __gf(self.0 << other)
     }
@@ -3081,6 +3351,7 @@ impl Shl<i32> for __gf {
 
 impl Shl<i32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i32) -> __gf {
         __gf(self.0 << other)
     }
@@ -3088,6 +3359,7 @@ impl Shl<i32> for &__gf {
 
 impl Shl<&i32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i32) -> __gf {
         __gf(self.0 << other)
     }
@@ -3095,6 +3367,7 @@ impl Shl<&i32> for __gf {
 
 impl Shl<&i32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i32) -> __gf {
         __gf(self.0 << other)
     }
@@ -3102,6 +3375,7 @@ impl Shl<&i32> for &__gf {
 
 impl Shl<i64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i64) -> __gf {
         __gf(self.0 << other)
     }
@@ -3109,6 +3383,7 @@ impl Shl<i64> for __gf {
 
 impl Shl<i64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i64) -> __gf {
         __gf(self.0 << other)
     }
@@ -3116,6 +3391,7 @@ impl Shl<i64> for &__gf {
 
 impl Shl<&i64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i64) -> __gf {
         __gf(self.0 << other)
     }
@@ -3123,6 +3399,7 @@ impl Shl<&i64> for __gf {
 
 impl Shl<&i64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i64) -> __gf {
         __gf(self.0 << other)
     }
@@ -3130,6 +3407,7 @@ impl Shl<&i64> for &__gf {
 
 impl Shl<i128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i128) -> __gf {
         __gf(self.0 << other)
     }
@@ -3137,6 +3415,7 @@ impl Shl<i128> for __gf {
 
 impl Shl<i128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: i128) -> __gf {
         __gf(self.0 << other)
     }
@@ -3144,6 +3423,7 @@ impl Shl<i128> for &__gf {
 
 impl Shl<&i128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i128) -> __gf {
         __gf(self.0 << other)
     }
@@ -3151,6 +3431,7 @@ impl Shl<&i128> for __gf {
 
 impl Shl<&i128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &i128) -> __gf {
         __gf(self.0 << other)
     }
@@ -3158,6 +3439,7 @@ impl Shl<&i128> for &__gf {
 
 impl Shl<isize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: isize) -> __gf {
         __gf(self.0 << other)
     }
@@ -3165,6 +3447,7 @@ impl Shl<isize> for __gf {
 
 impl Shl<isize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: isize) -> __gf {
         __gf(self.0 << other)
     }
@@ -3172,6 +3455,7 @@ impl Shl<isize> for &__gf {
 
 impl Shl<&isize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &isize) -> __gf {
         __gf(self.0 << other)
     }
@@ -3179,78 +3463,91 @@ impl Shl<&isize> for __gf {
 
 impl Shl<&isize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shl(self, other: &isize) -> __gf {
         __gf(self.0 << other)
     }
 }
 
 impl ShlAssign<i8> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: i8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i8> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &i8) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i16> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: i16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i16> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &i16) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i32> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: i32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i32> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &i32) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i64> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: i64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i64> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &i64) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<i128> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: i128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&i128> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &i128) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<isize> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: isize) {
         *self = *self << other;
     }
 }
 
 impl ShlAssign<&isize> for __gf {
+    #[inline]
     fn shl_assign(&mut self, other: &isize) {
         *self = *self << other;
     }
@@ -3258,6 +3555,7 @@ impl ShlAssign<&isize> for __gf {
 
 impl Shr<i8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3265,6 +3563,7 @@ impl Shr<i8> for __gf {
 
 impl Shr<i8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3272,6 +3571,7 @@ impl Shr<i8> for &__gf {
 
 impl Shr<&i8> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3279,6 +3579,7 @@ impl Shr<&i8> for __gf {
 
 impl Shr<&i8> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i8) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3286,6 +3587,7 @@ impl Shr<&i8> for &__gf {
 
 impl Shr<i16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3293,6 +3595,7 @@ impl Shr<i16> for __gf {
 
 impl Shr<i16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3300,6 +3603,7 @@ impl Shr<i16> for &__gf {
 
 impl Shr<&i16> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3307,6 +3611,7 @@ impl Shr<&i16> for __gf {
 
 impl Shr<&i16> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i16) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3314,6 +3619,7 @@ impl Shr<&i16> for &__gf {
 
 impl Shr<i32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3321,6 +3627,7 @@ impl Shr<i32> for __gf {
 
 impl Shr<i32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3328,6 +3635,7 @@ impl Shr<i32> for &__gf {
 
 impl Shr<&i32> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3335,6 +3643,7 @@ impl Shr<&i32> for __gf {
 
 impl Shr<&i32> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i32) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3342,6 +3651,7 @@ impl Shr<&i32> for &__gf {
 
 impl Shr<i64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3349,6 +3659,7 @@ impl Shr<i64> for __gf {
 
 impl Shr<i64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3356,6 +3667,7 @@ impl Shr<i64> for &__gf {
 
 impl Shr<&i64> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3363,6 +3675,7 @@ impl Shr<&i64> for __gf {
 
 impl Shr<&i64> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i64) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3370,6 +3683,7 @@ impl Shr<&i64> for &__gf {
 
 impl Shr<i128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3377,6 +3691,7 @@ impl Shr<i128> for __gf {
 
 impl Shr<i128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: i128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3384,6 +3699,7 @@ impl Shr<i128> for &__gf {
 
 impl Shr<&i128> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3391,6 +3707,7 @@ impl Shr<&i128> for __gf {
 
 impl Shr<&i128> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &i128) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3398,6 +3715,7 @@ impl Shr<&i128> for &__gf {
 
 impl Shr<isize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: isize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3405,6 +3723,7 @@ impl Shr<isize> for __gf {
 
 impl Shr<isize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: isize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3412,6 +3731,7 @@ impl Shr<isize> for &__gf {
 
 impl Shr<&isize> for __gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &isize) -> __gf {
         __gf(self.0 >> other)
     }
@@ -3419,78 +3739,91 @@ impl Shr<&isize> for __gf {
 
 impl Shr<&isize> for &__gf {
     type Output = __gf;
+    #[inline]
     fn shr(self, other: &isize) -> __gf {
         __gf(self.0 >> other)
     }
 }
 
 impl ShrAssign<i8> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: i8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i8> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &i8) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i16> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: i16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i16> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &i16) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i32> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: i32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i32> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &i32) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i64> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: i64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i64> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &i64) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<i128> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: i128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&i128> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &i128) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<isize> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: isize) {
         *self = *self >> other;
     }
 }
 
 impl ShrAssign<&isize> for __gf {
+    #[inline]
     fn shr_assign(&mut self, other: &isize) {
         *self = *self >> other;
     }
@@ -3500,16 +3833,16 @@ impl ShrAssign<&isize> for __gf {
 //// To/from strings ////
 
 impl fmt::Debug for __gf {
-    /// Note, we use LowerHex for Debug, since this is a more useful
-    /// representation of binary polynomials
+    /// We use LowerHex for Debug, since this is a more useful representation
+    /// of binary polynomials.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}(0x{:0w$x})", stringify!(__gf), self.0, w=__width/4)
     }
 }
 
 impl fmt::Display for __gf {
-    /// Note, we use LowerHex for Display since this is a more useful
-    /// representation of binary polynomials
+    /// We use LowerHex for Display since this is a more useful representation
+    /// of binary polynomials.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "0x{:0w$x}", self.0, w=__width/4)
     }
@@ -3542,10 +3875,9 @@ impl fmt::UpperHex for __gf {
 impl FromStr for __gf {
     type Err = ParseIntError;
 
-    /// Note, in order to match Display, this from_str takes and only takes
-    /// hexadecimal strings starting with "0x". If you need a different radix
-    /// there is from_str_radix.
-    ///
+    /// In order to match Display, this `from_str` takes and only takes
+    /// hexadecimal strings starting with `0x`. If you need a different radix
+    /// there is [`from_str_radix`](#method.from_str_radix).
     fn from_str(s: &str) -> Result<__gf, ParseIntError> {
         if s.starts_with("0x") {
             Ok(__gf(__u::from_str_radix(&s[2..], 16)?))

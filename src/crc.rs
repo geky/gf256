@@ -266,9 +266,9 @@
 //! error detection for a wider range of bit errors without any change to the
 //! underlying algorithm.
 //!
-//! But CRC32 is still in heavy use today, so gf256 provides both [`crc32`](fn.crc32.html)
-//! and [`crc32c`](fn.crc32c.html). It's suggested to use [`crc32c`](fn.crc32c.html)
-//! for new applications.
+//! But CRC32 is still in heavy use today, so gf256 provides both
+//! [`crc32`](crate::crc::crc32) and [`crc32c`](crate::crc::crc32c).
+//! It's suggested to use [`crc32c`](crate::crc::crc32) for new applications.
 //!
 //!
 //! [crc-wiki]: https://en.wikipedia.org/wiki/Cyclic_redundancy_check
@@ -280,7 +280,65 @@
 //! [crc-example]: https://github.com/geky/gf256/blob/master/examples/crc.rs
 
 
-// macro for creating CRC implementations
+/// A macro for generating custom CRC functions.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::crc::crc;
+/// #[crc(polynomial=0x11edc6f41)]
+/// pub fn my_crc32() {}
+///
+/// # fn main() {
+/// assert_eq!(my_crc32(b"Hello World!", 0), 0xfe6cf1dc);
+/// # }
+/// ```
+///
+/// The `crc` macro accepts a number of configuration options:
+///
+/// - `polynomial` - The irreducible polynomial that defines the CRC.
+/// - `u` - The underlying unsigned type, defaults to the minimum sized
+///   unsigned type that fits the CRC state space.
+/// - `u2` - An unsigned type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `u`.
+/// - `p` - The polynomial type used for computation, defaults to the
+///   polynomial version of `u`.
+/// - `p2` - A polynomial type with twice the width, used as an intermediary type
+///   for computations, defaults to the correct type based on `p`.
+/// - `reflected` - Indicate if the CRC should have its bits reversed,
+///   defaults to true.
+/// - `xor` - A bit-mask to xor the input and output CRC with, defaults to
+///   all ones.
+/// - `naive` - Use a naive bitwise implementation.
+/// - `table` - Use precomputed CRC table. This is the default if hardware
+///   polynomial multiplication is not available.
+/// - `small_table` - Use a small, 16-element CRC table.
+/// - `barret` - Use Barret-reduction with polynomial multiplication. This is
+///   the default if hardware polynomial multiplication is available.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::crc::crc;
+/// #[crc(
+///     polynomial=0x11edc6f41,
+///     u=u32,
+///     u2=u64,
+///     p=p32,
+///     p2=p64,
+///     reflected=true,
+///     xor=0xffffffff,
+///     // naive,
+///     // table,
+///     // small_table,
+///     // barret,
+/// )]
+/// pub fn my_crc32() {}
+///
+/// # fn main() {
+/// assert_eq!(my_crc32(b"Hello World!", 0), 0xfe6cf1dc);
+/// # }
+/// ```
+///
+
 pub use gf256_macros::crc;
 
 

@@ -1,7 +1,28 @@
-//! Template for Shamir secret-sharing functions
+// Template for Shamir secret-sharing functions
+//
+// See examples/shamir.rs for a more detailed explanation of
+// where these implementations come from
+
+//! Shamir secret-sharing functions.
 //!
-//! See examples/shamir.rs for a more detailed explanation of
-//! where these implementations come from
+//! ``` rust
+//! # use ::gf256::shamir::*;
+//! #
+//! // generate shares
+//! let shares = shamir::generate(b"secret secret secret!", 5, 4);
+//!
+//! // <4 can't reconstruct secret
+//! assert_ne!(shamir::reconstruct(&shares[..1]), b"secret secret secret!");
+//! assert_ne!(shamir::reconstruct(&shares[..2]), b"secret secret secret!");
+//! assert_ne!(shamir::reconstruct(&shares[..3]), b"secret secret secret!");
+//!
+//! // >=4 can reconstruct secret
+//! assert_eq!(shamir::reconstruct(&shares[..4]), b"secret secret secret!");
+//! assert_eq!(shamir::reconstruct(&shares[..5]), b"secret secret secret!");
+//! ```
+//!
+//! See the [module-level documentation](../../shamir) for more info.
+//!
 
 use __crate::internal::cfg_if::cfg_if;
 use __crate::internal::rand::Rng;
@@ -50,7 +71,11 @@ fn poly_interpolate(xs: &[__gf], ys: &[__gf]) -> __gf {
     y
 }
 
-/// Generate n shares requiring k shares to reconstruct
+/// Generate `n` shares requiring `k` shares to reconstruct.
+///
+/// This scheme is limited to to the number of shares <= the number of
+/// non-zero elements in the field.
+///
 pub fn generate(secret: &[__u], n: usize, k: usize) -> Vec<Vec<__u>> {
     // we only support up to 255 shares
     assert!(
@@ -81,7 +106,11 @@ pub fn generate(secret: &[__u], n: usize, k: usize) -> Vec<Vec<__u>> {
     shares
 }
 
-/// Reconstruct a secret
+/// Attempt to reconstruct a secret from at least `k` shares.
+///
+/// All shares must be the same length. If insufficient or invalid shares are
+/// provided, the result will be garbage.
+///
 pub fn reconstruct<S: AsRef<[__u]>>(shares: &[S]) -> Vec<__u> {
     // matching lengths?
     assert!(

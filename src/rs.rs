@@ -1260,7 +1260,7 @@
 //! codewords.
 //!
 //! The most common scheme is 32 bytes of ECC with up to 223 bytes of message,
-//! provided by this crate as [`rs255w223`](rs255w223/index.html). This was the
+//! provided by this crate as [`rs255w223`](crate::rs::rs255w223). This was the
 //! scheme famously used on the [Voyager missions][voyager].
 //!
 //! ## Further reading
@@ -1293,7 +1293,65 @@
 //! [rs-example]: https://github.com/geky/gf256/blob/master/examples/rs.rs
 
 
-// macro for creating Reed-Solomon error-correction implementations
+/// A macro for generating custom Reed-Solomon error-correction modules.
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::rs::rs;
+/// #[rs(block=255, data=223)]
+/// pub mod my_rs255w223 {}
+///
+/// # fn main() -> Result<(), my_rs255w223::Error> {
+/// // encode
+/// let mut buf = b"Hello World!".to_vec();
+/// buf.resize(buf.len()+32, 0u8);
+/// my_rs255w223::encode(&mut buf);
+/// 
+/// // corrupt
+/// buf[0..16].fill(b'x');
+/// 
+/// // correct
+/// my_rs255w223::correct_errors(&mut buf)?;
+/// assert_eq!(&buf[0..12], b"Hello World!");
+/// # Ok::<(), my_rs255w223::Error>(())
+/// # }
+/// ```
+///
+/// The `rs` macro accepts a number of configuration options:
+///
+/// - `block` - Size of the codeword, data+ecc, in bytes.
+/// - `data` - Maximum size of the data in bytes.
+/// - `gf` - The finite-field we are implemented over, defaults to
+///   [`gf256`](crate::gf256).
+/// - `u` - The unsigned type to operate on, defaults to [`u8`].
+///
+/// ``` rust,ignore
+/// # use ::gf256::*;
+/// # use ::gf256::rs::rs;
+/// #[rs(
+///     block=255,
+///     data=223,
+///     gf=gf256,
+///     u=u8,
+/// )]
+/// pub mod my_rs255w223 {}
+///
+/// # fn main() -> Result<(), my_rs255w223::Error> {
+/// // encode
+/// let mut buf = b"Hello World!".to_vec();
+/// buf.resize(buf.len()+32, 0u8);
+/// my_rs255w223::encode(&mut buf);
+/// 
+/// // corrupt
+/// buf[0..16].fill(b'x');
+/// 
+/// // correct
+/// my_rs255w223::correct_errors(&mut buf)?;
+/// assert_eq!(&buf[0..12], b"Hello World!");
+/// # Ok::<(), my_rs255w223::Error>(())
+/// # }
+/// ```
+///
 pub use gf256_macros::rs;
 
 

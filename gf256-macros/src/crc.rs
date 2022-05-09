@@ -87,13 +87,22 @@ pub fn crc(
         // if small-tables is enabled, we can use a smaller 16-element table
         (false, false, false, false)
             if cfg!(feature="small-tables")
-            => (false, false, true, false),
+            => {
+            // if xmul is available, Barret reduction is the fastest option for
+            // CRCs, otherwise a table-based approach wins
+            let input = TokenStream::from(input);
+            let xmul = xmul_predicate();
+            let output = quote! {
+                #[cfg_attr(#xmul,      #__crate::crc::crc(barret,      #(#raw_args),*))]
+                #[cfg_attr(not(#xmul), #__crate::crc::crc(small_table, #(#raw_args),*))]
+                #input
+            };
+            return output.into();
+        }
 
         (false, false, false, false) => {
             // if xmul is available, Barret reduction is the fastest option for
             // CRCs, otherwise a table-based approach wins
-            // TODO fix this so it actaully chooses Barret over small tables if
-            // hardware xmul is available
             let input = TokenStream::from(input);
             let xmul = xmul_predicate();
             let output = quote! {
