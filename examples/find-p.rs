@@ -47,16 +47,15 @@ use ::gf256::*;
 ///
 /// This is roughly equivalent to asking if a number is prime
 ///
-pub fn is_irreducible(p: p128) -> bool {
-    // some corner cases
-    if p == p128(0) || p == p128(1) {
-        return false;
-    }
-
+pub fn is_irreducible(p: p128) -> Option<p128> {
     // check for 2 so we can skip all multiples of 2, seems like
     // a minor optimization but speeds things up by ~2x
     if p % p128(2) == p128(0) {
-        return p == p128(2);
+        if p == p128(2) {
+            return None;
+        } else {
+            return Some(p128(2));
+        }
     }
 
     // test division of all polynomials < sqrt(p), or a simpler
@@ -66,11 +65,11 @@ pub fn is_irreducible(p: p128) -> bool {
 
     for x in (3..roughsqrt).step_by(2).map(p128) {
         if p % x == p128(0) {
-            return false;
+            return Some(x);
         }
     }
 
-    true
+    None
 }
 
 /// Find all irreducible polynomials of a given bit-width
@@ -78,7 +77,7 @@ pub fn irreducibles(width: usize) -> impl Iterator<Item=p128> {
     // find irreducible polynomials via brute force
     ((1u128 << (width-1)) .. (1u128 << width))
         .map(p128)
-        .filter(|p| is_irreducible(*p))
+        .filter(|p| is_irreducible(*p).is_none())
 }
 
 #[cfg(test)]
@@ -270,7 +269,6 @@ fn main() {
 
     // find irreducible polynomials via brute force
     for p in ps {
-
         if !opt.quiet {
             print!("testing polynomial={}...", p);
             io::stdout().flush().unwrap();
@@ -282,7 +280,13 @@ fn main() {
             print!("\r\x1b[K");
         }
 
-        if p_is_irreducible {
+        // if we explicitly requested a polynomial, warn when the polynomial
+        // is not irreducible
+        if let (Some(p), Some(r)) = (opt.polynomial, p_is_irreducible) {
+            println!("uh oh, polynomial {} divisible by {}", p, r);
+        }
+
+        if p_is_irreducible.is_none() {
             if m == 0 {
                 println!("polynomial={}", p);
                 continue;
