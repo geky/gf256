@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use quote::quote;
 use std::iter::FromIterator;
 use std::cmp::max;
-use std::convert::TryFrom;
 use crate::common::*;
 
 // template files are relative to the current file
@@ -82,7 +81,7 @@ pub fn lfsr(
         // default to 1 less than the width of the given polynomial, this
         // is the only width that would really work
         let polynomial = args.polynomial.0;
-        (128-usize::try_from(polynomial.leading_zeros()).unwrap()) - 1
+        (128-polynomial.leading_zeros()) - 1
     };
 
     // decide between div/rem modes
@@ -244,7 +243,7 @@ pub fn lfsr(
             Literal::u128_unsuffixed(args.polynomial.0.reverse_bits() >> args.polynomial.0.leading_zeros())
         )),
         ("__width".to_owned(), TokenTree::Literal(
-            Literal::usize_unsuffixed(width)
+            Literal::u32_unsuffixed(width)
         )),
         ("__nonzeros".to_owned(), TokenTree::Literal(
             Literal::u128_unsuffixed((1u128 << width) - 1)

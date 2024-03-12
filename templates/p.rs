@@ -1,6 +1,5 @@
 ///! Template for polynomial types
 
-use core::mem::size_of;
 use core::ops::*;
 use core::iter::*;
 use core::num::TryFromIntError;
@@ -3500,8 +3499,8 @@ impl FromStr for __p {
     /// hexadecimal strings starting with `0x`. If you need a different radix
     /// there is [`from_str_radix`](#method.from_str_radix).
     fn from_str(s: &str) -> Result<__p, ParseIntError> {
-        if s.starts_with("0x") {
-            Ok(__p(__u::from_str_radix(&s[2..], 16)?))
+        if let Some(s) = s.strip_prefix("0x") {
+            Ok(__p(__u::from_str_radix(s, 16)?))
         } else {
             "".parse::<__u>()?;
             unreachable!()
