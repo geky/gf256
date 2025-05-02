@@ -2,7 +2,7 @@
 override RUSTFLAGS += -Ctarget-cpu=native
 
 # this indirection is so commands with env are easily copied on the terminal
-CARGO ?= RUSTFLAGS="$(RUSTFLAGS)" cargo +nightly
+CARGO ?= RUSTFLAGS="$(RUSTFLAGS)" cargo +nightly-2023-06-28
 
 .PHONY: all build
 all build:
