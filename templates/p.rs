@@ -1,4 +1,4 @@
-///! Template for polynomial types
+// Template for polynomial types
 
 use core::ops::*;
 use core::iter::*;
