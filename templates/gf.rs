@@ -1,4 +1,4 @@
-///! Template for polynomial types
+// Template for polynomial types
 
 use core::ops::*;
 use core::iter::*;
@@ -90,8 +90,8 @@ impl __gf {
         let mut i = 0;
         while i < rem_table.len() {
             rem_table[i] = __p(
-                __p2((i as __u2) << 8*size_of::<__u>())
-                    .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
+                __p2((i as __u2) << __u::BITS)
+                    .naive_rem(__p2(__polynomial << (__u::BITS-__width)))
                     .0 as __u
             );
             i += 1;
@@ -109,8 +109,8 @@ impl __gf {
         let mut i = 0;
         while i < rem_table.len() {
             rem_table[i] = __p(
-                __p2((i as __u2) << 8*size_of::<__u>())
-                    .naive_rem(__p2(__polynomial << (8*size_of::<__u>()-__width)))
+                __p2((i as __u2) << __u::BITS)
+                    .naive_rem(__p2(__polynomial << (__u::BITS-__width)))
                     .0 as __u
             );
             i += 1;
@@ -140,8 +140,8 @@ impl __gf {
         // leaving 2 xmuls and 2 xors.
         //
         __p(
-            __p2((__polynomial & __nonzeros) << ((8*size_of::<__u>()-__width) + 8*size_of::<__u>()))
-                .naive_div(__p2(__polynomial << (8*size_of::<__u>()-__width)))
+            __p2((__polynomial & __nonzeros) << ((__u::BITS-__width) + __u::BITS))
+                .naive_div(__p2(__polynomial << (__u::BITS-__width)))
                 .0 as __u
         )
     };
@@ -459,7 +459,7 @@ impl __gf {
                 }
             } else if #[cfg(__if(__rem_table))] {
                 // multiplication with a per-byte remainder table
-                let (mut lo, mut hi) = __p(self.0 << (8*size_of::<__u>()-__width))
+                let (mut lo, mut hi) = __p(self.0 << (__u::BITS-__width))
                     .widening_mul(__p(other.0));
 
                 let mut x = __p(0);
@@ -470,25 +470,25 @@ impl __gf {
                                 x.0 ^ b)) };
                         } else {
                             x = (x << 8) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                                ((x >> (8*size_of::<__u>()-8)).0 as u8) ^ b)) };
+                                ((x >> (__u::BITS-8)).0 as u8) ^ b)) };
                         }
                     }
                 }
 
-                __gf((x + lo).0 >> (8*size_of::<__u>()-__width))
+                __gf((x + lo).0 >> (__u::BITS-__width))
             } else if #[cfg(__if(__small_rem_table))] {
                 // multiplication with a per-nibble remainder table
-                let (mut lo, mut hi) = __p(self.0 << (8*size_of::<__u>()-__width)).widening_mul(__p(other.0));
+                let (mut lo, mut hi) = __p(self.0 << (__u::BITS-__width)).widening_mul(__p(other.0));
 
                 let mut x = __p(0);
                 for b in hi.to_be_bytes() {
                     x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                        (((x >> (8*size_of::<__u>()-4)).0 as u8) ^ (b >> 4)) & 0xf)) };
+                        (((x >> (__u::BITS-4)).0 as u8) ^ (b >> 4)) & 0xf)) };
                     x = (x << 4) ^ unsafe { *Self::REM_TABLE.get_unchecked(usize::from(
-                        (((x >> (8*size_of::<__u>()-4)).0 as u8) ^ (b >> 0)) & 0xf)) };
+                        (((x >> (__u::BITS-4)).0 as u8) ^ (b >> 0)) & 0xf)) };
                 }
 
-                __gf((x + lo).0 >> (8*size_of::<__u>()-__width))
+                __gf((x + lo).0 >> (__u::BITS-__width))
             } else if #[cfg(__if(__barret))] {
                 // multiplication using Barret reduction
                 //
@@ -497,11 +497,11 @@ impl __gf {
                 // useful here if we have hardware xmul instructions, though
                 // it may be more expensive if xmul is naive.
                 //
-                let (lo, hi) = __p(self.0 << (8*size_of::<__u>()-__width))
+                let (lo, hi) = __p(self.0 << (__u::BITS-__width))
                     .widening_mul(__p(other.0));
                 let x = lo + (hi.widening_mul(Self::BARRET_CONSTANT).1 + hi)
-                    .wrapping_mul(__p((__polynomial & __nonzeros) << (8*size_of::<__u>()-__width)));
-                __gf(x.0 >> (8*size_of::<__u>()-__width))
+                    .wrapping_mul(__p((__polynomial & __nonzeros) << (__u::BITS-__width)));
+                __gf(x.0 >> (__u::BITS-__width))
             } else {
                 // fallback to naive multiplication
                 //
@@ -510,7 +510,7 @@ impl __gf {
                 // accelerated
                 //
                 let (lo, hi) = __p(self.0).widening_mul(__p(other.0));
-                let x = __p2(((hi.0 as __u2) << (8*size_of::<__u>())) | (lo.0 as __u2))
+                let x = __p2(((hi.0 as __u2) << __u::BITS) | (lo.0 as __u2))
                     % __p2(__polynomial);
                 __gf(x.0 as __u)
             }
@@ -3879,8 +3879,8 @@ impl FromStr for __gf {
     /// hexadecimal strings starting with `0x`. If you need a different radix
     /// there is [`from_str_radix`](#method.from_str_radix).
     fn from_str(s: &str) -> Result<__gf, ParseIntError> {
-        if s.starts_with("0x") {
-            Ok(__gf(__u::from_str_radix(&s[2..], 16)?))
+        if let Some(s) = s.strip_prefix("0x") {
+            Ok(__gf(__u::from_str_radix(s, 16)?))
         } else {
             "".parse::<__u>()?;
             unreachable!()

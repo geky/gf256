@@ -338,7 +338,6 @@
 /// # }
 /// ```
 ///
-
 pub use gf256_macros::crc;
 
 
