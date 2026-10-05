@@ -31,7 +31,7 @@ fn shamir_poly_random(secret: gf256, degree: usize) -> Vec<gf256> {
     let mut rng = rand::thread_rng();
     let mut f = vec![secret];
     for _ in 0..degree {
-        f.push(gf256(rng.gen_range(1..=255)));
+        f.push(gf256(rng.gen_range(0..=255)));
     }
     f
 }

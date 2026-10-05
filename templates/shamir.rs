@@ -38,7 +38,7 @@ use alloc::vec::Vec;
 fn poly_random<R: Rng>(rng: &mut R, secret: __gf, degree: usize) -> Vec<__gf> {
     let mut f = vec![secret];
     for _ in 0..degree {
-        f.push(__gf::from_lossy(rng.gen_range(1..=__gf::NONZEROS)));
+        f.push(__gf::from_lossy(rng.gen_range(0..=__gf::NONZEROS)));
     }
     f
 }
