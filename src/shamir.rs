@@ -247,7 +247,7 @@
 //! # // using a fixed-rng (bad!) so this example is reproducible/testable
 //! # pub use ::gf256::*; // these imports are a hack around doctest namespacing issues
 //! # pub use ::gf256::gf;
-//! # #[::gf256::shamir::shamir(rng=gf256::lfsr::Lfsr64::new(0x123456789abcdef1))]
+//! # #[::gf256::shamir::shamir(rng=gf256::lfsr::Lfsr64::new(0xabcdef1234567890))]
 //! # mod shamir {}
 //! #
 //! # fn main() {
@@ -260,10 +260,10 @@
 //!         .collect()
 //! }
 //!
-//! assert_eq!(hex(&shares[0]), "01fb3cdc338aed9bc436218f52788f5768e1d282042a");
-//! assert_eq!(hex(&shares[1]), "0264be77c1902132faa6661c7c7f9c8b00ec15d89fd7");
-//! assert_eq!(hex(&shares[2]), "03ece7c8807fb8894df524e14b7333af0d6eb53fefdc");
-//! assert_eq!(hex(&shares[3]), "0435778acd4a2bfdb37757b0962e9e644e0254a79377");
+//! assert_eq!(hex(&shares[0]), "01ecc0fffb2d66a82bc7b9683fe3534c280e760a43b2");
+//! assert_eq!(hex(&shares[1]), "02e88fb5f68c96261f4a827ce9692ddb4506af31753b");
+//! assert_eq!(hex(&shares[2]), "03772a297fc484ae47e85866b3fe5ee4086bab5e42a8");
+//! assert_eq!(hex(&shares[3]), "0482623971539200fcfe818680f6b141f76fa6dfd791");
 //! //                            ^\-------------------+--------------------/
 //! //                            |                    |
 //! //                 arbitrary x-coordinate    y-coordinates
@@ -422,6 +422,24 @@ mod test {
                 assert_eq!(output, input);
             }
         }
+    }
+
+    // Shamir's secret-sharing requires coefficients chosen from the entire
+    // field, including zero, otherwise shares leak information about the
+    // secret (with k=2, for example, a share could never equal the secret).
+    //
+    // With a secret of zeros and k=2, each byte's polynomial is f(x) = c*x,
+    // so the share at x=1 is just the coefficient c. Using a counting rng,
+    // the coefficients should count through every value 0..=255.
+    //
+    #[shamir(rng=rand::rngs::mock::StepRng::new(0, 1))]
+    mod counting_shamir {}
+
+    #[test]
+    fn shamir_all_coefficients() {
+        let shares = counting_shamir::generate(&[0u8; 256], 2, 2);
+        assert_eq!(shares[0][0], 1); // x=1
+        assert_eq!(shares[0][1..], (0..=255).collect::<Vec<u8>>());
     }
 
     // multi-byte Shamir secrets
